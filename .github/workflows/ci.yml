@@ -80,7 +80,8 @@ jobs:
           flutter-version: '3.38.5'
           cache: true
       - name: Build Flutter Web
-        run: flutter build web
+        run: |
+          flutter build web --dart-define=FIREBASE_WEB_API_KEY=${{ secrets.FIREBASE_WEB_API_KEY }}
         working-directory: ./FrontEnd/flutter_application
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
