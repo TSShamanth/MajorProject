@@ -136,6 +136,8 @@ class _LoginScreenState extends State<LoginScreen> {
         TextFormField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
           decoration: _inputDecoration('Email', Icons.email_outlined),
         ),
         const SizedBox(height: 16),
@@ -144,6 +146,10 @@ class _LoginScreenState extends State<LoginScreen> {
         TextFormField(
           controller: _passwordController,
           obscureText: true,
+          textInputAction: TextInputAction.done,
+          onFieldSubmitted: (_) {
+            if (!_isLoading) _login();
+          },
           decoration: _inputDecoration('Password', Icons.lock_outline),
         ),
         const SizedBox(height: 16),
