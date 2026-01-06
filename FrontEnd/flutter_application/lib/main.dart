@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart'; // Import the generated file
-import './screens/login_screen.dart';
+import 'screens/auth_wrapper.dart';
 import 'services/session_manager.dart'; // Import SessionManager
 
 void main() async {
@@ -39,7 +39,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFF8F9FA),
       ),
-      home: const LoginScreen(),
+      home: const AuthWrapper(),
     );
   }
 }

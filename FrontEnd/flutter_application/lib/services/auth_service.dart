@@ -60,6 +60,39 @@ class AuthService {
     await _auth.signOut();
     debugPrint("✅ User signed out successfully");
   }
+
+  static Future<String> getRole(String email) async {
+    try {
+      debugPrint("Fetching user role from Firestore for email: $email");
+
+      final querySnapshot = await _firestore
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final userDoc = querySnapshot.docs.first;
+        debugPrint("✅ Firestore document found for email: $email");
+
+        dynamic data = userDoc.data();
+        if (data != null && data.containsKey('role')) {
+          String role = data['role'];
+          debugPrint("✅ Role found: '$role'");
+          return role;
+        } else {
+          debugPrint("❌ ERROR: Firestore document exists, but the 'role' field is missing.");
+          return 'none';
+        }
+      } else {
+        debugPrint("❌ ERROR: No Firestore document found for email: $email");
+        return 'none';
+      }
+    } catch (e) {
+      debugPrint("❌ AN UNEXPECTED ERROR OCCURRED while fetching role: $e");
+      return 'none';
+    }
+  }
 }
 
 
