@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import '../services/auth_service.dart';
-import 'admin_dashboard_screen.dart';
-import 'faculty_dashboard_screen.dart';
-import 'student_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -36,22 +34,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
     switch (role) {
       case 'admin':
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
-        );
+        context.go('/admin/dashboard');
         break;
       case 'faculty':
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const FacultyDashboardScreen()),
-        );
+        context.go('/faculty/dashboard');
         break;
       case 'student':
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const StudentDashboardScreen()),
-        );
+        context.go('/student/dashboard');
         break;
       default:
         messenger.showSnackBar(

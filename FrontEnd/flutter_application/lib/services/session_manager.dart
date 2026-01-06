@@ -1,16 +1,17 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'auth_service.dart';
-import '../screens/login_screen.dart';
 
 class SessionManager extends StatefulWidget {
   final Widget child;
-  final GlobalKey<NavigatorState> navigatorKey;
+  final GoRouter router;
 
   const SessionManager({
     super.key,
     required this.child,
-    required this.navigatorKey,
+    required this.router,
   });
 
   @override
@@ -19,44 +20,61 @@ class SessionManager extends StatefulWidget {
 
 class _SessionManagerState extends State<SessionManager> {
   Timer? _sessionTimer;
+  StreamSubscription? _authSubscription;
+  User? _currentUser;
 
   @override
   void initState() {
     super.initState();
-    _startSessionTimer();
+    // Listen to auth state changes to start/stop the timer appropriately.
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      setState(() {
+        _currentUser = user;
+      });
+
+      if (_currentUser == null) {
+        _sessionTimer?.cancel();
+        debugPrint("Session timer cancelled: User is logged out.");
+      } else {
+        _startSessionTimer();
+        debugPrint("Session timer started: User is logged in.");
+      }
+    });
   }
 
   @override
   void dispose() {
     _sessionTimer?.cancel();
+    _authSubscription?.cancel();
     super.dispose();
   }
 
   void _startSessionTimer() {
     _sessionTimer?.cancel();
-    _sessionTimer = Timer(const Duration(minutes: 2), _logout);
+    // Only start the timer if a user is logged in.
+    if (_currentUser != null) {
+      _sessionTimer = Timer(const Duration(minutes: 2), _logout);
+      debugPrint("Session timer (re)started for 10 seconds.");
+    }
   }
 
   void _resetSessionTimer() {
-    _startSessionTimer();
+    // Only reset the timer if a user is logged in.
+    if (_currentUser != null) {
+      _startSessionTimer();
+    }
   }
 
   void _logout() {
     _sessionTimer?.cancel();
+    debugPrint("Session timeout: Logging out user.");
     AuthService.logout();
-
-    // Use the provided navigator key to push the login screen.
-    final navigator = widget.navigatorKey.currentState;
-    if (navigator != null) {
-      navigator.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
-    }
+    // The authStateChanges listener in router.dart will handle the redirect.
   }
 
   @override
   Widget build(BuildContext context) {
+    // The Listener will reset the timer on any user interaction.
     return Listener(
       onPointerDown: (_) => _resetSessionTimer(),
       onPointerMove: (_) => _resetSessionTimer(),
