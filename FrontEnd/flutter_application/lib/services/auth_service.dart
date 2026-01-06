@@ -55,6 +55,11 @@ class AuthService {
       return 'none';
     }
   }
+
+  static Future<void> logout() async {
+    await _auth.signOut();
+    debugPrint("✅ User signed out successfully");
+  }
 }
 
 
