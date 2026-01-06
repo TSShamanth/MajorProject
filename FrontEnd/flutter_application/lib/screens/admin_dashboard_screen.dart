@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -64,6 +64,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Color(0xFF1E293B)),
+            onPressed: () async {
+              await AuthService.logout();
+            },
+          ),
+        ],
       ),
       drawer: Drawer(
         child: ListView(
