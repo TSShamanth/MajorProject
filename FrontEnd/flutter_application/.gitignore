@@ -46,3 +46,9 @@ app.*.map.json
 .env
 
 lib/firebase_api_keys.dart
+
+#Maven build output
+/Backend-Java/target/
+
+# Firebase service account key
+serviceAccountKey.json

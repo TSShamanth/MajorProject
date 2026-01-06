@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'widgets/add_user_dialog.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -9,6 +10,15 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  void _showAddUserDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return const AddUserDialog();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final menuItems = [
@@ -198,7 +208,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               itemBuilder: (context, index) {
                 final action = actions[index];
                 return ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () {
+                    if (action['label'] == 'Add User') {
+                      _showAddUserDialog();
+                    }
+                  },
                   icon: Icon(action['icon'] as IconData, color: action['color'] as Color),
                   label: Text(action['label'] as String, style: const TextStyle(color: Color(0xFF1E293B))),
                   style: ElevatedButton.styleFrom(
@@ -233,7 +247,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Text('User Management', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
-                ElevatedButton(onPressed: () {}, child: const Text('+ Add User')),
+                ElevatedButton(onPressed: _showAddUserDialog, child: const Text('+ Add User')),
               ],
             ),
             const SizedBox(height: 16),
