@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'firebase_api_keys.dart';
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
@@ -48,7 +49,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: String.fromEnvironment('FIREBASE_WEB_API_KEY'),
+    apiKey: FirebaseApiKeys.web,
     appId: '1:135776647810:web:bffe208fc11641cbd5529b',
     messagingSenderId: '135776647810',
     projectId: 'majorsample-2ed21',
@@ -58,7 +59,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: String.fromEnvironment('FIREBASE_ANDROID_API_KEY'),
+    apiKey: FirebaseApiKeys.android,
     appId: '1:135776647810:android:d3d246f406da5872d5529b',
     messagingSenderId: '135776647810',
     projectId: 'majorsample-2ed21',
