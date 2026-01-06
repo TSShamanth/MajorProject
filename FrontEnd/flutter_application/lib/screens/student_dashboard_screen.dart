@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 
 class StudentDashboardScreen extends StatefulWidget {
   const StudentDashboardScreen({super.key});
@@ -79,6 +79,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Color(0xFF1E293B)),
+            onPressed: () async {
+              await AuthService.logout();
+            },
+          ),
+        ],
       ),
       drawer: Drawer(
         child: ListView(
