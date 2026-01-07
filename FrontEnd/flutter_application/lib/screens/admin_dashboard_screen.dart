@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -9,6 +10,157 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _displayNameController = TextEditingController();
+  String? _selectedRole = 'student';
+  bool _isLoading = false;
+
+  final ApiService _apiService = ApiService();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _displayNameController.dispose();
+    super.dispose();
+  }
+
+  void _showAddUserDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Create New User'),
+          content: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: _displayNameController,
+                    decoration: const InputDecoration(labelText: 'Display Name'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a display name';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty || !value.contains('@')) {
+                        return 'Please enter a valid email';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: _passwordController,
+                    decoration: const InputDecoration(labelText: 'Password'),
+                    obscureText: true,
+                    validator: (value) {
+                      if (value == null || value.isEmpty || value.length < 6) {
+                        return 'Password must be at least 6 characters long';
+                      }
+                      return null;
+                    },
+                  ),
+                  DropdownButtonFormField<String>(
+                    value: _selectedRole,
+                    decoration: const InputDecoration(labelText: 'Role'),
+                    items: ['student', 'faculty', 'admin'].map((String role) {
+                      return DropdownMenuItem<String>(
+                        value: role,
+                        child: Text(role),
+                      );
+                    }).toList(),
+                    onChanged: (newValue) {
+                      setState(() {
+                        _selectedRole = newValue;
+                      });
+                    },
+                    validator: (value) => value == null ? 'Please select a role' : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _clearForm();
+              },
+            ),
+            ElevatedButton(
+              child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Create'),
+              onPressed: _handleCreateUser,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _handleCreateUser() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final response = await _apiService.createUser(
+          email: _emailController.text,
+          password: _passwordController.text,
+          displayName: _displayNameController.text,
+          role: _selectedRole!,
+        );
+
+        if (!mounted) return; // Guard the context usage
+
+        if (response.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User created successfully!'), backgroundColor: Colors.green),
+          );
+          Navigator.of(context).pop();
+          _clearForm();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${response.body}'), backgroundColor: Colors.red),
+          );
+        }
+      } catch (e) {
+        if (!mounted) return; // Guard the context usage
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red),
+        );
+      } finally {
+        // We need to check if the widget is still in the tree before calling setState
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
+  }
+
+  void _clearForm() {
+    _displayNameController.clear();
+    _emailController.clear();
+    _passwordController.clear();
+    setState(() {
+      _selectedRole = 'student';
+    });
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final menuItems = [
@@ -30,10 +182,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     ];
 
     final quickActions = [
-      {'icon': Icons.person_add_alt_1_outlined, 'label': 'Add User', 'color': Colors.blue},
-      {'icon': Icons.business_outlined, 'label': 'Institution Setup', 'color': Colors.purple},
-      {'icon': Icons.business_center_outlined, 'label': 'New Placement', 'color': Colors.green},
-      {'icon': Icons.calendar_today_outlined, 'label': 'Add Holiday', 'color': Colors.orange}
+      {'icon': Icons.person_add_alt_1_outlined, 'label': 'Add User', 'color': Colors.blue, 'action': _showAddUserDialog},
+      {'icon': Icons.business_outlined, 'label': 'Institution Setup', 'color': Colors.purple, 'action': () {}},
+      {'icon': Icons.business_center_outlined, 'label': 'New Placement', 'color': Colors.green, 'action': () {}},
+      {'icon': Icons.calendar_today_outlined, 'label': 'Add Holiday', 'color': Colors.orange, 'action': () {}}
     ];
 
     return Scaffold(
@@ -198,7 +350,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               itemBuilder: (context, index) {
                 final action = actions[index];
                 return ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: action['action'] as void Function(),
                   icon: Icon(action['icon'] as IconData, color: action['color'] as Color),
                   label: Text(action['label'] as String, style: const TextStyle(color: Color(0xFF1E293B))),
                   style: ElevatedButton.styleFrom(
@@ -233,7 +385,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Text('User Management', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
-                ElevatedButton(onPressed: () {}, child: const Text('+ Add User')),
+                ElevatedButton(onPressed: _showAddUserDialog, child: const Text('+ Add User')),
               ],
             ),
             const SizedBox(height: 16),
