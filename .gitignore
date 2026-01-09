@@ -1,0 +1,4 @@
+# Firebase service account key files
+firebase-service-account.json
+Backend-Java/src/main/resources/firebase-service-account.json
+Backend-Java/target/classes/firebase-service-account.json
