@@ -99,8 +99,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               },
             ),
             ElevatedButton(
-              child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Create'),
               onPressed: _handleCreateUser,
+              child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Create'),
             ),
           ],
         );
