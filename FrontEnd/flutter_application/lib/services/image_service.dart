@@ -39,7 +39,7 @@ class ImageService {
       };
 
     } catch (e) {
-      print('Error uploading image: $e');
+      // print('Error uploading image: $e'); // Removed print statement
       return null;
     }
   }
