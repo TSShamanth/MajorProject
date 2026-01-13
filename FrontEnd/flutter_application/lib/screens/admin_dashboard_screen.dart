@@ -14,6 +14,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _displayNameController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _usnController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _semController = TextEditingController();
+  final _mentorController = TextEditingController();
   String? _selectedRole = 'student';
   bool _isLoading = false;
 
@@ -24,6 +29,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _displayNameController.dispose();
+    _nameController.dispose();
+    _usnController.dispose();
+    _phoneController.dispose();
+    _semController.dispose();
+    _mentorController.dispose();
     super.dispose();
   }
 

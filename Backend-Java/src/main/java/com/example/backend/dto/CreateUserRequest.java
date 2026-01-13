@@ -5,6 +5,11 @@ public class CreateUserRequest {
     private String password;
     private String displayName;
     private String role;
+    private String name;
+    private String usn;
+    private String phone;
+    private String sem;
+    private String mentorName;
 
     // Getters and Setters
     public String getEmail() {
@@ -37,5 +42,45 @@ public class CreateUserRequest {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getUsn() {
+        return usn;
+    }
+
+    public void setUsn(String usn) {
+        this.usn = usn;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getSem() {
+        return sem;
+    }
+
+    public void setSem(String sem) {
+        this.sem = sem;
+    }
+
+    public String getMentorName() {
+        return mentorName;
+    }
+
+    public void setMentorName(String mentorName) {
+        this.mentorName = mentorName;
     }
 }
