@@ -1,4 +1,6 @@
+import 'dart:typed_data'; // Import for Uint8List
 import 'package:flutter/material.dart';
+import '../services/image_service.dart'; // Import the new image service
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 
@@ -21,8 +23,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _mentorController = TextEditingController();
   String? _selectedRole = 'student';
   bool _isLoading = false;
+  Uint8List? _pickedImageBytes; // New variable for the picked image bytes
+  String? _photoUrl;
 
   final ApiService _apiService = ApiService();
+  final ImageService _imageService = ImageService(); // Instantiate the service
 
   @override
   void dispose() {
@@ -37,84 +42,200 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     super.dispose();
   }
 
+  // Method to pick and upload image using the service
+  Future<void> _pickAndUploadImage() async {
+    final result = await _imageService.pickAndUploadImage();
+
+    if (result != null) {
+      setState(() {
+        _photoUrl = result['downloadUrl'];
+        _pickedImageBytes = result['imageBytes'];
+      });
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image uploaded successfully!'), backgroundColor: Colors.green),
+      );
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image upload failed or was cancelled.'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   void _showAddUserDialog() {
+    // A stateful builder is used to manage the state of the role selection inside the dialog
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Create New User'),
-          content: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+        String? selectedRole = _selectedRole; // Initialize with the class-level variable
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFFF8F9FA),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
                 children: [
-                  TextFormField(
-                    controller: _displayNameController,
-                    decoration: const InputDecoration(labelText: 'Display Name'),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter a display name';
-                      }
-                      return null;
-                    },
-                  ),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    validator: (value) {
-                      if (value == null || value.isEmpty || !value.contains('@')) {
-                        return 'Please enter a valid email';
-                      }
-                      return null;
-                    },
-                  ),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: const InputDecoration(labelText: 'Password'),
-                    obscureText: true,
-                    validator: (value) {
-                      if (value == null || value.isEmpty || value.length < 6) {
-                        return 'Password must be at least 6 characters long';
-                      }
-                      return null;
-                    },
-                  ),
-                  DropdownButtonFormField<String>(
-                    value: _selectedRole,
-                    decoration: const InputDecoration(labelText: 'Role'),
-                    items: ['student', 'faculty', 'admin'].map((String role) {
-                      return DropdownMenuItem<String>(
-                        value: role,
-                        child: Text(role),
-                      );
-                    }).toList(),
-                    onChanged: (newValue) {
-                      setState(() {
-                        _selectedRole = newValue;
-                      });
-                    },
-                    validator: (value) => value == null ? 'Please select a role' : null,
-                  ),
+                  Icon(Icons.person_add_alt_1_outlined, color: Color(0xFF1E293B)),
+                  SizedBox(width: 8),
+                  Text('Create New User', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
                 ],
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                _clearForm();
-              },
-            ),
-            ElevatedButton(
-              onPressed: _handleCreateUser,
-              child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Create'),
-            ),
-          ],
+              content: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Profile Picture Placeholder
+                      Center(
+                        child: Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 50,
+                              backgroundColor: Colors.grey.shade300,
+                              backgroundImage: _pickedImageBytes != null ? MemoryImage(_pickedImageBytes!) : null,
+                              child: _pickedImageBytes == null
+                                  ? const Icon(Icons.person_outline, size: 50, color: Colors.white)
+                                  : null,
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: CircleAvatar(
+                                radius: 18,
+                                backgroundColor: const Color(0xFF1E293B),
+                                child: IconButton(
+                                  icon: const Icon(Icons.camera_alt_outlined, color: Colors.white, size: 18),
+                                  onPressed: () async {
+                                    Navigator.of(context).pop(); // Dismiss current dialog to show image picker
+                                    await _pickAndUploadImage();
+                                    _showAddUserDialog(); // Re-show dialog after image picking
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Role Dropdown
+                      DropdownButtonFormField<String>(
+                        value: selectedRole,
+                        decoration: _inputDecoration('Role', Icons.school_outlined),
+                        items: ['student', 'faculty', 'admin'].map((String role) {
+                          return DropdownMenuItem<String>(
+                            value: role,
+                            child: Text(role.substring(0, 1).toUpperCase() + role.substring(1)), // Capitalize first letter
+                          );
+                        }).toList(),
+                        onChanged: (newValue) {
+                          setDialogState(() {
+                            selectedRole = newValue;
+                            _selectedRole = newValue; // Update the class-level variable as well
+                          });
+                        },
+                        validator: (value) => value == null ? 'Please select a role' : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // User Fields
+                      _buildTextField(_displayNameController, 'Display Name', Icons.badge_outlined),
+                      const SizedBox(height: 16),
+                      _buildTextField(_emailController, 'Email', Icons.email_outlined),
+                      const SizedBox(height: 16),
+                      _buildTextField(_passwordController, 'Password', Icons.lock_outline, obscureText: true),
+                      
+                      // Role-specific fields
+                      if (selectedRole == 'student') ...[
+                        const SizedBox(height: 16),
+                        _buildTextField(_nameController, 'Full Name', Icons.person_outline),
+                        const SizedBox(height: 16),
+                        _buildTextField(_usnController, 'USN', Icons.confirmation_number_outlined),
+                        const SizedBox(height: 16),
+                        _buildTextField(_phoneController, 'Phone Number', Icons.phone_outlined),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(child: _buildTextField(_semController, 'Semester', Icons.format_list_numbered_outlined)),
+                            const SizedBox(width: 16),
+                            Expanded(child: _buildTextField(_mentorController, 'Mentor Name', Icons.supervisor_account_outlined)),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _clearForm();
+                  },
+                ),
+                ElevatedButton.icon(
+                  onPressed: _handleCreateUser,
+                  icon: _isLoading ? const SizedBox.shrink() : const Icon(Icons.check_circle_outline, color: Colors.white),
+                  label: _isLoading 
+                      ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2) 
+                      : const Text('Create User', style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E293B),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
+    );
+  }
+
+  // Helper method to create styled text fields
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool obscureText = false}) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      decoration: _inputDecoration(label, icon),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter a $label';
+        }
+        if (label == 'Email' && !value.contains('@')) {
+          return 'Please enter a valid email';
+        }
+        if (label == 'Password' && value.length < 6) {
+          return 'Password must be at least 6 characters long';
+        }
+        return null;
+      },
+    );
+  }
+
+  // Helper method for input decoration
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: const Color(0xFF1E293B)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF1E293B), width: 2),
+      ),
+      filled: true,
+      fillColor: Colors.white,
     );
   }
 
@@ -130,6 +251,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           password: _passwordController.text,
           displayName: _displayNameController.text,
           role: _selectedRole!,
+          name: _nameController.text,
+          usn: _usnController.text,
+          phone: _phoneController.text,
+          sem: _semController.text,
+          mentorName: _mentorController.text,
+          photoUrl: _photoUrl, // Pass the photo URL
         );
 
         if (!mounted) return; // Guard the context usage
@@ -167,6 +294,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _passwordController.clear();
     setState(() {
       _selectedRole = 'student';
+      _pickedImageBytes = null; // Clear picked image bytes
+      _photoUrl = null; // Clear photo URL
     });
   }
 

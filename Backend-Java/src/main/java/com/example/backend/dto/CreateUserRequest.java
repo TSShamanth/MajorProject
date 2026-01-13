@@ -10,6 +10,7 @@ public class CreateUserRequest {
     private String phone;
     private String sem;
     private String mentorName;
+    private String photoUrl; // New field for photo URL
 
     // Getters and Setters
     public String getEmail() {
@@ -82,5 +83,13 @@ public class CreateUserRequest {
 
     public void setMentorName(String mentorName) {
         this.mentorName = mentorName;
+    }
+
+    public String getPhotoUrl() {
+        return photoUrl;
+    }
+
+    public void setPhotoUrl(String photoUrl) {
+        this.photoUrl = photoUrl;
     }
 }

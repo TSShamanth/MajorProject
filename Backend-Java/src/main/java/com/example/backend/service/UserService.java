@@ -32,6 +32,12 @@ public class UserService {
         user.put("email", createUserRequest.getEmail());
         user.put("displayName", createUserRequest.getDisplayName());
         user.put("role", createUserRequest.getRole());
+        user.put("name", createUserRequest.getName());
+        user.put("usn", createUserRequest.getUsn());
+        user.put("phone", createUserRequest.getPhone());
+        user.put("sem", createUserRequest.getSem());
+        user.put("mentorName", createUserRequest.getMentorName());
+        user.put("photoUrl", createUserRequest.getPhotoUrl()); // Save photo URL
         db.collection("users").document(userRecord.getUid()).set(user).get();
 
         return userRecord;
