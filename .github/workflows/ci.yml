@@ -21,6 +21,8 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: maven
+    - name: Create Firebase Service Account File
+      run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_MAJORSAMPLE_2ED21 }}" > src/main/resources/firebase-service-account.json
     - name: Build with Maven
       run: mvn -B package --file pom.xml
     - name: Upload JAR Artifact
