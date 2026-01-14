@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 
 class StudentDashboardScreen extends StatefulWidget {
@@ -11,6 +14,14 @@ class StudentDashboardScreen extends StatefulWidget {
 class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   bool _isAttendanceLoggedIn = false;
   String? _attendanceTime;
+
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final String? _uid = FirebaseAuth.instance.currentUser?.uid;
+
+  Future<DocumentSnapshot<Map<String, dynamic>>> _fetchProfile() async {
+    if (_uid == null) throw Exception('Not logged in');
+    return await _firestore.collection('users').doc(_uid).get();
+  }
 
   void _handleAttendanceLogin() {
     setState(() {
@@ -111,6 +122,12 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 subtitle: Text(item['description'] as String),
                 onTap: () {
                   Navigator.pop(context);
+                  final label = item['label'] as String;
+                  if (label == 'Profile') {
+                    context.go('/student/profile');
+                  } else if (label == 'Virtual ID') {
+                    context.go('/student/virtual-id');
+                  }
                 },
               ),
           ],
@@ -121,8 +138,32 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Welcome back, Rohan', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-            const Text('CSE-B | Roll No: 21CS001', style: TextStyle(color: Colors.grey)),
+            FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              future: _fetchProfile(),
+              builder: (context, snapshot) {
+                String name = 'Welcome back';
+                String subtitle = '';
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  name = 'Welcome back';
+                  subtitle = '';
+                } else if (snapshot.hasData && snapshot.data!.exists) {
+                  final d = snapshot.data!.data();
+                  final n = d?['name'] ?? 'Student';
+                  final branch = d?['branch'] ?? '';
+                  final usn = d?['usn'] ?? '—';
+                  name = 'Welcome back, $n';
+                  subtitle = '${branch.isNotEmpty ? branch + ' | ' : ''}Roll No: $usn';
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                    if (subtitle.isNotEmpty) Text(subtitle, style: const TextStyle(color: Colors.grey)),
+                  ],
+                );
+              },
+            ),
             const SizedBox(height: 24),
 
             // Attendance Card
@@ -142,7 +183,19 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               itemCount: quickAccessItems.length,
               itemBuilder: (context, index) {
                 final item = quickAccessItems[index];
-                return _buildQuickAccessCard(item['icon'] as IconData, item['label'] as String, item['color'] as Color);
+                return _buildQuickAccessCard(
+                  item['icon'] as IconData,
+                  item['label'] as String,
+                  item['color'] as Color,
+                  onTap: () {
+                    final label = (item['label'] as String);
+                    if (label == 'Profile') {
+                      context.go('/student/profile');
+                    } else if (label == 'Virtual ID') {
+                      context.go('/student/virtual-id');
+                    }
+                  },
+                );
               },
             ),
             const SizedBox(height: 24),
@@ -253,27 +306,62 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     );
   }
 
-  Widget _buildQuickAccessCard(IconData icon, String label, Color color) {
+  Widget _buildQuickAccessCard(IconData icon, String label, Color color, {VoidCallback? onTap}) {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: () {},
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                backgroundColor: color.withOpacity(0.1),
-                child: Icon(icon, color: color),
-              ),
-              const Spacer(),
-              Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-            ],
-          ),
+          padding: const EdgeInsets.all(12.0),
+          child: (label == 'Profile')
+              ? FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  future: _fetchProfile(),
+                  builder: (context, snapshot) {
+                    String name = 'Student';
+                    String usn = '—';
+                    if (snapshot.hasData && snapshot.data!.exists) {
+                      final d = snapshot.data!.data();
+                      name = d?['name'] ?? 'Student';
+                      usn = d?['usn'] ?? '—';
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(backgroundColor: color.withOpacity(0.1), child: Icon(icon, color: color)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B), fontSize: 14)),
+                                  Text(usn, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                        Text('Profile', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                      ],
+                    );
+                  },
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: color.withOpacity(0.1),
+                      child: Icon(icon, color: color),
+                    ),
+                    const Spacer(),
+                    Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                  ],
+                ),
         ),
       ),
     );
