@@ -51,12 +51,12 @@ jobs:
       run: flutter analyze
     - name: Build App Bundle with Gradle
       run: ./gradlew app:bundleRelease --no-daemon
-      working-directory: android
+      working-directory: FrontEnd/flutter_application/android
     - name: Verify AAB
       run: |
         echo "Searching for AAB..."
         find . -name "*.aab"
-        ls -l android/app/build/outputs/bundle/release/
+        ls -l FrontEnd/flutter_application/android/app/build/outputs/bundle/release/
 
   deploy-frontend:
     if: github.ref == 'refs/heads/prod'
