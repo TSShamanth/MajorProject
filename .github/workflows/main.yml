@@ -14,10 +14,10 @@ jobs:
         working-directory: ./Backend-Java
     steps:
     - uses: actions/checkout@v3
-    - name: Set up JDK 17
+    - name: Set up JDK 21
       uses: actions/setup-java@v3
       with:
-        java-version: '17'
+        java-version: '21'
         distribution: 'temurin'
         cache: maven
     - name: Build with Maven
@@ -25,19 +25,32 @@ jobs:
 
   build-frontend:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./FrontEnd/flutter_application
     steps:
     - uses: actions/checkout@v3
+    - name: Set up JDK 21
+      uses: actions/setup-java@v3
+      with:
+        java-version: '21'
+        distribution: 'temurin'
     - uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.13.9'
+        flutter-version: '3.38.5'
         cache: true
     - name: Install dependencies
       run: flutter pub get
+      working-directory: FrontEnd/flutter_application
     - name: Analyze project
       run: flutter analyze
-    - name: Build APK
-      run: flutter build apk
+      working-directory: FrontEnd/flutter_application
+    - name: Set Gradle Wrapper permissions
+      run: chmod +x gradlew
+      working-directory: FrontEnd/flutter_application/android
+    - name: Build App Bundle with Gradle
+      run: ./gradlew app:bundleRelease --no-daemon
+      working-directory: FrontEnd/flutter_application/android
+    - name: Verify AAB
+      run: |
+        echo "Searching for AAB..."
+        find . -name "*.aab"
+        ls -l FrontEnd/flutter_application/android/app/build/outputs/bundle/release/
       

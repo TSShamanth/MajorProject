@@ -21,10 +21,15 @@ public class UserService {
 
         UserRecord userRecord = FirebaseAuth.getInstance().createUser(request);
 
+        String uid = userRecord.getUid();
+        if (uid == null) {
+            throw new Exception("Failed to create user: UID is null");
+        }
+
         // Set custom claim for role
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", createUserRequest.getRole());
-        FirebaseAuth.getInstance().setCustomUserClaims(userRecord.getUid(), claims);
+        FirebaseAuth.getInstance().setCustomUserClaims(uid, claims);
 
         // Save user details in Firestore
         Firestore db = FirestoreClient.getFirestore();
@@ -32,7 +37,13 @@ public class UserService {
         user.put("email", createUserRequest.getEmail());
         user.put("displayName", createUserRequest.getDisplayName());
         user.put("role", createUserRequest.getRole());
-        db.collection("users").document(userRecord.getUid()).set(user).get();
+        user.put("name", createUserRequest.getName());
+        user.put("usn", createUserRequest.getUsn());
+        user.put("phone", createUserRequest.getPhone());
+        user.put("sem", createUserRequest.getSem());
+        user.put("mentorName", createUserRequest.getMentorName());
+        user.put("photoUrl", createUserRequest.getPhotoUrl()); // Save photo URL
+        db.collection("users").document(uid).set(user).get();
 
         return userRecord;
     }

@@ -11,10 +11,10 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,12 +45,15 @@ public class FirebaseTokenFilter extends OncePerRequestFilter {
                     authorities.add(new SimpleGrantedAuthority(role));
                 } else {
                     // Fallback to Firestore if no claim is present
-                    Firestore db = FirestoreClient.getFirestore();
-                    DocumentSnapshot userDoc = db.collection("users").document(decodedToken.getUid()).get().get();
-                    if (userDoc.exists() && userDoc.contains("role")) {
-                        String firestoreRole = userDoc.getString("role");
-                        if (firestoreRole != null) {
-                            authorities.add(new SimpleGrantedAuthority(firestoreRole));
+                    String uid = decodedToken.getUid();
+                    if (uid != null) {
+                        Firestore db = FirestoreClient.getFirestore();
+                        DocumentSnapshot userDoc = db.collection("users").document(uid).get().get();
+                        if (userDoc.exists() && userDoc.contains("role")) {
+                            String firestoreRole = userDoc.getString("role");
+                            if (firestoreRole != null) {
+                                authorities.add(new SimpleGrantedAuthority(firestoreRole));
+                            }
                         }
                     }
                 }

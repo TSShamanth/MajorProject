@@ -40,6 +40,8 @@ dependencies:
   cloud_firestore: ^6.1.1
   flutter_svg: ^2.2.3
   go_router: ^14.1.1
+  image_picker: ^1.0.4
+  firebase_storage: ^13.0.5
 
 dev_dependencies:
   flutter_test:

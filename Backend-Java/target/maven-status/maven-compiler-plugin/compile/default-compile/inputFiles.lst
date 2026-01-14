@@ -6,6 +6,7 @@ D:\RVU\8th Sem\Major Project\Project Application\Backend-Java\src\main\java\com\
 D:\RVU\8th Sem\Major Project\Project Application\Backend-Java\src\main\java\com\example\backend\config\WebConfig.java
 D:\RVU\8th Sem\Major Project\Project Application\Backend-Java\src\main\java\com\example\backend\service\UserService.java
 D:\RVU\8th Sem\Major Project\Project Application\Backend-Java\src\main\java\com\example\backend\config\SecurityConfig.java
+D:\RVU\8th Sem\Major Project\Project Application\Backend-Java\src\main\java\com\example\backend\tool\SetAdminClaim.java
 D:\RVU\8th Sem\Major Project\Project Application\Backend-Java\src\main\java\com\example\backend\dto\CreateUserRequest.java
 D:\RVU\8th Sem\Major Project\Project Application\Backend-Java\src\main\java\com\example\backend\dto\LoginRequest.java
 D:\RVU\8th Sem\Major Project\Project Application\Backend-Java\src\main\java\com\example\backend\config\FirebaseConfig.java
