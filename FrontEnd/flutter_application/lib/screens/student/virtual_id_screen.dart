@@ -96,15 +96,15 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: () => setState(() {}),
-                    child: const Text('Retry'),
                     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E293B)),
+                    child: const Text('Retry'),
                   ),
                 ],
               ),
             );
           }
 
-          final response = snapshot.data as Map<String, dynamic>? ?? {};
+          final response = snapshot.data ?? {};
           final data = (response['user'] as Map<String, dynamic>?) ?? {};
           final collegeData = (response['college'] as Map<String, dynamic>?) ?? {};
 
@@ -191,8 +191,6 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
                               ),
                             ),
                           ),
-
-
                         ],
                       ),
                     ),
@@ -425,7 +423,7 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
 
             const SizedBox(height: 18),
 
-// Other details (vertically centered when space allows)
+            // Other details (vertically centered when space allows)
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -545,7 +543,7 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
           width: 90,
           child: Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white70,
               fontSize: 13,
               fontWeight: FontWeight.w500,
@@ -569,36 +567,4 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
       ],
     );
   }
-
-  // Centered label/value helper used on the dark back side
-  Widget _buildDetailCentered(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          value.isNotEmpty ? value : '—',
-          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  String _generateQrData(String usn, String name, String programme, String school, String email) {
-    
-    final parts = <String>[];
-    if (usn.isNotEmpty) parts.add(usn);
-    if (name.isNotEmpty) parts.add(name);
-    if (programme.isNotEmpty) parts.add(programme);
-    if (school.isNotEmpty) parts.add(school);
-    if (email.isNotEmpty) parts.add(email);
-
-    return parts.join('|');
-  }
 }
-            

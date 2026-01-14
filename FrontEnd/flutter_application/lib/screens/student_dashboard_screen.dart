@@ -345,7 +345,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                           ],
                         ),
                         const Spacer(),
-                        Text('Profile', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                        const Text('Profile', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
                       ],
                     );
                   },
