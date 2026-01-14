@@ -43,13 +43,12 @@ jobs:
       run: flutter pub get
     - name: Analyze project
       run: flutter analyze
-    - name: Build App Bundle
-      run: flutter build appbundle --verbose --no-shrink
-      env:
-        GRADLE_OPTS: "-Dorg.gradle.vfs.watch=false"
-    - name: List build outputs
-      if: always()
+    - name: Build App Bundle with Gradle
+      run: ./gradlew app:bundleRelease --no-daemon
+      working-directory: android
+    - name: Verify AAB
       run: |
         echo "Searching for AAB..."
         find . -name "*.aab"
+        ls -l android/app/build/outputs/bundle/release/
       
