@@ -44,5 +44,7 @@ jobs:
     - name: Analyze project
       run: flutter analyze
     - name: Build APK
-      run: flutter build apk
+      run: flutter build apk --verbose
+      env:
+        GRADLE_OPTS: "-Dorg.gradle.vfs.watch=false"
       
