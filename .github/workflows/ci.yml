@@ -49,6 +49,9 @@ jobs:
       run: flutter pub get
     - name: Analyze project
       run: flutter analyze
+    - name: Set Gradle Wrapper permissions
+      run: chmod +x gradlew
+      working-directory: FrontEnd/flutter_application/android
     - name: Build App Bundle with Gradle
       run: ./gradlew app:bundleRelease --no-daemon
       working-directory: FrontEnd/flutter_application/android
