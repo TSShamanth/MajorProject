@@ -21,8 +21,6 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: maven
-    - name: Create Firebase Service Account File
-      run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_MAJORSAMPLE_2ED21 }}" > src/main/resources/firebase-service-account.json
     - name: Build with Maven
       run: mvn -B package --file pom.xml
     - name: Upload JAR Artifact
@@ -123,4 +121,4 @@ jobs:
           region: 'us-central1' # You can change this to a region closer to you
           image: 'docker.io/shamanthts/majorproject-application-image:latest'
           project_id: '${{ secrets.GCP_PROJECT_ID }}'
-          flags: '--allow-unauthenticated'
+          flags: '--allow-unauthenticated --service-account=firebase-adminsdk-fbsvc@majorsample-2ed21.iam.gserviceaccount.com'
