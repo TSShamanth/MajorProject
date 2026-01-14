@@ -85,7 +85,7 @@ jobs:
       - name: Build and push Docker image
         working-directory: Backend-Java
         run: |
-          docker build -t shamanthts/majorproject-application-image:${{ github.sha }} .
+          docker build --no-cache -t shamanthts/majorproject-application-image:${{ github.sha }} .
           docker tag shamanthts/majorproject-application-image:${{ github.sha }} shamanthts/majorproject-application-image:latest
           docker push shamanthts/majorproject-application-image --all-tags
       
