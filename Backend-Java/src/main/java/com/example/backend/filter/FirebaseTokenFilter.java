@@ -18,8 +18,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FirebaseTokenFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(FirebaseTokenFilter.class);
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -58,7 +62,7 @@ public class FirebaseTokenFilter extends OncePerRequestFilter {
                     }
                 }
                 
-                System.out.println("✅ Granting authorities: " + authorities);
+                log.info("Granting authorities: {}", authorities);
 
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         decodedToken, null, authorities);
