@@ -49,19 +49,19 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: String.fromEnvironment('FIREBASE_WEB_API_KEY'),
-    appId: '1:135776647810:web:bffe208fc11641cbd5529b',
-    messagingSenderId: '135776647810',
-    projectId: 'majorsample-2ed21',
-    authDomain: 'majorsample-2ed21.firebaseapp.com',
-    storageBucket: 'majorsample-2ed21.firebasestorage.app',
-    measurementId: 'G-FNR5JP2DGF',
+    appId: "1:476285489549:web:9f612a7dd1098965d96dc4",
+    messagingSenderId: "476285489549",
+    projectId: "acadexa-484807",
+    authDomain: "acadexa-484807.firebaseapp.com",
+    storageBucket: "acadexa-484807.firebasestorage.app",
+    measurementId: "G-00PJLL5EF6",
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: String.fromEnvironment('FIREBASE_ANDROID_API_KEY'),
-    appId: '1:135776647810:android:d3d246f406da5872d5529b',
-    messagingSenderId: '135776647810',
-    projectId: 'majorsample-2ed21',
-    storageBucket: 'majorsample-2ed21.firebasestorage.app',
+    apiKey: String.fromEnvironment('FIREBASE_WEB_API_KEY'),
+    appId: "1:476285489549:android:1a5e9ed295ffcfdbd96dc4",
+    messagingSenderId: "476285489549",
+    projectId: "acadexa-484807",
+    storageBucket: "acadexa-484807.firebasestorage.app",
   );
 }
