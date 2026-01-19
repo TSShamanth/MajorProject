@@ -121,4 +121,4 @@ jobs:
           region: 'us-central1' # You can change this to a region closer to you
           image: 'docker.io/shamanthts/majorproject-application-image:latest'
           project_id: '${{ secrets.GCP_PROJECT_ID }}'
-          flags: '--allow-unauthenticated --service-account=firebase-adminsdk-fbsvc-majors@major-project-482712.iam.gserviceaccount.com'
+          flags: '--allow-unauthenticated --service-account=firebase-adminsdk-fbsvc@majorsample-2ed21.iam.gserviceaccount.com'
