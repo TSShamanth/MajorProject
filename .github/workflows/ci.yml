@@ -109,10 +109,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy-frontend # Runs after the frontend job (which pushes the image)
     steps:
-      - name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@v2'
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          workload_identity_provider: 'projects/476285489549/locations/global/workloadIdentityPools/github-pool/providers/github'
+          service_account: 'github-actions-deployer@acadexa-484807.iam.gserviceaccount.com'
+
 
       - name: 'Deploy to Cloud Run'
         uses: 'google-github-actions/deploy-cloudrun@v2'
@@ -121,4 +123,4 @@ jobs:
           region: 'us-central1' # You can change this to a region closer to you
           image: 'docker.io/shamanthts/majorproject-application-image:latest'
           project_id: '${{ secrets.GCP_PROJECT_ID }}'
-          flags: '--allow-unauthenticated --service-account=firebase-adminsdk-fbsvc@majorsample-2ed21.iam.gserviceaccount.com'
+          flags: '--allow-unauthenticated --service-account=firebase-adminsdk-fbsvc@acadexa-484807.iam.gserviceaccount.com'
