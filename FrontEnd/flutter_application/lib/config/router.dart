@@ -6,6 +6,9 @@ import '../screens/admin_dashboard_screen.dart';
 import '../screens/faculty_dashboard_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/student_dashboard_screen.dart';
+import '../screens/student/profile_screen.dart';
+import '../screens/student/edit_profile_screen.dart';
+import '../screens/student/virtual_id_screen.dart';
 import '../services/auth_service.dart';
 
 final router = GoRouter(
@@ -14,9 +17,35 @@ final router = GoRouter(
       path: '/login',
       builder: (context, state) => const LoginScreen(),
     ),
+    ShellRoute(
+      builder: (context, state, child) {
+        return StudentShell(state: state, child: child);
+      },
+      routes: [
+        GoRoute(
+          path: '/student/dashboard',
+          builder: (context, state) => const StudentDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/student/profile',
+          builder: (context, state) => const ProfileScreen(),
+        ),
+        GoRoute(
+          path: '/student/virtual-id',
+          builder: (context, state) => const VirtualIdScreen(),
+        ),
+      ],
+    ),
     GoRoute(
-      path: '/student/dashboard',
-      builder: (context, state) => const StudentDashboardScreen(),
+      path: '/student/profile/edit',
+      builder: (context, state) => const EditProfileScreen(),
+      redirect: (context, state) async {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) return '/login';
+        final role = await AuthService.getRole(user.uid);
+        // Only admins can access this route
+        return role == 'admin' ? null : '/student/profile';
+      },
     ),
     GoRoute(
       path: '/admin/dashboard',
@@ -78,5 +107,42 @@ class GoRouterRefreshStream extends ChangeNotifier {
   void dispose() {
     _subscription.cancel();
     super.dispose();
+  }
+}
+
+class StudentShell extends StatelessWidget {
+  final Widget child;
+  final GoRouterState state;
+
+  const StudentShell({super.key, required this.child, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final location = state.uri.toString();
+    final bool isDashboard = location == '/student/dashboard';
+
+    if (isDashboard) {
+      return child;
+    }
+
+    String title = 'Student';
+    if (location == '/student/profile') {
+      title = 'Profile';
+    } else if (location == '/student/virtual-id') {
+      title = 'Virtual ID';
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            context.go('/student/dashboard');
+          },
+        ),
+      ),
+      body: child,
+    );
   }
 }
