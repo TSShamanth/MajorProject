@@ -43,7 +43,7 @@ public class UserService {
         user.put("sem", createUserRequest.getSem());
         user.put("mentorName", createUserRequest.getMentorName());
         user.put("photoUrl", createUserRequest.getPhotoUrl()); // Save photo URL
-        db.collection("users").document(uid).set(user).get();
+        db.collection("Institutions").document("RVU").collection("users").document(uid).set(user).get();
 
         return userRecord;
     }
