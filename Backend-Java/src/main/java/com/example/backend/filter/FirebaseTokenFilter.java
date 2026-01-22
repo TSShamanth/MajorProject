@@ -52,7 +52,7 @@ public class FirebaseTokenFilter extends OncePerRequestFilter {
                     String uid = decodedToken.getUid();
                     if (uid != null) {
                         Firestore db = FirestoreClient.getFirestore();
-                        DocumentSnapshot userDoc = db.collection("users").document(uid).get().get();
+                        DocumentSnapshot userDoc = db.collection("Institutions").document("RVU").collection("users").document(uid).get().get();
                         if (userDoc.exists() && userDoc.contains("role")) {
                             String firestoreRole = userDoc.getString("role");
                             if (firestoreRole != null) {

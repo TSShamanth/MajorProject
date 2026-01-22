@@ -81,7 +81,7 @@ jobs:
         uses: 'google-github-actions/auth@v2'
         with:
           workload_identity_provider: 'projects/476285489549/locations/global/workloadIdentityPools/githubpool/providers/githubprovider'
-          service_account: 'firebase-adminsdk-fbsvc@acadexa-484807.iam.gserviceaccount.com'
+          service_account: 'github-actions-deployer@acadexa-484807.iam.gserviceaccount.com'
       - name: Deploy to Firebase Hosting
         run: |
           npm install -g firebase-tools
