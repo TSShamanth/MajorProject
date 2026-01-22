@@ -24,7 +24,7 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
     // Fetch user profile (may throw permission errors)
     Map<String, dynamic> userData = {};
     try {
-      final userDoc = await _firestore.collection('users').doc(_uid).get();
+      final userDoc = await _firestore.collection('Institutions').doc('RVU').collection('users').doc(_uid).get();
       if (!userDoc.exists) {
         throw FirebaseException(plugin: 'virtual_id', message: 'Profile not found');
       }
