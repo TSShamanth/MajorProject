@@ -2,3 +2,25 @@
 firebase-service-account.json
 Backend-Java/src/main/resources/firebase-service-account.json
 Backend-Java/target/classes/firebase-service-account.json
+
+# Java and Maven
+Backend-Java/target/
+Backend-Java/pom.xml.tag
+Backend-Java/pom.xml.releaseBackup
+Backend-Java/pom.xml.versionsBackup
+Backend-Java/pom.xml.next
+Backend-Java/release.properties
+Backend-Java/dependency-reduced-pom.xml
+Backend-Java/buildNumber.properties
+Backend-Java/.mvn/timing.properties
+# We are ignoring the entire hs_err_pid file, not just in the Backend-Java directory
+hs_err_pid*
+.classpath
+.project
+.settings
+build/
+.gradle
+/build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+.DS_Store
