@@ -15,7 +15,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<DocumentSnapshot<Map<String, dynamic>>> _fetchProfile() async {
     if (_uid == null) throw Exception('Not logged in');
-    return await _firestore.collection('users').doc(_uid).get();
+    return await _firestore.collection('Institutions').doc('RVU').collection('users').doc(_uid).get();
   }
 
   @override
