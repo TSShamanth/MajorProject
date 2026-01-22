@@ -14,14 +14,14 @@ class AttendanceException implements Exception {
 
 class AttendanceService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  static final Map<String, List<Subject>> _subjectsCache = {};
-  static final Map<String, List<Student>> _studentsCache = {};
+  static const Map<String, List<Subject>> _subjectsCache = {};
+  static const Map<String, List<Student>> _studentsCache = {};
 
   /// Get all subjects for a faculty with retry mechanism
   static Future<List<Subject>> getSubjects({int retryCount = 0}) async {
     try {
       // Check cache first
-      final cacheKey = 'all_subjects';
+      const cacheKey = 'all_subjects';
       if (_subjectsCache.containsKey(cacheKey) && _subjectsCache[cacheKey]!.isNotEmpty) {
         return _subjectsCache[cacheKey]!;
       }

@@ -12,29 +12,12 @@ class StudentDashboardScreen extends StatefulWidget {
 }
 
 class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
-  bool _isAttendanceLoggedIn = false;
-  String? _attendanceTime;
-
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String? _uid = FirebaseAuth.instance.currentUser?.uid;
 
   Future<DocumentSnapshot<Map<String, dynamic>>> _fetchProfile() async {
     if (_uid == null) throw Exception('Not logged in');
     return await _firestore.collection('users').doc(_uid).get();
-  }
-
-  void _handleAttendanceLogin() {
-    setState(() {
-      _isAttendanceLoggedIn = true;
-      _attendanceTime = TimeOfDay.now().format(context);
-    });
-  }
-
-  void _handleAttendanceLogout() {
-    setState(() {
-      _isAttendanceLoggedIn = false;
-      _attendanceTime = null;
-    });
   }
 
   @override

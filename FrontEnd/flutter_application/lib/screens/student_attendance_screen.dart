@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application/models/attendance_model.dart';
 import 'package:flutter_application/services/attendance_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class StudentAttendanceScreen extends StatefulWidget {
-  const StudentAttendanceScreen({Key? key}) : super(key: key);
+  const StudentAttendanceScreen({super.key});
 
   @override
   State<StudentAttendanceScreen> createState() => _StudentAttendanceScreenState();
