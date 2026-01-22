@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "135776647810",
-    "project_id": "majorsample-2ed21",
-    "storage_bucket": "majorsample-2ed21.firebasestorage.app"
+    "project_number": "476285489549",
+    "project_id": "acadexa-484807",
+    "storage_bucket": "acadexa-484807.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:135776647810:android:d3d246f406da5872d5529b",
+        "mobilesdk_app_id": "1:476285489549:android:1a5e9ed295ffcfdbd96dc4",
         "android_client_info": {
-          "package_name": "com.example.flutter_application"
+          "package_name": "com.company.acadexa"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBKkGIngzmFoYPyXIqZgonHYwCNNdR9-9c"
+          "current_key": "AIzaSyCN85bqYFqpl4flosq1qyK5Ujt6KZ0ialQ"
         }
       ],
       "services": {

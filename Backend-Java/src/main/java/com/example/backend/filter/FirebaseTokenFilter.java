@@ -70,6 +70,7 @@ public class FirebaseTokenFilter extends OncePerRequestFilter {
             }
         } catch (Exception e) {
             // Invalid token or Firestore error
+            log.error("Error verifying Firebase token: {}", e.getMessage());
             SecurityContextHolder.clearContext();
         }
 
