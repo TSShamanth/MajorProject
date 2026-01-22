@@ -9,6 +9,9 @@ import '../screens/student_dashboard_screen.dart';
 import '../screens/student/profile_screen.dart';
 import '../screens/student/edit_profile_screen.dart';
 import '../screens/student/virtual_id_screen.dart';
+import '../screens/mark_attendance_screen.dart';
+import '../screens/attendance_history_screen.dart';
+import '../screens/student_attendance_screen.dart';
 import '../services/auth_service.dart';
 
 final router = GoRouter(
@@ -34,6 +37,10 @@ final router = GoRouter(
           path: '/student/virtual-id',
           builder: (context, state) => const VirtualIdScreen(),
         ),
+        GoRoute(
+          path: '/student/attendance',
+          builder: (context, state) => const StudentAttendanceScreen(),
+        ),
       ],
     ),
     GoRoute(
@@ -54,6 +61,14 @@ final router = GoRouter(
     GoRoute(
       path: '/faculty/dashboard',
       builder: (context, state) => const FacultyDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/faculty/mark-attendance',
+      builder: (context, state) => const MarkAttendanceScreen(),
+    ),
+    GoRoute(
+      path: '/faculty/attendance-history',
+      builder: (context, state) => const AttendanceHistoryScreen(),
     ),
     GoRoute(
       path: '/',
