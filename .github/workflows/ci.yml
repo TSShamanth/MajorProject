@@ -51,14 +51,11 @@ jobs:
     - name: Set Gradle Wrapper permissions
       run: chmod +x gradlew
       working-directory: FrontEnd/flutter_application/android
-    - name: Build App Bundle with Gradle
-      run: ./gradlew app:bundleRelease --no-daemon
-      working-directory: FrontEnd/flutter_application/android
+    - name: Build app bundle
+      run: flutter build appbundle --release
+      working-directory: FrontEnd/flutter_application
     - name: Verify AAB
-      run: |
-        echo "Searching for AAB..."
-        find . -name "*.aab"
-        ls -l FrontEnd/flutter_application/android/app/build/outputs/bundle/release/
+      run: ls -l FrontEnd/flutter_application/build/app/outputs/bundle/release/
 
   deploy-frontend:
     if: github.ref == 'refs/heads/prod'
