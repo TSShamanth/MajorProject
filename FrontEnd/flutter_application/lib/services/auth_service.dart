@@ -48,7 +48,7 @@ class AuthService {
     try {
       debugPrint("Fetching user role from Firestore for UID: $uid");
 
-      final userDoc = await _firestore.collection('users').doc(uid).get();
+      final userDoc = await _firestore.collection('Institutions').doc('RVU').collection('users').doc(uid).get();
 
       if (userDoc.exists) {
         debugPrint("✅ Firestore document found for UID: $uid");

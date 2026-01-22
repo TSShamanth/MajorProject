@@ -21,20 +21,11 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -48,20 +39,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: String.fromEnvironment('FIREBASE_WEB_API_KEY'),
-    appId: '1:135776647810:web:bffe208fc11641cbd5529b',
-    messagingSenderId: '135776647810',
-    projectId: 'majorsample-2ed21',
-    authDomain: 'majorsample-2ed21.firebaseapp.com',
-    storageBucket: 'majorsample-2ed21.firebasestorage.app',
-    measurementId: 'G-FNR5JP2DGF',
+    apiKey: 'AIzaSyAXqO3B3GJHSyuhzMhcwxqUbZmiOEuFP1Y',
+    appId: '1:476285489549:web:9f612a7dd1098965d96dc4',
+    messagingSenderId: '476285489549',
+    projectId: 'acadexa-484807',
+    authDomain: 'acadexa-484807.firebaseapp.com',
+    storageBucket: 'acadexa-484807.firebasestorage.app',
+    measurementId: 'G-00PJLL5EF6',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: String.fromEnvironment('FIREBASE_ANDROID_API_KEY'),
-    appId: '1:135776647810:android:d3d246f406da5872d5529b',
-    messagingSenderId: '135776647810',
-    projectId: 'majorsample-2ed21',
-    storageBucket: 'majorsample-2ed21.firebasestorage.app',
+    apiKey: 'AIzaSyCN85bqYFqpl4flosq1qyK5Ujt6KZ0ialQ',
+    appId: '1:476285489549:android:1a5e9ed295ffcfdbd96dc4',
+    messagingSenderId: '476285489549',
+    projectId: 'acadexa-484807',
+    storageBucket: 'acadexa-484807.firebasestorage.app',
   );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyDwez9IzWphQNDKNn5521FelsiZHLBpMWQ',
+    appId: '1:476285489549:ios:6cb89d190b3681bdd96dc4',
+    messagingSenderId: '476285489549',
+    projectId: 'acadexa-484807',
+    storageBucket: 'acadexa-484807.firebasestorage.app',
+    iosBundleId: 'com.example.flutterApplication',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyDwez9IzWphQNDKNn5521FelsiZHLBpMWQ',
+    appId: '1:476285489549:ios:6cb89d190b3681bdd96dc4',
+    messagingSenderId: '476285489549',
+    projectId: 'acadexa-484807',
+    storageBucket: 'acadexa-484807.firebasestorage.app',
+    iosBundleId: 'com.example.flutterApplication',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyAXqO3B3GJHSyuhzMhcwxqUbZmiOEuFP1Y',
+    appId: '1:476285489549:web:1da0b524a2a7c6b1d96dc4',
+    messagingSenderId: '476285489549',
+    projectId: 'acadexa-484807',
+    authDomain: 'acadexa-484807.firebaseapp.com',
+    storageBucket: 'acadexa-484807.firebasestorage.app',
+    measurementId: 'G-K982YGH4XS',
+  );
+
 }

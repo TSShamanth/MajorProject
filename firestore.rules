@@ -5,10 +5,17 @@ service cloud.firestore {
     // This assumes that the document ID in the 'users' collection
     // is the same as the user's UID from Firebase Authentication.
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+      allow get: if request.auth != null && request.auth.uid == userId;
       // Add other rules for write, update, delete as needed.
       // For now, keeping them restricted.
-      allow write, update, delete: if false; 
+      allow list, write, update, delete: if false; 
+    }
+
+    // This is the new rule that matches your database structure.
+    // It allows a logged-in user to read their own document.
+    match /Institutions/{institutionId}/users/{userId} {
+      allow get: if request.auth != null && request.auth.uid == userId;
+      allow list, write, update, delete: if false; 
     }
 
     // Add rules for other collections in your database here.

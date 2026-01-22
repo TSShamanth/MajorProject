@@ -26,7 +26,7 @@ class AuthWrapper extends StatelessWidget {
           final user = snapshot.data!;
           if (user.email != null) {
             return FutureBuilder<String>(
-              future: AuthService.getRole(user.email!),
+              future: AuthService.getRole(user.uid),
               builder: (context, roleSnapshot) {
                 if (roleSnapshot.connectionState == ConnectionState.waiting) {
                   return const Scaffold(
