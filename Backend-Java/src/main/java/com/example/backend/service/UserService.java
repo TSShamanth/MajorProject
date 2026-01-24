@@ -43,6 +43,13 @@ public class UserService {
         user.put("sem", createUserRequest.getSem());
         user.put("mentorName", createUserRequest.getMentorName());
         user.put("photoUrl", createUserRequest.getPhotoUrl()); // Save photo URL
+        user.put("programme", createUserRequest.getProgramme());
+        user.put("school", createUserRequest.getSchool());
+        user.put("address", createUserRequest.getAddress());
+        user.put("dob", createUserRequest.getDob());
+        user.put("bloodGroup", createUserRequest.getBloodGroup());
+        user.put("emergencyContact", createUserRequest.getEmergencyContact());
+        user.put("validUpto", createUserRequest.getValidUpto());
         db.collection("Institutions").document("RVU").collection("users").document(uid).set(user).get();
 
         return userRecord;

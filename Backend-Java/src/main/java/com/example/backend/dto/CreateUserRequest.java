@@ -11,6 +11,13 @@ public class CreateUserRequest {
     private String sem;
     private String mentorName;
     private String photoUrl; // New field for photo URL
+    private String programme;
+    private String school;
+    private String address;
+    private String dob;
+    private String bloodGroup;
+    private String emergencyContact;
+    private String validUpto;
 
     // Getters and Setters
     public String getEmail() {
@@ -91,5 +98,61 @@ public class CreateUserRequest {
 
     public void setPhotoUrl(String photoUrl) {
         this.photoUrl = photoUrl;
+    }
+
+    public String getProgramme() {
+        return programme;
+    }
+
+    public void setProgramme(String programme) {
+        this.programme = programme;
+    }
+
+    public String getSchool() {
+        return school;
+    }
+
+    public void setSchool(String school) {
+        this.school = school;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getDob() {
+        return dob;
+    }
+
+    public void setDob(String dob) {
+        this.dob = dob;
+    }
+
+    public String getBloodGroup() {
+        return bloodGroup;
+    }
+
+    public void setBloodGroup(String bloodGroup) {
+        this.bloodGroup = bloodGroup;
+    }
+
+    public String getEmergencyContact() {
+        return emergencyContact;
+    }
+
+    public void setEmergencyContact(String emergencyContact) {
+        this.emergencyContact = emergencyContact;
+    }
+
+    public String getValidUpto() {
+        return validUpto;
+    }
+
+    public void setValidUpto(String validUpto) {
+        this.validUpto = validUpto;
     }
 }

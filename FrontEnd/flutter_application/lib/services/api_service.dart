@@ -15,6 +15,13 @@ class ApiService {
     String? sem,
     String? mentorName,
     String? photoUrl, // New parameter
+    String? programme,
+    String? school,
+    String? address,
+    String? dob,
+    String? bloodGroup,
+    String? emergencyContact,
+    String? validUpto,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -35,6 +42,13 @@ class ApiService {
       'sem': sem,
       'mentorName': mentorName,
       'photoUrl': photoUrl, // Add photoUrl to the body
+      'programme': programme,
+      'school': school,
+      'address': address,
+      'dob': dob,
+      'bloodGroup': bloodGroup,
+      'emergencyContact': emergencyContact,
+      'validUpto': validUpto,
     };
 
     // Remove null values from the body

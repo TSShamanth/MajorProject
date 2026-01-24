@@ -21,6 +21,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _phoneController = TextEditingController();
   final _semController = TextEditingController();
   final _mentorController = TextEditingController();
+  final _programmeController = TextEditingController();
+  final _schoolController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _dobController = TextEditingController();
+  final _bloodGroupController = TextEditingController();
+  final _emergencyContactController = TextEditingController();
+  final _validUptoController = TextEditingController();
+
   String? _selectedRole = 'student';
   bool _isLoading = false;
   Uint8List? _pickedImageBytes; // New variable for the picked image bytes
@@ -39,6 +47,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _phoneController.dispose();
     _semController.dispose();
     _mentorController.dispose();
+    _programmeController.dispose();
+    _schoolController.dispose();
+    _addressController.dispose();
+    _dobController.dispose();
+    _bloodGroupController.dispose();
+    _emergencyContactController.dispose();
+    _validUptoController.dispose();
     super.dispose();
   }
 
@@ -164,6 +179,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Expanded(child: _buildTextField(_mentorController, 'Mentor Name', Icons.supervisor_account_outlined)),
                           ],
                         ),
+                        const SizedBox(height: 16),
+                        _buildTextField(_programmeController, 'Programme', Icons.class_outlined),
+                        const SizedBox(height: 16),
+                        _buildTextField(_schoolController, 'School', Icons.school_outlined),
+                        const SizedBox(height: 16),
+                        _buildTextField(_addressController, 'Address', Icons.home_outlined),
+                        const SizedBox(height: 16),
+                        _buildTextField(_dobController, 'Date of Birth', Icons.cake_outlined),
+                        const SizedBox(height: 16),
+                        _buildTextField(_bloodGroupController, 'Blood Group', Icons.bloodtype_outlined),
+                        const SizedBox(height: 16),
+                        _buildTextField(_emergencyContactController, 'Emergency Contact', Icons.contact_phone_outlined),
+                        const SizedBox(height: 16),
+                        _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_outlined),
                       ],
                     ],
                   ),
@@ -257,6 +286,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           sem: _semController.text,
           mentorName: _mentorController.text,
           photoUrl: _photoUrl, // Pass the photo URL
+          programme: _programmeController.text,
+          school: _schoolController.text,
+          address: _addressController.text,
+          dob: _dobController.text,
+          bloodGroup: _bloodGroupController.text,
+          emergencyContact: _emergencyContactController.text,
+          validUpto: _validUptoController.text,
         );
 
         if (!mounted) return; // Guard the context usage
@@ -292,6 +328,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _displayNameController.clear();
     _emailController.clear();
     _passwordController.clear();
+    _nameController.clear();
+    _usnController.clear();
+    _phoneController.clear();
+    _semController.clear();
+    _mentorController.clear();
+    _programmeController.clear();
+    _schoolController.clear();
+    _addressController.clear();
+    _dobController.clear();
+    _bloodGroupController.clear();
+    _emergencyContactController.clear();
+    _validUptoController.clear();
     setState(() {
       _selectedRole = 'student';
       _pickedImageBytes = null; // Clear picked image bytes
