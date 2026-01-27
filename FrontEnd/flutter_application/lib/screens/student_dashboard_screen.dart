@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
+import '../services/session_manager.dart';
 
 class StudentDashboardScreen extends StatefulWidget {
   const StudentDashboardScreen({super.key});
@@ -77,7 +78,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           IconButton(
             icon: const Icon(Icons.logout, color: Color(0xFF1E293B)),
             onPressed: () async {
+              final router = GoRouter.of(context);
+              await SessionManager.clearSession();
               await AuthService.logout();
+              router.go('/login');
             },
           ),
         ],
@@ -107,9 +111,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   Navigator.pop(context);
                   final label = item['label'] as String;
                   if (label == 'Profile') {
-                    context.go('/student/profile');
+                    context.go('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/student/profile');
                   } else if (label == 'Virtual ID') {
-                    context.go('/student/virtual-id');
+                    context.go('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/student/virtual-id');
                   }
                 },
               ),
@@ -173,9 +177,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   onTap: () {
                     final label = (item['label'] as String);
                     if (label == 'Profile') {
-                      context.go('/student/profile');
+                      context.go('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/student/profile');
                     } else if (label == 'Virtual ID') {
-                      context.go('/student/virtual-id');
+                      context.go('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/student/virtual-id');
                     }
                   },
                 );
@@ -236,7 +240,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   ),
                   const Spacer(),
                   GestureDetector(
-                    onTap: () => context.push('/student/attendance'),
+                    onTap: () => context.push('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/student/attendance'),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
@@ -261,7 +265,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => context.push('/student/attendance'),
+                  onPressed: () => context.push('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/student/attendance'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.indigo.shade600,

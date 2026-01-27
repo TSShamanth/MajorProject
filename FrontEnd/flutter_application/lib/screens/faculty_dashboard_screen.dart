@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../services/auth_service.dart';
+import '../services/session_manager.dart';
+
 
 class FacultyDashboardScreen extends StatefulWidget {
   const FacultyDashboardScreen({super.key});
@@ -70,7 +72,10 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
           IconButton(
             icon: const Icon(Icons.logout, color: Color(0xFF1E293B)),
             onPressed: () async {
+              final router = GoRouter.of(context);
+              await SessionManager.clearSession();
               await AuthService.logout();
+              router.go('/login');
             },
           ),
         ],
@@ -99,9 +104,9 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   if (item['label'] == 'Mark Attendance') {
-                    context.push('/faculty/mark-attendance');
+                    context.push('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/faculty/mark-attendance');
                   } else if (item['label'] == 'Attendance History') {
-                    context.push('/faculty/attendance-history');
+                    context.push('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/faculty/attendance-history');
                   }
                 },
               ),
@@ -213,7 +218,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => context.push('/faculty/mark-attendance'),
+                      onPressed: () => context.push('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/faculty/mark-attendance'),
                       icon: const Icon(Icons.assignment),
                       label: const Text('Mark'),
                       style: ElevatedButton.styleFrom(
@@ -227,7 +232,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => context.push('/faculty/attendance-history'),
+                      onPressed: () => context.push('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/faculty/attendance-history'),
                       icon: const Icon(Icons.history),
                       label: const Text('History'),
                       style: ElevatedButton.styleFrom(

@@ -2,13 +2,26 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
+import '../models/institution.dart';
 
 class ApiService {
+  static Future<List<Institution>> getInstitutions() async {
+    final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/institutions'));
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => Institution.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load institutions');
+    }
+  }
+
   Future<http.Response> createUser({
     required String email,
     required String password,
     required String displayName,
     required String role,
+    required String institutionId,
     String? name,
     String? usn,
     String? phone,
@@ -36,6 +49,7 @@ class ApiService {
       'password': password,
       'displayName': displayName,
       'role': role,
+      'institutionId': institutionId,
       'name': name,
       'usn': usn,
       'phone': phone,

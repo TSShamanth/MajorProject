@@ -3,6 +3,7 @@ package com.example.backend.dto;
 public class LoginRequest {
     private String username;
     private String password;
+    private String institutionId;
 
     public String getUsername() {
         return username;
@@ -18,5 +19,13 @@ public class LoginRequest {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getInstitutionId() {
+        return institutionId;
+    }
+
+    public void setInstitutionId(String institutionId) {
+        this.institutionId = institutionId;
     }
 }

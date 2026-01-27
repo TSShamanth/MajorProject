@@ -50,7 +50,7 @@ public class UserService {
         user.put("bloodGroup", createUserRequest.getBloodGroup());
         user.put("emergencyContact", createUserRequest.getEmergencyContact());
         user.put("validUpto", createUserRequest.getValidUpto());
-        db.collection("Institutions").document("RVU").collection("users").document(uid).set(user).get();
+        db.collection("Institutions").document(createUserRequest.getInstitutionId()).collection("users").document(uid).set(user).get();
 
         return userRecord;
     }

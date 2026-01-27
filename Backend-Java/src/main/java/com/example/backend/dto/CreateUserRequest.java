@@ -18,6 +18,7 @@ public class CreateUserRequest {
     private String bloodGroup;
     private String emergencyContact;
     private String validUpto;
+    private String institutionId;
 
     // Getters and Setters
     public String getEmail() {
@@ -154,5 +155,13 @@ public class CreateUserRequest {
 
     public void setValidUpto(String validUpto) {
         this.validUpto = validUpto;
+    }
+
+    public String getInstitutionId() {
+        return institutionId;
+    }
+
+    public void setInstitutionId(String institutionId) {
+        this.institutionId = institutionId;
     }
 }
