@@ -4,11 +4,13 @@ import '../services/auth_service.dart';
 
 class StudentShell extends StatelessWidget {
   final Widget child;
+  final GoRouterState state;
 
-  const StudentShell({super.key, required this.child});
+  const StudentShell({super.key, required this.child, required this.state});
 
   @override
   Widget build(BuildContext context) {
+    final institutionId = state.pathParameters['institutionId'];
     final menuItems = [
       {'icon': Icons.person_outline, 'label': 'Profile', 'description': 'View personal details'},
       {'icon': Icons.credit_card_outlined, 'label': 'Virtual ID', 'description': 'Access student ID card'},
@@ -78,7 +80,7 @@ class StudentShell extends StatelessWidget {
               subtitle: const Text('Back to home'),
               onTap: () {
                 Navigator.pop(context);
-                context.go('/student/dashboard');
+                context.go('/$institutionId/student/dashboard');
               },
             ),
             for (var item in menuItems)
@@ -90,9 +92,9 @@ class StudentShell extends StatelessWidget {
                   Navigator.pop(context);
                   final label = item['label'] as String;
                   if (label == 'Profile') {
-                    context.go('/student/profile');
+                    context.go('/$institutionId/student/profile');
                   } else if (label == 'Virtual ID') {
-                    context.go('/student/virtual-id');
+                    context.go('/$institutionId/student/virtual-id');
                   }
                 },
               ),

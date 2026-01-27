@@ -3,13 +3,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/admin_dashboard_screen.dart';
+import '../screens/auth_wrapper.dart';
 import '../screens/faculty_dashboard_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/student_dashboard_screen.dart';
 import '../screens/student/profile_screen.dart';
 import '../screens/student/edit_profile_screen.dart';
 import '../screens/student/virtual_id_screen.dart';
-import '../services/auth_service.dart';
+import '../screens/mark_attendance_screen.dart';
+import '../screens/attendance_history_screen.dart';
+import '../screens/student_attendance_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -23,76 +26,70 @@ final router = GoRouter(
       },
       routes: [
         GoRoute(
-          path: '/student/dashboard',
+          path: '/:institutionId/student/dashboard',
           builder: (context, state) => const StudentDashboardScreen(),
         ),
         GoRoute(
-          path: '/student/profile',
+          path: '/:institutionId/student/profile',
           builder: (context, state) => const ProfileScreen(),
         ),
         GoRoute(
-          path: '/student/virtual-id',
+          path: '/:institutionId/student/virtual-id',
           builder: (context, state) => const VirtualIdScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/attendance',
+          builder: (context, state) => const StudentAttendanceScreen(),
         ),
       ],
     ),
     GoRoute(
-      path: '/student/profile/edit',
+      path: '/:institutionId/student/profile/edit',
       builder: (context, state) => const EditProfileScreen(),
-      redirect: (context, state) async {
-        final user = FirebaseAuth.instance.currentUser;
-        if (user == null) return '/login';
-        final role = await AuthService.getRole(user.uid);
-        // Only admins can access this route
-        return role == 'admin' ? null : '/student/profile';
-      },
     ),
     GoRoute(
-      path: '/admin/dashboard',
+      path: '/:institutionId/admin/dashboard',
       builder: (context, state) => const AdminDashboardScreen(),
     ),
     GoRoute(
-      path: '/faculty/dashboard',
+      path: '/:institutionId/faculty/dashboard',
       builder: (context, state) => const FacultyDashboardScreen(),
     ),
     GoRoute(
+      path: '/:institutionId/faculty/mark-attendance',
+      builder: (context, state) => const MarkAttendanceScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/attendance-history',
+      builder: (context, state) => const AttendanceHistoryScreen(),
+    ),
+    GoRoute(
       path: '/',
-      redirect: (context, state) async {
-        final user = FirebaseAuth.instance.currentUser;
-        if (user == null) {
-          return '/login';
-        }
-        final role = await AuthService.getRole(user.uid);
-        switch (role) {
-          case 'admin':
-            return '/admin/dashboard';
-          case 'faculty':
-            return '/faculty/dashboard';
-          case 'student':
-            return '/student/dashboard';
-          default:
-            return '/login';
-        }
-      },
+      builder: (context, state) => const AuthWrapper(),
     ),
   ],
-  redirect: (context, state) {
+  refreshListenable: GoRouterRefreshStream(FirebaseAuth.instance.authStateChanges()),
+  redirect: (BuildContext context, GoRouterState state) async {
     final user = FirebaseAuth.instance.currentUser;
     final isLoggingIn = state.matchedLocation == '/login';
 
+    // 1. User is not logged in
     if (user == null) {
-      // User is not logged in, should redirect to /login
+      // If they are not on the login page, send them there.
       return isLoggingIn ? null : '/login';
     }
 
+    // 2. User IS logged in and is trying to access the login page
     if (isLoggingIn) {
-      // User is logged in, but trying to access /login, so redirect to home
+      // Redirect a logged-in user away from the login page.
+      // Sending them to the root is a safe choice, as it will be
+      // handled by a nested route or another redirect if necessary.
       return '/';
     }
 
+    // 3. User is logged in and not on the login page. Allow navigation.
     return null;
   },
-  refreshListenable: GoRouterRefreshStream(FirebaseAuth.instance.authStateChanges()),
 );
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -119,16 +116,17 @@ class StudentShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final location = state.uri.toString();
-    final bool isDashboard = location == '/student/dashboard';
+    final institutionId = state.pathParameters['institutionId'];
+    final bool isDashboard = location == '/$institutionId/student/dashboard';
 
     if (isDashboard) {
       return child;
     }
 
     String title = 'Student';
-    if (location == '/student/profile') {
+    if (location == '/$institutionId/student/profile') {
       title = 'Profile';
-    } else if (location == '/student/virtual-id') {
+    } else if (location == '/$institutionId/student/virtual-id') {
       title = 'Virtual ID';
     }
 
@@ -138,7 +136,7 @@ class StudentShell extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
-            context.go('/student/dashboard');
+            context.go('/$institutionId/student/dashboard');
           },
         ),
       ),

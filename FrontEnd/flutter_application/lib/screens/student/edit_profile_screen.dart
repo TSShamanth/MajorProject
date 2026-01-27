@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../services/session_manager.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -32,14 +33,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _loadProfile() async {
     if (_uid == null) return;
     try {
-      final doc = await _firestore.collection('users').doc(_uid).get();
+      final institutionId = await SessionManager.getInstitutionId();
+      if (institutionId == null) throw Exception('Institution ID not found');
+      final doc = await _firestore.collection('Institutions').doc(institutionId).collection('users').doc(_uid).get();
       if (doc.exists) {
         final data = doc.data();
         _nameController.text = data?['name'] ?? '';
         _usnController.text = data?['usn'] ?? '';
         _phoneController.text = data?['phone'] ?? '';
         _semController.text = (data?['sem']?.toString()) ?? '';
-        _mentorController.text = data?['mentorName'] ?? ''; 
+        _mentorController.text = data?['mentorName'] ?? '';
       }
     } catch (e) {
       // ignore errors here, we'll show on save if needed
@@ -54,6 +57,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!_formKey.currentState!.validate() || _uid == null) return;
     setState(() => _saving = true);
     try {
+      final institutionId = await SessionManager.getInstitutionId();
+      if (institutionId == null) throw Exception('Institution ID not found');
       final data = {
         'name': _nameController.text.trim(),
         'usn': _usnController.text.trim(),
@@ -63,7 +68,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'email': FirebaseAuth.instance.currentUser?.email ?? '',
       };
 
-      await _firestore.collection('users').doc(_uid).set(data, SetOptions(merge: true));
+      await _firestore.collection('Institutions').doc(institutionId).collection('users').doc(_uid).set(data, SetOptions(merge: true));
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated')));

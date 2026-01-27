@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import '../models/institution.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -14,17 +16,61 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _isLoadingInstitutions = true;
+  List<Institution> _institutions = [];
+  Institution? _selectedInstitution;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchInstitutions();
+  }
+
+  Future<void> _fetchInstitutions() async {
+    try {
+      final institutions = await ApiService.getInstitutions();
+      setState(() {
+        _institutions = institutions;
+        _isLoadingInstitutions = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load institutions: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          _isLoadingInstitutions = false;
+        });
+      }
+    }
+  }
 
   Future<void> _login() async {
+    debugPrint('Login button pressed');
+    if (_selectedInstitution == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select an institution.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
 
     final messenger = ScaffoldMessenger.of(context);
-    String role = await AuthService.login(
+    final role = await AuthService.login(
       _emailController.text,
       _passwordController.text,
+      _selectedInstitution!.id,
     );
+    debugPrint('Login role: $role');
 
     if (!mounted) return;
 
@@ -32,23 +78,34 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = false;
     });
 
-    switch (role) {
-      case 'admin':
-        context.go('/admin/dashboard');
-        break;
-      case 'faculty':
-        context.go('/faculty/dashboard');
-        break;
-      case 'student':
-        context.go('/student/dashboard');
-        break;
-      default:
+    if (role != 'none') {
+      final path = switch (role) {
+        'admin' => '/${_selectedInstitution!.id}/admin/dashboard',
+        'faculty' => '/${_selectedInstitution!.id}/faculty/dashboard',
+        'student' => '/${_selectedInstitution!.id}/student/dashboard',
+        _ => null,
+      };
+
+      if (path != null) {
+        debugPrint('Login successful. Navigating to: $path');
+        context.go(path);
+      } else {
+        debugPrint('Login failed: Role was valid but no path could be determined.');
         messenger.showSnackBar(
           const SnackBar(
-            content: Text('Invalid credentials. Please try again.'),
+            content: Text('Could not determine user dashboard. Please contact support.'),
             backgroundColor: Colors.red,
           ),
         );
+      }
+    } else {
+      debugPrint('Login failed, role is "none"');
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Invalid credentials. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -71,15 +128,10 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Header
                 _buildHeader(),
                 const SizedBox(height: 48),
-
-                // Login Form
                 _buildLoginForm(),
                 const SizedBox(height: 24),
-
-                // Social Logins
                 _buildSocialLogins(),
               ],
             ),
@@ -121,7 +173,25 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Email Field
+        _isLoadingInstitutions
+            ? const Center(child: CircularProgressIndicator())
+            : DropdownButtonFormField<Institution>(
+                value: _selectedInstitution,
+                hint: const Text('Select Institution'),
+                items: _institutions.map((institution) {
+                  return DropdownMenuItem<Institution>(
+                    value: institution,
+                    child: Text(institution.name),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedInstitution = value;
+                  });
+                },
+                decoration: _inputDecoration('Institution', Icons.school_outlined),
+              ),
+        const SizedBox(height: 16),
         TextFormField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
@@ -130,8 +200,6 @@ class _LoginScreenState extends State<LoginScreen> {
           decoration: _inputDecoration('Email', Icons.email_outlined),
         ),
         const SizedBox(height: 16),
-        
-        // Password Field
         TextFormField(
           controller: _passwordController,
           obscureText: true,
@@ -142,8 +210,6 @@ class _LoginScreenState extends State<LoginScreen> {
           decoration: _inputDecoration('Password', Icons.lock_outline),
         ),
         const SizedBox(height: 16),
-        
-        // Forgot Password
         Align(
           alignment: Alignment.centerRight,
           child: TextButton(
@@ -157,8 +223,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         const SizedBox(height: 24),
-
-        // Login Button
         ElevatedButton(
           onPressed: _isLoading ? null : _login,
           style: ElevatedButton.styleFrom(
@@ -186,7 +250,6 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildSocialLogins() {
     return Column(
       children: [
-        // Divider
         Row(
           children: [
             const Expanded(child: Divider()),
@@ -198,8 +261,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
         const SizedBox(height: 24),
-        
-        // Google Button
         OutlinedButton.icon(
           onPressed: () {
             // TODO: Implement Google Sign-in

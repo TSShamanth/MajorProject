@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../services/session_manager.dart';
 
 class VirtualIdScreen extends StatefulWidget {
   const VirtualIdScreen({super.key});
@@ -24,7 +25,9 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
     // Fetch user profile (may throw permission errors)
     Map<String, dynamic> userData = {};
     try {
-      final userDoc = await _firestore.collection('Institutions').doc('RVU').collection('users').doc(_uid).get();
+      final institutionId = await SessionManager.getInstitutionId();
+      if (institutionId == null) throw Exception('Institution ID not found');
+      final userDoc = await _firestore.collection('Institutions').doc(institutionId).collection('users').doc(_uid).get();
       if (!userDoc.exists) {
         throw FirebaseException(plugin: 'virtual_id', message: 'Profile not found');
       }

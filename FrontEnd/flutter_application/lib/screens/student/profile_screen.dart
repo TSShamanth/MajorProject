@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/session_manager.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -15,7 +16,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<DocumentSnapshot<Map<String, dynamic>>> _fetchProfile() async {
     if (_uid == null) throw Exception('Not logged in');
-    return await _firestore.collection('Institutions').doc('RVU').collection('users').doc(_uid).get();
+    final institutionId = await SessionManager.getInstitutionId();
+    if (institutionId == null) throw Exception('Institution ID not found');
+    return await _firestore.collection('Institutions').doc(institutionId).collection('users').doc(_uid).get();
   }
 
   @override

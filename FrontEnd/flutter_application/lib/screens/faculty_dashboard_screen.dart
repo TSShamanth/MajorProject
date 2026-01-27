@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../services/auth_service.dart';
+import '../services/session_manager.dart';
+
 
 class FacultyDashboardScreen extends StatefulWidget {
   const FacultyDashboardScreen({super.key});
@@ -9,23 +12,6 @@ class FacultyDashboardScreen extends StatefulWidget {
 }
 
 class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
-  bool _isAttendanceLoggedIn = false;
-  String? _attendanceTime;
-
-  void _handleAttendanceLogin() {
-    setState(() {
-      _isAttendanceLoggedIn = true;
-      _attendanceTime = TimeOfDay.now().format(context);
-    });
-  }
-
-  void _handleAttendanceLogout() {
-    setState(() {
-      _isAttendanceLoggedIn = false;
-      _attendanceTime = null;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final menuItems = [
@@ -36,14 +22,16 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
       {'icon': Icons.description_outlined, 'label': 'Leave', 'description': 'Apply for leave'},
       {'icon': Icons.attach_money, 'label': 'Payroll', 'description': 'View salary slips'},
       {'icon': Icons.celebration_outlined, 'label': 'Events', 'description': 'Create & manage events'},
-      {'icon': Icons.notifications_none_outlined, 'label': 'Meetings', 'description': 'Faculty meetings'}
+      {'icon': Icons.notifications_none_outlined, 'label': 'Meetings', 'description': 'Faculty meetings'},
+      {'icon': Icons.assignment_outlined, 'label': 'Mark Attendance', 'description': 'Record student attendance'},
+      {'icon': Icons.history_outlined, 'label': 'Attendance History', 'description': 'View attendance records'},
     ];
 
     final quickAccessItems = [
-      {'icon': Icons.calendar_today_outlined, 'label': 'Timetable', 'color': Colors.blue},
-      {'icon': Icons.group_outlined, 'label': 'Mentees', 'color': Colors.purple},
-      {'icon': Icons.attach_money, 'label': 'Payroll', 'color': Colors.green},
-      {'icon': Icons.description_outlined, 'label': 'Leave', 'color': Colors.orange}
+      {'icon': Icons.assignment_outlined, 'label': 'Mark Attendance', 'color': Colors.red, 'route': '/faculty/mark-attendance'},
+      {'icon': Icons.history_outlined, 'label': 'History', 'color': Colors.blue, 'route': '/faculty/attendance-history'},
+      {'icon': Icons.group_outlined, 'label': 'Mentees', 'color': Colors.purple, 'route': null},
+      {'icon': Icons.attach_money, 'label': 'Payroll', 'color': Colors.green, 'route': null}
     ];
 
     final scheduleItems = [
@@ -84,7 +72,10 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
           IconButton(
             icon: const Icon(Icons.logout, color: Color(0xFF1E293B)),
             onPressed: () async {
+              final router = GoRouter.of(context);
+              await SessionManager.clearSession();
               await AuthService.logout();
+              router.go('/login');
             },
           ),
         ],
@@ -112,6 +103,11 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                 subtitle: Text(item['description'] as String),
                 onTap: () {
                   Navigator.pop(context);
+                  if (item['label'] == 'Mark Attendance') {
+                    context.push('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/faculty/mark-attendance');
+                  } else if (item['label'] == 'Attendance History') {
+                    context.push('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/faculty/attendance-history');
+                  }
                 },
               ),
           ],
@@ -143,7 +139,13 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
               itemCount: quickAccessItems.length,
               itemBuilder: (context, index) {
                 final item = quickAccessItems[index];
-                return _buildQuickAccessCard(item['icon'] as IconData, item['label'] as String, item['color'] as Color);
+                return _buildQuickAccessCard(
+                  item['icon'] as IconData,
+                  item['label'] as String,
+                  item['color'] as Color,
+                  item['route'] as String?,
+                  context,
+                );
               },
             ),
             const SizedBox(height: 24),
@@ -176,98 +178,90 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.location_on_outlined, color: Colors.white, size: 28),
-                ),
-                const SizedBox(width: 12),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Attendance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                    Text('Location-based verification', style: TextStyle(color: Colors.grey)),
-                  ],
-                ),
-                const Spacer(),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('95%', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                    Text('This month', style: TextStyle(color: Colors.grey)),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _isAttendanceLoggedIn ? _buildLoggedInView() : _buildLoggedOutView(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoggedOutView() {
-    return ElevatedButton.icon(
-      onPressed: _handleAttendanceLogin,
-      icon: const Icon(Icons.access_time_outlined, color: Colors.white),
-      label: const Text('Login Attendance', style: TextStyle(color: Colors.white)),
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 50),
-        backgroundColor: const Color(0xFF1E293B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  Widget _buildLoggedInView() {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.green.shade50,
-            border: Border.all(color: Colors.green.shade200),
-            borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade600, Colors.blue.shade400],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
             children: [
-              const Text('Logged In', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-              Text(_attendanceTime ?? '', style: const TextStyle(color: Colors.green)),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.assignment_outlined, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Attendance Management', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text('Mark and view student attendance', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => context.push('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/faculty/mark-attendance'),
+                      icon: const Icon(Icons.assignment),
+                      label: const Text('Mark'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.blue.shade600,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => context.push('/${GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId']}/faculty/attendance-history'),
+                      icon: const Icon(Icons.history),
+                      label: const Text('History'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.blue.shade600,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
-        ElevatedButton.icon(
-          onPressed: _handleAttendanceLogout,
-          icon: const Icon(Icons.logout, color: Color(0xFF1E293B)),
-          label: const Text('Logout Attendance', style: TextStyle(color: Color(0xFF1E293B))),
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 50),
-            backgroundColor: Colors.grey.shade200,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildQuickAccessCard(IconData icon, String label, Color color) {
+  Widget _buildQuickAccessCard(IconData icon, String label, Color color, String? route, BuildContext context) {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: () {},
+        onTap: () {
+          if (route != null) {
+            context.push(route);
+          }
+        },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16.0),

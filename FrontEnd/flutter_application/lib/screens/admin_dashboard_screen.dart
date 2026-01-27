@@ -1,5 +1,7 @@
 import 'dart:typed_data'; // Import for Uint8List
 import 'package:flutter/material.dart';
+import 'package:flutter_application/services/session_manager.dart';
+import 'package:go_router/go_router.dart';
 import '../services/image_service.dart'; // Import the new image service
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
@@ -21,13 +23,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _phoneController = TextEditingController();
   final _semController = TextEditingController();
   final _mentorController = TextEditingController();
+  final _programmeController = TextEditingController();
+  final _schoolController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _dobController = TextEditingController();
+  final _bloodGroupController = TextEditingController();
+  final _emergencyContactController = TextEditingController();  
+  final _validUptoController = TextEditingController();
+
   String? _selectedRole = 'student';
   bool _isLoading = false;
-  Uint8List? _pickedImageBytes; // New variable for the picked image bytes
+  Uint8List? _pickedImageBytes;
   String? _photoUrl;
+  String? _institutionId;
 
   final ApiService _apiService = ApiService();
-  final ImageService _imageService = ImageService(); // Instantiate the service
+  final ImageService _imageService = ImageService();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchInstitutionId();
+  }
+
+  Future<void> _fetchInstitutionId() async {
+    final institutionId = await SessionManager.getInstitutionId();
+    setState(() {
+      _institutionId = institutionId;
+    });
+  }
 
   @override
   void dispose() {
@@ -39,10 +63,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _phoneController.dispose();
     _semController.dispose();
     _mentorController.dispose();
+    _programmeController.dispose();
+    _schoolController.dispose();
+    _addressController.dispose();
+    _dobController.dispose();
+    _bloodGroupController.dispose();
+    _emergencyContactController.dispose();
+    _validUptoController.dispose();
     super.dispose();
   }
 
-  // Method to pick and upload image using the service
   Future<void> _pickAndUploadImage() async {
     final result = await _imageService.pickAndUploadImage();
 
@@ -65,11 +95,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showAddUserDialog() {
-    // A stateful builder is used to manage the state of the role selection inside the dialog
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        String? selectedRole = _selectedRole; // Initialize with the class-level variable
+        String? selectedRole = _selectedRole;
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
@@ -88,7 +117,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Profile Picture Placeholder
                       Center(
                         child: Stack(
                           children: [
@@ -109,9 +137,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 child: IconButton(
                                   icon: const Icon(Icons.camera_alt_outlined, color: Colors.white, size: 18),
                                   onPressed: () async {
-                                    Navigator.of(context).pop(); // Dismiss current dialog to show image picker
+                                    Navigator.of(context).pop();
                                     await _pickAndUploadImage();
-                                    _showAddUserDialog(); // Re-show dialog after image picking
+                                    _showAddUserDialog();
                                   },
                                 ),
                               ),
@@ -121,34 +149,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                       const SizedBox(height: 24),
                       
-                      // Role Dropdown
                       DropdownButtonFormField<String>(
                         value: selectedRole,
                         decoration: _inputDecoration('Role', Icons.school_outlined),
                         items: ['student', 'faculty', 'admin'].map((String role) {
                           return DropdownMenuItem<String>(
                             value: role,
-                            child: Text(role.substring(0, 1).toUpperCase() + role.substring(1)), // Capitalize first letter
+                            child: Text(role.substring(0, 1).toUpperCase() + role.substring(1)),
                           );
                         }).toList(),
                         onChanged: (newValue) {
                           setDialogState(() {
                             selectedRole = newValue;
-                            _selectedRole = newValue; // Update the class-level variable as well
+                            _selectedRole = newValue;
                           });
                         },
                         validator: (value) => value == null ? 'Please select a role' : null,
                       ),
                       const SizedBox(height: 16),
 
-                      // User Fields
                       _buildTextField(_displayNameController, 'Display Name', Icons.badge_outlined),
                       const SizedBox(height: 16),
                       _buildTextField(_emailController, 'Email', Icons.email_outlined),
                       const SizedBox(height: 16),
                       _buildTextField(_passwordController, 'Password', Icons.lock_outline, obscureText: true),
                       
-                      // Role-specific fields
                       if (selectedRole == 'student') ...[
                         const SizedBox(height: 16),
                         _buildTextField(_nameController, 'Full Name', Icons.person_outline),
@@ -164,6 +189,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Expanded(child: _buildTextField(_mentorController, 'Mentor Name', Icons.supervisor_account_outlined)),
                           ],
                         ),
+                        const SizedBox(height: 16),
+                        _buildTextField(_programmeController, 'Programme', Icons.class_outlined),
+                        const SizedBox(height: 16),
+                        _buildTextField(_schoolController, 'School', Icons.school_outlined),
+                        const SizedBox(height: 16),
+                        _buildTextField(_addressController, 'Address', Icons.home_outlined),
+                        const SizedBox(height: 16),
+                        _buildTextField(_dobController, 'Date of Birth', Icons.cake_outlined),
+                        const SizedBox(height: 16),
+                        _buildTextField(_bloodGroupController, 'Blood Group', Icons.bloodtype_outlined),
+                        const SizedBox(height: 16),
+                        _buildTextField(_emergencyContactController, 'Emergency Contact', Icons.contact_phone_outlined),
+                        const SizedBox(height: 16),
+                        _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_outlined),
                       ],
                     ],
                   ),
@@ -196,7 +235,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // Helper method to create styled text fields
   Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool obscureText = false}) {
     return TextFormField(
       controller: controller,
@@ -217,7 +255,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // Helper method for input decoration
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
@@ -241,6 +278,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _handleCreateUser() async {
     if (_formKey.currentState!.validate()) {
+      if (_institutionId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not determine institution. Please log in again.'), backgroundColor: Colors.red),
+        );
+        return;
+      }
       setState(() {
         _isLoading = true;
       });
@@ -251,15 +294,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           password: _passwordController.text,
           displayName: _displayNameController.text,
           role: _selectedRole!,
+          institutionId: _institutionId!,
           name: _nameController.text,
           usn: _usnController.text,
           phone: _phoneController.text,
           sem: _semController.text,
           mentorName: _mentorController.text,
-          photoUrl: _photoUrl, // Pass the photo URL
+          photoUrl: _photoUrl,
+          programme: _programmeController.text,
+          school: _schoolController.text,
+          address: _addressController.text,
+          dob: _dobController.text,
+          bloodGroup: _bloodGroupController.text,
+          emergencyContact: _emergencyContactController.text,
+          validUpto: _validUptoController.text,
         );
 
-        if (!mounted) return; // Guard the context usage
+        if (!mounted) return;
 
         if (response.statusCode == 200) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -273,12 +324,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           );
         }
       } catch (e) {
-        if (!mounted) return; // Guard the context usage
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red),
         );
       } finally {
-        // We need to check if the widget is still in the tree before calling setState
         if (mounted) {
           setState(() {
             _isLoading = false;
@@ -292,13 +342,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _displayNameController.clear();
     _emailController.clear();
     _passwordController.clear();
+    _nameController.clear();
+    _usnController.clear();
+    _phoneController.clear();
+    _semController.clear();
+    _mentorController.clear();
+    _programmeController.clear();
+    _schoolController.clear();
+    _addressController.clear();
+    _dobController.clear();
+    _bloodGroupController.clear();
+    _emergencyContactController.clear();
+    _validUptoController.clear();
     setState(() {
       _selectedRole = 'student';
-      _pickedImageBytes = null; // Clear picked image bytes
-      _photoUrl = null; // Clear photo URL
+      _pickedImageBytes = null;
+      _photoUrl = null;
     });
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -359,7 +420,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           IconButton(
             icon: const Icon(Icons.logout, color: Color(0xFF1E293B)),
             onPressed: () async {
+              final router = GoRouter.of(context);
+              await SessionManager.clearSession();
               await AuthService.logout();
+              router.go('/login');
             },
           ),
         ],

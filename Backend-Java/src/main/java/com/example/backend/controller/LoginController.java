@@ -13,6 +13,7 @@ public class LoginController {
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest loginRequest) {
+        System.out.println("Logging in user: " + loginRequest.getUsername() + " for institution: " + loginRequest.getInstitutionId());
         if ("test".equals(loginRequest.getUsername()) && "password".equals(loginRequest.getPassword())) {
             return ResponseEntity.ok(new LoginResponse("Login successful"));
         } else {
