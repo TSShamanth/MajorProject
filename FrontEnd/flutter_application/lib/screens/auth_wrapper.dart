@@ -19,20 +19,21 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<void> _redirectUser() async {
-    // Wait for the widget to be fully initialized before using context.
+    // Wait a short moment to ensure the widget is built before navigating.
     await Future.delayed(Duration.zero);
     if (!mounted) return;
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       // If no user is logged in, send to the login page.
-      // This is a fallback, as the main GoRouter redirect should handle this.
-      context.go('/login');
+      if (mounted) context.go('/login');
       return;
     }
 
     try {
       final institutionId = await SessionManager.getInstitutionId();
+      if (!mounted) return; // Check again after await
+
       if (institutionId == null) {
         // If there's no institutionId in the session, the user needs
         // to log in again to select their institution.
@@ -41,6 +42,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       }
 
       final role = await AuthService.getRole(user.uid, institutionId);
+      if (!mounted) return; // Check again after await
 
       final path = switch (role) {
         'admin' => '/$institutionId/admin/dashboard',
@@ -49,9 +51,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         _ => '/login', // Default to login if role is unknown or invalid
       };
 
-      if (mounted) {
-        context.go(path);
-      }
+      context.go(path);
     } catch (e) {
       // In case of any error fetching role or institution, it's safest
       // to send the user back to the login page.
