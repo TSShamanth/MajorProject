@@ -48,6 +48,17 @@ class AuthService {
     debugPrint("✅ User signed out successfully");
   }
 
+  static Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      debugPrint("✅ Password reset email sent successfully to $email");
+    } catch (e) {
+      debugPrint("❌ ERROR sending password reset email: $e");
+      // Re-throw the exception to be handled by the UI.
+      rethrow;
+    }
+  }
+
   static Future<String> getRole(String uid, String institutionId) async {
     try {
       debugPrint("Fetching user role from Firestore for UID: $uid in institution: $institutionId");
