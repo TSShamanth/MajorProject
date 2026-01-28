@@ -129,6 +129,63 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     }
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    debugPrint('Google Sign-In button pressed');
+    if (_selectedInstitution == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please select an institution before using Google Sign-In.'),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await AuthService.signInWithGoogleForExistingUser(_selectedInstitution!.id);
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    switch (result) {
+      case 'success':
+        // The auth state change will trigger the redirect via GoRouter's logic.
+        // No explicit navigation is needed here.
+        debugPrint('Google Sign-In successful. Auth state changed.');
+        break;
+      case 'not-found':
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Text('No account found for this Google user. Please use a registered account.'),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+        break;
+      case 'none':
+      default:
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Text('Google Sign-In failed or was cancelled. Please try again.'),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+        break;
+    }
+  }
+
   Future<void> _showForgotPasswordDialog() async {
     final emailController = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -890,9 +947,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         border: Border.all(color: Colors.grey.shade300, width: 1.5),
       ),
       child: OutlinedButton.icon(
-        onPressed: () {
-          // TODO: Implement Google Sign-in
-        },
+        onPressed: _isLoading ? null : _handleGoogleSignIn,
         icon: SvgPicture.asset(
           'assets/images/google_logo.svg',
           height: 22,
