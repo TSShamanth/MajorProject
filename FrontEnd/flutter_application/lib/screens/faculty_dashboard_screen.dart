@@ -259,7 +259,13 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
       child: InkWell(
         onTap: () {
           if (route != null) {
-            context.push(route);
+            final institutionId = GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId'];
+            if (institutionId != null) {
+              context.push('/$institutionId$route');
+            } else {
+              // Handle case where institutionId is not available
+              debugPrint('Institution ID not found for navigation.');
+            }
           }
         },
         borderRadius: BorderRadius.circular(16),
