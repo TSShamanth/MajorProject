@@ -1,14 +1,24 @@
 package com.example.backend.service;
 
 import com.example.backend.dto.CreateUserRequest;
+import com.google.api.core.ApiFuture;
+import com.google.cloud.firestore.CollectionReference;
+import com.google.cloud.firestore.DocumentReference;
+import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.Query;
+import com.google.cloud.firestore.QueryDocumentSnapshot;
+import com.google.cloud.firestore.QuerySnapshot;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.UserRecord;
 import com.google.firebase.cloud.FirestoreClient;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 @Service
 public class UserService {
@@ -53,5 +63,47 @@ public class UserService {
         db.collection("Institutions").document(createUserRequest.getInstitutionId()).collection("users").document(uid).set(user).get();
 
         return userRecord;
+    }
+
+    public List<Map<String, Object>> getUsers(String institutionId, String role) throws ExecutionException, InterruptedException {
+        Firestore db = FirestoreClient.getFirestore();
+        CollectionReference usersCollection = db.collection("Institutions").document(institutionId).collection("users");
+        Query query = usersCollection;
+
+        if (role != null && !role.isEmpty()) {
+            query = query.whereEqualTo("role", role);
+        }
+
+        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+        List<Map<String, Object>> users = new ArrayList<>();
+        for (QueryDocumentSnapshot document : documents) {
+            Map<String, Object> userData = document.getData();
+            userData.put("uid", document.getId()); // Add UID to the map
+            users.add(userData);
+        }
+        return users;
+    }
+
+    public Map<String, Object> getUserById(String institutionId, String uid) throws ExecutionException, InterruptedException {
+        Firestore db = FirestoreClient.getFirestore();
+        DocumentReference userDocRef = db.collection("Institutions").document(institutionId).collection("users").document(uid);
+        ApiFuture<DocumentSnapshot> documentSnapshot = userDocRef.get();
+        DocumentSnapshot document = documentSnapshot.get();
+
+        if (document.exists()) {
+            Map<String, Object> userData = document.getData();
+            userData.put("uid", document.getId()); // Add UID to the map
+            return userData;
+        } else {
+            return null; // User not found
+        }
+    }
+
+    public void updateUser(String institutionId, String uid, Map<String, Object> updates) throws ExecutionException, InterruptedException {
+        Firestore db = FirestoreClient.getFirestore();
+        DocumentReference userDocRef = db.collection("Institutions").document(institutionId).collection("users").document(uid);
+        userDocRef.update(updates).get();
     }
 }

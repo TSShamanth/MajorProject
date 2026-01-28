@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application/models/user_model.dart';
+import 'package:flutter_application/screens/user_list_screen.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/admin_dashboard_screen.dart';
 import '../screens/auth_wrapper.dart';
@@ -12,6 +14,8 @@ import '../screens/student/edit_profile_screen.dart';
 import '../screens/student/virtual_id_screen.dart';
 import '../screens/mark_attendance_screen.dart';
 import '../screens/attendance_history_screen.dart';
+import '../screens/user_details_screen.dart'; // Import the new screen
+import '../screens/edit_user_details_screen.dart'; // Import the new screen
 import '../screens/student_attendance_screen.dart';
 
 final router = GoRouter(
@@ -50,6 +54,28 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/admin/dashboard',
       builder: (context, state) => const AdminDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/users/:role',
+      builder: (context, state) {
+        final role = state.pathParameters['role']!;
+        // UserListScreen will be refactored to fetch its own data
+        return UserListScreen(role: role);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/users/details/:uid',
+      builder: (context, state) {
+        final uid = state.pathParameters['uid']!;
+        return UserDetailsScreen(uid: uid);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/users/edit/:uid',
+      builder: (context, state) {
+        final user = state.extra as UserModel;
+        return EditUserDetailsScreen(user: user);
+      },
     ),
     GoRoute(
       path: '/:institutionId/faculty/dashboard',

@@ -36,6 +36,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Uint8List? _pickedImageBytes;
   String? _photoUrl;
   String? _institutionId;
+  int _studentCount = 0;
+  int _facultyCount = 0;
+  int _adminCount = 0;
 
   final ApiService _apiService = ApiService();
   final ImageService _imageService = ImageService();
@@ -43,7 +46,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchInstitutionId();
+    _fetchInstitutionId().then((_) {
+      if (_institutionId != null) {
+        _fetchUsersAndCounts();
+      }
+    });
   }
 
   Future<void> _fetchInstitutionId() async {
@@ -51,6 +58,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     setState(() {
       _institutionId = institutionId;
     });
+  }
+
+  Future<void> _fetchUsersAndCounts() async {
+    if (_institutionId == null) return;
+    try {
+      final users = await _apiService.getUsers(_institutionId!);
+      debugPrint('Fetched users count: ${users.length}'); // Debug print
+      int studentCount = 0;
+      int facultyCount = 0;
+      int adminCount = 0; // New admin counter
+      for (var user in users) {
+        debugPrint('User role: ${user.role}'); // Debug print
+        if (user.role == 'student') {
+          studentCount++;
+        } else if (user.role == 'faculty') {
+          facultyCount++;
+        } else if (user.role == 'admin') { // Count admins
+          adminCount++;
+        }
+      }
+      setState(() {
+        _studentCount = studentCount;
+        _facultyCount = facultyCount;
+        _adminCount = adminCount; // Update admin count
+      });
+    } catch (e) {
+      // Handle error
+      debugPrint('Error fetching users and counts: $e'); // Debug print
+    }
   }
 
   @override
@@ -375,8 +411,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     ];
 
     final stats = [
-      {'label': 'Total Students', 'value': '1,248', 'change': '+12%', 'color': Colors.blue},
-      {'label': 'Total Faculty', 'value': '84', 'change': '+3%', 'color': Colors.purple},
+      {'label': 'Total Students', 'value': _studentCount.toString(), 'change': '+12%', 'color': Colors.blue},
+      {'label': 'Total Faculty', 'value': _facultyCount.toString(), 'change': '+3%', 'color': Colors.purple},
       {'label': 'Avg Attendance', 'value': '87%', 'change': '+2%', 'color': Colors.green},
       {'label': 'Active Placements', 'value': '15', 'change': '+5', 'color': Colors.orange}
     ];
@@ -592,41 +628,85 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            _buildUserTypeTile('Students', '1,248', 'Active accounts', Colors.blue),
+            _buildUserTypeTile(
+              'Students', 
+              _studentCount.toString(), 
+              'Active accounts', 
+              Colors.blue,
+              onTap: () {
+                if (_institutionId != null) {
+                  final path = '/$_institutionId/admin/users/student';
+                  debugPrint('Navigating to: $path'); // Debug print
+                  context.go(path);
+                } else {
+                  debugPrint('Institution ID is null, cannot navigate.'); // Debug print
+                }
+              },
+            ),
             const SizedBox(height: 8),
-            _buildUserTypeTile('Faculty', '84', 'Active accounts', Colors.purple),
+            _buildUserTypeTile(
+              'Faculty', 
+              _facultyCount.toString(), 
+              'Active accounts', 
+              Colors.purple,
+              onTap: () {
+                if (_institutionId != null) {
+                  final path = '/$_institutionId/admin/users/faculty';
+                  debugPrint('Navigating to: $path'); // Debug print
+                  context.go(path);
+                } else {
+                  debugPrint('Institution ID is null, cannot navigate.'); // Debug print
+                }
+              },
+            ),
             const SizedBox(height: 8),
-            _buildUserTypeTile('Admins', '3', 'System administrators', Colors.grey),
+            _buildUserTypeTile(
+              'Admins', 
+              _adminCount.toString(), 
+              'System administrators', 
+              Colors.grey,
+              onTap: () {
+                if (_institutionId != null) {
+                  final path = '/$_institutionId/admin/users/admin';
+                  debugPrint('Navigating to: $path'); // Debug print
+                  context.go(path);
+                } else {
+                  debugPrint('Institution ID is null, cannot navigate.'); // Debug print
+                }
+              },
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildUserTypeTile(String title, String count, String subtitle, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-              Text(subtitle, style: TextStyle(color: color.withOpacity(0.8), fontSize: 12)),
-            ],
-          ),
-          Text(count, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
-        ],
+  Widget _buildUserTypeTile(String title, String count, String subtitle, Color color, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+                Text(subtitle, style: TextStyle(color: color.withOpacity(0.8), fontSize: 12)),
+              ],
+            ),
+            Text(count, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
       ),
     );
   }
-
   Widget _buildAttendanceAnalyticsCard() {
     return Card(
       elevation: 1,
