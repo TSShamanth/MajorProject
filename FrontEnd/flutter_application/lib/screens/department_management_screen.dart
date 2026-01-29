@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_application/models/department_assets_model.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:flutter_application/services/api_service.dart';
 import 'package:http/http.dart' as http;
@@ -25,10 +26,10 @@ class DepartmentManagementScreen extends StatefulWidget {
 
 class _DepartmentManagementScreenState
     extends State<DepartmentManagementScreen> {
-  late Future<List<dynamic>> _itemsFuture;
+  late Future<DepartmentAssets> _assetsFuture;
+  String? _departmentId;
   List<UserModel> _faculty = [];
   List<UserModel> _students = [];
-  String? _departmentId;
 
   @override
   void initState() {
@@ -39,8 +40,9 @@ class _DepartmentManagementScreenState
   Future<void> _initialize() async {
     await _fetchDepartmentId();
     if (_departmentId != null) {
-      _itemsFuture = _fetchData();
-      _fetchUsers();
+      setState(() {
+        _assetsFuture = _fetchDepartmentAssets();
+      });
     }
   }
 
@@ -61,50 +63,107 @@ class _DepartmentManagementScreenState
       }
     }
   }
-  
-  Future<List<dynamic>> _fetchData() async {
-    if (_departmentId == null) return [];
-    final institutionId = await SessionManager.getInstitutionId();
-    if (institutionId == null) return [];
 
-    switch (widget.assetType) {
-      case 'Courses':
-        final response = await http.get(Uri.parse(
-            '${ApiConfig.baseUrl}/$institutionId/api/departments/$_departmentId/courses'));
-        if (response.statusCode == 200) {
-          final List<dynamic> courses = json.decode(response.body);
-          return courses.map((c) => Course.fromJson(c)).toList();
-        } else {
-          throw Exception('Failed to load courses');
-        }
-      // Add cases for Faculty and Students later
-      default:
-        return [];
+  Future<DepartmentAssets> _fetchDepartmentAssets() async {
+    if (_departmentId == null) {
+      throw Exception('Department ID not found');
     }
-  }
-
-  Future<void> _fetchUsers() async {
     final institutionId = await SessionManager.getInstitutionId();
-    if (institutionId == null) return;
-    
+    if (institutionId == null) {
+      throw Exception('Institution ID not found');
+    }
+
     final apiService = ApiService();
-    try {
-      final users = await apiService.getUsers(institutionId);
-      setState(() {
-        _faculty = users.where((user) => user.role == 'faculty').toList();
-        _students = users.where((user) => user.role == 'student').toList();
-      });
-    } catch (e) {
-      // Handle error
+    final coursesFuture = http.get(Uri.parse(
+        '${ApiConfig.baseUrl}/$institutionId/api/departments/$_departmentId/courses'));
+    final usersFuture = apiService.getUsers(institutionId);
+
+    final responses = await Future.wait([coursesFuture, usersFuture]);
+
+    final coursesResponse = responses[0] as http.Response;
+    final users = responses[1] as List<UserModel>;
+
+    if (coursesResponse.statusCode == 200) {
+      final List<dynamic> coursesJson = json.decode(coursesResponse.body);
+      final courses = coursesJson.map((c) => Course.fromJson(c)).toList();
+      final faculty = users.where((user) => user.role == 'faculty').toList();
+      final students = users.where((user) => user.role == 'student').toList();
+
+      _faculty = faculty;
+      _students = students;
+
+      return DepartmentAssets(
+          courses: courses, faculty: faculty, students: students);
+    } else {
+      throw Exception('Failed to load department assets');
     }
   }
-
+  
   void _addItem() {
     if (widget.assetType == 'Courses') {
       _showAddCourseDialog();
+    } else if (widget.assetType == 'Faculty' || widget.assetType == 'Students') {
+      _showAddUserDialog();
     }
-    // Handle other asset types later
   }
+
+  void _showAddUserDialog({UserModel? user}) {
+    final displayNameController = TextEditingController(text: user?.displayName);
+    final emailController = TextEditingController(text: user?.email);
+    final passwordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(user == null ? 'Add New ${widget.assetType.singular}' : 'Edit ${widget.assetType.singular}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: displayNameController, decoration: const InputDecoration(labelText: 'Display Name')),
+              TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
+              if (user == null) TextField(controller: passwordController, decoration: const InputDecoration(labelText: 'Password'), obscureText: true),
+            ],
+          ),
+          actions: [
+            TextButton(child: const Text('Cancel'), onPressed: () => Navigator.of(context).pop()),
+            ElevatedButton(
+              child: Text(user == null ? 'Add' : 'Save'),
+              onPressed: () async {
+                if (displayNameController.text.isNotEmpty && emailController.text.isNotEmpty && (user != null || passwordController.text.isNotEmpty)) {
+                  final institutionId = await SessionManager.getInstitutionId();
+                  if (institutionId == null) return;
+                  
+                  final apiService = ApiService();
+                  try {
+                    if (user == null) {
+                      await apiService.createUser(
+                        email: emailController.text,
+                        password: passwordController.text,
+                        displayName: displayNameController.text,
+                        role: widget.assetType.toLowerCase().singular,
+                        institutionId: institutionId,
+                      );
+                    } else {
+                      // Update user logic here
+                    }
+                    if (!context.mounted) return;
+                    Navigator.of(context).pop();
+                    setState(() {
+                      _assetsFuture = _fetchDepartmentAssets();
+                    });
+                  } catch (e) {
+                    // handle error
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   void _showAddCourseDialog({Course? course}) {
     final courseCodeController = TextEditingController(text: course?.courseCode);
@@ -201,7 +260,7 @@ class _DepartmentManagementScreenState
                       if (response.statusCode == 200) {
                         if (!context.mounted) return;
                         Navigator.of(context).pop();
-                        setState(() => _itemsFuture = _fetchData());
+                        setState(() => _assetsFuture = _fetchDepartmentAssets());
                       } else {
                         // Handle error
                       }
@@ -216,36 +275,129 @@ class _DepartmentManagementScreenState
     );
   }
 
-  void _editItem(dynamic item) {
+  void _editItem(dynamic item, DepartmentAssets assets) {
     if (widget.assetType == 'Courses' && item is Course) {
       _showAddCourseDialog(course: item);
+    } else if ((widget.assetType == 'Faculty' || widget.assetType == 'Students') && item is UserModel) {
+      _showCourseAssignmentDialog(user: item, allCourses: assets.courses);
     }
   }
 
+  void _showCourseAssignmentDialog({required UserModel user, required List<Course> allCourses}) {
+    List<String> selectedCourseCodes = [];
+    if (user.role == 'faculty') {
+      selectedCourseCodes = allCourses.where((c) => c.facultyUid == user.uid).map((c) => c.courseCode).toList();
+    } else if (user.role == 'student') {
+      selectedCourseCodes = allCourses.where((c) => c.studentsEnrolled.contains(user.uid)).map((c) => c.courseCode).toList();
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Assign Courses to ${user.displayName}'),
+              content: SingleChildScrollView(
+                child: ListBody(
+                  children: allCourses.map((course) {
+                    return CheckboxListTile(
+                      title: Text(course.courseName),
+                      value: selectedCourseCodes.contains(course.courseCode),
+                      onChanged: (bool? value) {
+                        setDialogState(() {
+                          if (value == true) {
+                            selectedCourseCodes.add(course.courseCode);
+                          } else {
+                            selectedCourseCodes.remove(course.courseCode);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(child: const Text('Cancel'), onPressed: () => Navigator.of(context).pop()),
+                ElevatedButton(
+                  child: const Text('Save'),
+                  onPressed: () async {
+                    final institutionId = await SessionManager.getInstitutionId();
+                    if (institutionId == null || _departmentId == null) return;
+
+                    final role = user.role == 'faculty' ? 'faculty' : 'student';
+                    final url = '${ApiConfig.baseUrl}/$institutionId/api/departments/$_departmentId/courses/$role/${user.uid}/courses';
+                    
+                    final response = await http.put(
+                      Uri.parse(url),
+                      headers: {'Content-Type': 'application/json'},
+                      body: json.encode(selectedCourseCodes),
+                    );
+
+                    if (response.statusCode == 200) {
+                      if (!context.mounted) return;
+                      Navigator.of(context).pop();
+                      setState(() {
+                        _assetsFuture = _fetchDepartmentAssets();
+                      });
+                    } else {
+                      // Handle error
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _deleteItem(dynamic item) {
+    String itemName = '';
+    String actionText = 'Delete';
+    if (item is Course) {
+      itemName = item.courseName;
+    } else if (item is UserModel) {
+      itemName = item.displayName;
+      actionText = 'Unassign';
+    }
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Delete ${widget.assetType.singular}?'),
-          content: Text('Are you sure you want to delete "${(item as Course).courseName}"?'),
+          title: Text('$actionText ${widget.assetType.singular}?'),
+          content: Text('Are you sure you want to $actionText "$itemName"?'),
           actions: [
             TextButton(child: const Text('Cancel'), onPressed: () => Navigator.of(context).pop()),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Delete'),
+              child: Text(actionText),
               onPressed: () async {
                 final institutionId = await SessionManager.getInstitutionId();
-                if (institutionId == null || _departmentId == null) return;
+                if (institutionId == null) return;
                 
-                final url = '${ApiConfig.baseUrl}/$institutionId/api/departments/$_departmentId/courses/${item.courseCode}';
-                final response = await http.delete(Uri.parse(url));
+                try {
+                  if (item is Course) {
+                    final url = '${ApiConfig.baseUrl}/$institutionId/api/departments/$_departmentId/courses/${item.courseCode}';
+                    await http.delete(Uri.parse(url));
+                  } else if (item is UserModel) {
+                    if (widget.assetType == 'Faculty') {
+                      final url = '${ApiConfig.baseUrl}/$institutionId/api/departments/$_departmentId/courses/faculty/${item.uid}';
+                      await http.delete(Uri.parse(url));
+                    } else if (widget.assetType == 'Students') {
+                      final url = '${ApiConfig.baseUrl}/$institutionId/api/departments/$_departmentId/courses/student/${item.uid}';
+                      await http.delete(Uri.parse(url));
+                    }
+                  }
 
-                if (response.statusCode == 200) {
                   if (!context.mounted) return;
                   Navigator.of(context).pop();
-                  setState(() => _itemsFuture = _fetchData());
-                } else {
+                  setState(() {
+                    _assetsFuture = _fetchDepartmentAssets();
+                  });
+                } catch (e) {
                   // handle error
                 }
               },
@@ -264,14 +416,14 @@ class _DepartmentManagementScreenState
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
       ),
-      body: FutureBuilder<List<dynamic>>(
-        future: _itemsFuture,
+      body: FutureBuilder<DepartmentAssets>(
+        future: _assetsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          } else if (!snapshot.hasData) {
             return Center(
               child: Text(
                 'No ${widget.assetType.toLowerCase()} found.\nAdd one to get started!',
@@ -281,7 +433,19 @@ class _DepartmentManagementScreenState
             );
           }
 
-          final items = snapshot.data!;
+          final assets = snapshot.data!;
+          final items = widget.assetType == 'Courses' ? assets.courses : (widget.assetType == 'Faculty' ? assets.faculty : assets.students);
+
+          if (items.isEmpty) {
+             return Center(
+              child: Text(
+                'No ${widget.assetType.toLowerCase()} found.\nAdd one to get started!',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            );
+          }
+
           return ListView.builder(
             padding: const EdgeInsets.all(8.0),
             itemCount: items.length,
@@ -292,9 +456,15 @@ class _DepartmentManagementScreenState
 
               if (widget.assetType == 'Courses' && item is Course) {
                 title = item.courseName;
-                subtitle = 'Code: ${item.courseCode} | Students: ${item.studentsEnrolled.length} | Faculty: ${_faculty.firstWhere((f) => f.uid == item.facultyUid, orElse: () => UserModel(uid: '', email: '', displayName: 'N/A', role: '')).displayName}';
+                final facultyName = assets.faculty.firstWhere((f) => f.uid == item.facultyUid, orElse: () => UserModel(uid: '', email: '', displayName: 'N/A', role: '')).displayName;
+                subtitle = 'Code: ${item.courseCode} | Students: ${item.studentsEnrolled.length} | Faculty: $facultyName';
+              } else if (widget.assetType == 'Faculty' && item is UserModel) {
+                title = item.displayName;
+                subtitle = _getUserCourseInfo(item, assets.courses);
+              } else if (widget.assetType == 'Students' && item is UserModel) {
+                title = item.displayName;
+                subtitle = _getUserCourseInfo(item, assets.courses);
               }
-              // Add other asset types later
 
               return Card(
                 elevation: 2,
@@ -308,7 +478,7 @@ class _DepartmentManagementScreenState
                     children: [
                       IconButton(
                         icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-                        onPressed: () => _editItem(item),
+                        onPressed: () => _editItem(item, assets),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline, color: Colors.red),
@@ -327,6 +497,26 @@ class _DepartmentManagementScreenState
         child: const Icon(Icons.add),
       ),
     );
+  }
+
+  String _getUserCourseInfo(UserModel user, List<Course> courses) {
+    if (user.role == 'faculty') {
+      final assignedCourses = courses.where((c) => c.facultyUid == user.uid).toList();
+      if (assignedCourses.isEmpty) {
+        return 'Not assigned to any courses.';
+      }
+      final courseCodes = assignedCourses.map((c) => c.courseCode).join(', ');
+      final totalClasses = assignedCourses.fold<int>(0, (prev, course) => prev + (int.tryParse(course.totalClasses) ?? 0));
+      return 'Courses: $courseCodes | Total Classes: $totalClasses';
+    } else if (user.role == 'student') {
+      final enrolledCourses = courses.where((c) => c.studentsEnrolled.contains(user.uid)).toList();
+      if (enrolledCourses.isEmpty) {
+        return 'Not enrolled in any courses.';
+      }
+      final courseCodes = enrolledCourses.map((c) => c.courseCode).join(', ');
+      return 'Courses: $courseCodes';
+    }
+    return '';
   }
 }
 

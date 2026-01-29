@@ -73,4 +73,14 @@ public class CourseController {
             return ResponseEntity.status(500).build();
         }
     }
+
+    @DeleteMapping("/faculty/{facultyId}")
+    public ResponseEntity<Void> unassignFaculty(@PathVariable String institutionId, @PathVariable String departmentId, @PathVariable String facultyId) {
+        try {
+            courseService.unassignFaculty(institutionId, departmentId, facultyId);
+            return ResponseEntity.ok().build();
+        } catch (ExecutionException | InterruptedException e) {
+            return ResponseEntity.status(500).build();
+        }
+    }
 }
