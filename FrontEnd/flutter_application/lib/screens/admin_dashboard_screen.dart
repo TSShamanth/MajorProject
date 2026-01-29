@@ -419,7 +419,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     final quickActions = [
       {'icon': Icons.person_add_alt_1_outlined, 'label': 'Add User', 'color': Colors.blue, 'action': _showAddUserDialog},
-      {'icon': Icons.business_outlined, 'label': 'Institution Setup', 'color': Colors.purple, 'action': () {}},
+      {'icon': Icons.business_outlined, 'label': 'Institution Setup', 'color': Colors.purple, 'action': () {
+        if (_institutionId != null) { 
+          context.go('/$_institutionId/admin/institution-settings');
+        }
+      }},
       {'icon': Icons.business_center_outlined, 'label': 'New Placement', 'color': Colors.green, 'action': () {}},
       {'icon': Icons.calendar_today_outlined, 'label': 'Add Holiday', 'color': Colors.orange, 'action': () {}}
     ];

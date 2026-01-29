@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_application/services/session_manager.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../models/department_model.dart';
+import '../config/api_config.dart';
 
 class InstitutionSettingsScreen extends StatefulWidget {
   const InstitutionSettingsScreen({super.key});
@@ -20,11 +24,7 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
       TextEditingController(text: '2023-08-01');
   final _academicYearEndController = TextEditingController(text: '2024-05-31');
 
-  final List<String> _departments = [
-    'Computer Science',
-    'Mechanical Engineering',
-    'School of Business'
-  ];
+  late Future<List<Department>> _departmentsFuture;
   final List<String> _holidays = [
     '2024-01-26: Republic Day',
     '2024-08-15: Independence Day',
@@ -40,16 +40,49 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
     'Sunday': false,
   };
 
+  @override
+  void initState() {
+    super.initState();
+    _departmentsFuture = _fetchDepartments();
+  }
+
+  Future<List<Department>> _fetchDepartments() async {
+    final institutionId = await SessionManager.getInstitutionId();
+    if (institutionId == null) {
+      throw Exception('Institution ID not found');
+    }
+    final response =
+        await http.get(Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/departments'));
+
+    if (response.statusCode == 200) {
+      List jsonResponse = json.decode(response.body);
+      return jsonResponse.map((dept) => Department.fromJson(dept)).toList();
+    } else {
+      throw Exception('Failed to load departments');
+    }
+  }
+
   void _addDepartment() {
-    final TextEditingController departmentController = TextEditingController();
+    final nameController = TextEditingController();
+    final shortNameController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Add Department'),
-          content: TextField(
-            controller: departmentController,
-            decoration: const InputDecoration(hintText: "Department Name"),
+          title: const Text('Add New Department'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Department Name'),
+              ),
+              TextField(
+                controller: shortNameController,
+                decoration: const InputDecoration(labelText: 'Short Name (e.g., CSE)'),
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -58,12 +91,47 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
             ),
             ElevatedButton(
               child: const Text('Add'),
-              onPressed: () {
-                if (departmentController.text.isNotEmpty) {
-                  setState(() {
-                    _departments.add(departmentController.text);
-                  });
-                  Navigator.of(context).pop();
+              onPressed: () async {
+                if (nameController.text.isNotEmpty &&
+                    shortNameController.text.isNotEmpty) {
+                  final institutionId = await SessionManager.getInstitutionId();
+                  if (institutionId == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'Error: Could not determine institution ID.')),
+                    );
+                    return;
+                  }
+                  try {
+                    final response = await http.post(
+                      Uri.parse(
+                          '${ApiConfig.baseUrl}/$institutionId/api/departments'),
+                      headers: {'Content-Type': 'application/json'},
+                      body: jsonEncode({
+                        'name': nameController.text,
+                        'shortName': shortNameController.text,
+                      }),
+                    );
+
+                    if (response.statusCode == 200) {
+                      Navigator.of(context).pop();
+                      setState(() {
+                        _departmentsFuture = _fetchDepartments();
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Department added successfully!')),
+                      );
+                    } else {
+                      throw Exception('Failed to add department');
+                    }
+                  } catch (e) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: ${e.toString()}')),
+                    );
+                  }
                 }
               },
             ),
@@ -73,10 +141,31 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
     );
   }
 
-  void _deleteDepartment(String departmentName) {
-    setState(() {
-      _departments.remove(departmentName);
-    });
+  void _deleteDepartment(String departmentId) async {
+     final institutionId = await SessionManager.getInstitutionId();
+    if (institutionId == null) {
+       ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Could not determine institution ID.')),
+      );
+      return;
+    }
+    try {
+      final response = await http.delete(Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/departments/$departmentId'));
+      if (response.statusCode == 200) {
+        setState(() {
+          _departmentsFuture = _fetchDepartments();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Department deleted successfully!')),
+        );
+      } else {
+        throw Exception('Failed to delete department');
+      }
+    } catch (e) {
+       ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    }
   }
 
   void _addHoliday() {
@@ -200,14 +289,35 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
               onTap: () {},
             ),
             const SizedBox(height: 20),
-            _buildChipList(
-              'Departments',
-              _departments,
-              Icons.school_outlined,
-              onAdd: _addDepartment,
-              onDelete: _deleteDepartment,
-              isDepartment: true,
-            ),
+            FutureBuilder<List<Department>>(
+              future: _departmentsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return _buildChipList(
+                    'Departments',
+                    [],
+                    Icons.school_outlined,
+                    onAdd: _addDepartment,
+                    onDelete: (id) => _deleteDepartment(id),
+                    isDepartment: true,
+                  );
+                }
+
+                final departments = snapshot.data!;
+                return _buildChipList(
+                  'Departments',
+                  departments,
+                  Icons.school_outlined,
+                  onAdd: _addDepartment,
+                  onDelete: (id) => _deleteDepartment(id),
+                  isDepartment: true,
+                );
+              },
+            )
           ],
         ),
       ),
@@ -254,7 +364,7 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
 
   Widget _buildChipList(
     String title,
-    List<String> items,
+    List<dynamic> items,
     IconData icon, {
     required VoidCallback onAdd,
     required void Function(String) onDelete,
@@ -277,10 +387,12 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
           spacing: 8.0,
           runSpacing: 4.0,
           children: items.map((item) {
+            final String name = isDepartment ? (item as Department).name : item as String;
+            final String id = isDepartment ? (item as Department).id : item as String;
             final chip = Chip(
               avatar: CircleAvatar(child: Icon(icon, size: 16)),
-              label: Text(item),
-              onDeleted: () => onDelete(item),
+              label: Text(name),
+              onDeleted: () => onDelete(id),
               deleteIcon: const Icon(Icons.cancel, size: 18),
             );
 
@@ -290,7 +402,7 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
                   final institutionId = await SessionManager.getInstitutionId();
                   if (!mounted) return;
                   if (institutionId != null) {
-                    context.go('/$institutionId/admin/institution-settings/$item');
+                    context.go('/$institutionId/admin/institution-settings/$name');
                   }
                 },
                 child: chip,
