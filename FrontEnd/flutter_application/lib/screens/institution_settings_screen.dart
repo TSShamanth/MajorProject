@@ -68,7 +68,7 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Add New Department'),
           content: Column(
@@ -87,23 +87,28 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
           actions: [
             TextButton(
               child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(dialogContext).pop(),
             ),
             ElevatedButton(
               child: const Text('Add'),
               onPressed: () async {
                 if (nameController.text.isNotEmpty &&
                     shortNameController.text.isNotEmpty) {
-                  final institutionId = await SessionManager.getInstitutionId();
-                  if (institutionId == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text(
-                              'Error: Could not determine institution ID.')),
-                    );
-                    return;
-                  }
+                  
+                  final navigator = Navigator.of(dialogContext);
+                  final messenger = ScaffoldMessenger.of(context);
+
                   try {
+                    final institutionId = await SessionManager.getInstitutionId();
+                    if (institutionId == null) {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                'Error: Could not determine institution ID.')),
+                      );
+                      return;
+                    }
+
                     final response = await http.post(
                       Uri.parse(
                           '${ApiConfig.baseUrl}/$institutionId/api/departments'),
@@ -115,11 +120,11 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
                     );
 
                     if (response.statusCode == 200) {
-                      Navigator.of(context).pop();
+                      navigator.pop();
                       setState(() {
                         _departmentsFuture = _fetchDepartments();
                       });
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      messenger.showSnackBar(
                         const SnackBar(
                             content: Text('Department added successfully!')),
                       );
@@ -127,8 +132,8 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
                       throw Exception('Failed to add department');
                     }
                   } catch (e) {
-                    Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    navigator.pop();
+                    messenger.showSnackBar(
                       SnackBar(content: Text('Error: ${e.toString()}')),
                     );
                   }
@@ -141,31 +146,54 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
     );
   }
 
-  void _deleteDepartment(String departmentId) async {
-     final institutionId = await SessionManager.getInstitutionId();
-    if (institutionId == null) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: Could not determine institution ID.')),
-      );
-      return;
-    }
-    try {
-      final response = await http.delete(Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/departments/$departmentId'));
-      if (response.statusCode == 200) {
-        setState(() {
-          _departmentsFuture = _fetchDepartments();
+  void _deleteDepartment(String departmentId) {
+    showDialog(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Confirm Deletion'),
+            content: const Text('Are you sure you want to delete this department?'),
+            actions: [
+               TextButton(
+                child: const Text('Cancel'),
+                onPressed: () => Navigator.of(dialogContext).pop(),
+              ),
+              ElevatedButton(
+                child: const Text('Delete'),
+                onPressed: () async {
+                  final navigator = Navigator.of(dialogContext);
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    final institutionId = await SessionManager.getInstitutionId();
+                     if (institutionId == null) {
+                        messenger.showSnackBar(
+                          const SnackBar(content: Text('Error: Could not determine institution ID.')),
+                        );
+                        return;
+                      }
+                    final response = await http.delete(Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/departments/$departmentId'));
+                    if (response.statusCode == 200) {
+                      navigator.pop();
+                      setState(() {
+                        _departmentsFuture = _fetchDepartments();
+                      });
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('Department deleted successfully!')),
+                      );
+                    } else {
+                      throw Exception('Failed to delete department');
+                    }
+                  } catch (e) {
+                    navigator.pop();
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Error: ${e.toString()}')),
+                    );
+                  }
+                },
+              )
+            ],
+          );
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Department deleted successfully!')),
-        );
-      } else {
-        throw Exception('Failed to delete department');
-      }
-    } catch (e) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
-    }
   }
 
   void _addHoliday() {
