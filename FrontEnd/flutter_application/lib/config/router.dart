@@ -14,8 +14,27 @@ import '../screens/student/edit_profile_screen.dart';
 import '../screens/student/virtual_id_screen.dart';
 import '../screens/mark_attendance_screen.dart';
 import '../screens/attendance_history_screen.dart';
-import '../screens/user_details_screen.dart'; // Import the new screen
-import '../screens/edit_user_details_screen.dart'; // Import the new screen
+import '../screens/user_details_screen.dart';
+import '../screens/edit_user_details_screen.dart';
+import '../screens/institution_settings_screen.dart';
+import '../screens/department_details_screen.dart';
+import '../screens/department_management_screen.dart';
+import '../screens/class_management_screen.dart';
+import '../screens/bulk_user_import_screen.dart';
+import '../screens/fee_management_dashboard_screen.dart';
+import '../screens/fee_structure_editor_screen.dart';
+import '../screens/exam_dashboard_screen.dart';
+import '../screens/exam_schedule_editor_screen.dart';
+import '../screens/report_card_dashboard_screen.dart';
+import '../screens/report_card_viewer_screen.dart';
+import '../screens/inventory_dashboard_screen.dart';
+import '../screens/inventory_item_editor_screen.dart';
+import '../screens/form_builder_dashboard_screen.dart';
+import '../screens/form_editor_screen.dart';
+import '../screens/form_responses_screen.dart';
+import '../screens/alumni_dashboard_screen.dart';
+import '../screens/alumni_directory_screen.dart';
+import '../screens/alumni_job_board_screen.dart';
 import '../screens/student_attendance_screen.dart';
 
 final router = GoRouter(
@@ -56,10 +75,95 @@ final router = GoRouter(
       builder: (context, state) => const AdminDashboardScreen(),
     ),
     GoRoute(
+      path: '/:institutionId/admin/class-management',
+      builder: (context, state) => const ClassManagementScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/bulk-user-import',
+      builder: (context, state) => const BulkUserImportScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/fee-management',
+      builder: (context, state) => const FeeManagementDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/fee-structure-editor',
+      builder: (context, state) => const FeeStructureEditorScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exam-dashboard',
+      builder: (context, state) => const ExamDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exam-schedule-editor',
+      builder: (context, state) => const ExamScheduleEditorScreen(),
+    ),
+     GoRoute(
+      path: '/:institutionId/admin/report-card-dashboard',
+      builder: (context, state) => const ReportCardDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/report-card-viewer',
+      builder: (context, state) => const ReportCardViewerScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/inventory',
+      builder: (context, state) => const InventoryDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/inventory-item-editor',
+      builder: (context, state) => const InventoryItemEditorScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/form-builder',
+      builder: (context, state) => const FormBuilderDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/form-editor',
+      builder: (context, state) => const FormEditorScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/form-responses',
+      builder: (context, state) => const FormResponsesScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/alumni-dashboard',
+      builder: (context, state) => const AlumniDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/alumni-directory',
+      builder: (context, state) => const AlumniDirectoryScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/alumni-job-board',
+      builder: (context, state) => const AlumniJobBoardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/institution-settings',
+      builder: (context, state) => const InstitutionSettingsScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/institution-settings/:departmentName',
+      builder: (context, state) {
+        final departmentName = state.pathParameters['departmentName']!;
+        return DepartmentDetailsScreen(departmentName: departmentName);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/institution-settings/:departmentName/:assetType',
+      builder: (context, state) {
+        final departmentName = state.pathParameters['departmentName']!;
+        final assetType = state.pathParameters['assetType']!;
+        return DepartmentManagementScreen(
+          departmentName: departmentName,
+          assetType: assetType,
+        );
+      },
+    ),
+    GoRoute(
       path: '/:institutionId/admin/users/:role',
       builder: (context, state) {
         final role = state.pathParameters['role']!;
-        // UserListScreen will be refactored to fetch its own data
         return UserListScreen(role: role);
       },
     ),
