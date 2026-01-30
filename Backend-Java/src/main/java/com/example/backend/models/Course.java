@@ -11,11 +11,12 @@ public class Course {
     private String semester;
     private List<String> studentsEnrolled;
     private String totalClasses;
+    private String departmentId; // Added departmentId field
 
     public Course() {
     }
 
-    public Course(String courseCode, String courseName, String facultyUid, String institutionId, String program, String semester, List<String> studentsEnrolled, String totalClasses) {
+    public Course(String courseCode, String courseName, String facultyUid, String institutionId, String program, String semester, List<String> studentsEnrolled, String totalClasses, String departmentId) {
         this.courseCode = courseCode;
         this.courseName = courseName;
         this.facultyUid = facultyUid;
@@ -24,6 +25,7 @@ public class Course {
         this.semester = semester;
         this.studentsEnrolled = studentsEnrolled;
         this.totalClasses = totalClasses;
+        this.departmentId = departmentId;
     }
 
     public String getCourseCode() {
@@ -88,5 +90,13 @@ public class Course {
 
     public void setTotalClasses(String totalClasses) {
         this.totalClasses = totalClasses;
+    }
+
+    public String getDepartmentId() {
+        return departmentId;
+    }
+
+    public void setDepartmentId(String departmentId) {
+        this.departmentId = departmentId;
     }
 }

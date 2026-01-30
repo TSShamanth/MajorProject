@@ -1,139 +1,51 @@
-class Subject {
-  final String id;
-  final String name;
-  final String code;
-  final String className;
+class AttendanceModel {
+  String? id; // Unique ID for each attendance record
+  String courseCode;
+  String studentUid;
+  String date; // Stored as yyyy-MM-dd string
+  String status; // e.g., "Present", "Absent", "Late"
+  String? remarks; // Optional remarks
+  String? facultyUid; // Who marked the attendance
+  String institutionId;
+  String? departmentId;
 
-  Subject({
-    required this.id,
-    required this.name,
-    required this.code,
-    required this.className,
-  });
-
-  factory Subject.fromJson(Map<String, dynamic> json) {
-    return Subject(
-      id: json['id'],
-      name: json['name'],
-      code: json['code'],
-      className: json['className'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'code': code,
-      'className': className,
-    };
-  }
-}
-
-class Student {
-  final String id;
-  final String name;
-  final String usn;
-  final String email;
-
-  Student({
-    required this.id,
-    required this.name,
-    required this.usn,
-    required this.email,
-  });
-
-  factory Student.fromJson(Map<String, dynamic> json) {
-    return Student(
-      id: json['id'],
-      name: json['name'],
-      usn: json['usn'],
-      email: json['email'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'usn': usn,
-      'email': email,
-    };
-  }
-}
-
-class AttendanceRecord {
-  final String id;
-  final String subjectId;
-  final String studentId;
-  final String date;
-  final bool isPresent;
-  final String remarks;
-
-  AttendanceRecord({
-    required this.id,
-    required this.subjectId,
-    required this.studentId,
+  AttendanceModel({
+    this.id,
+    required this.courseCode,
+    required this.studentUid,
     required this.date,
-    required this.isPresent,
-    this.remarks = '',
+    required this.status,
+    this.remarks,
+    this.facultyUid,
+    required this.institutionId,
+    this.departmentId,
   });
 
-  factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
-    return AttendanceRecord(
+  factory AttendanceModel.fromJson(Map<String, dynamic> json) {
+    return AttendanceModel(
       id: json['id'],
-      subjectId: json['subjectId'],
-      studentId: json['studentId'],
+      courseCode: json['courseCode'],
+      studentUid: json['studentUid'],
       date: json['date'],
-      isPresent: json['isPresent'],
-      remarks: json['remarks'] ?? '',
+      status: json['status'],
+      remarks: json['remarks'],
+      facultyUid: json['facultyUid'],
+      institutionId: json['institutionId'],
+      departmentId: json['departmentId'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'subjectId': subjectId,
-      'studentId': studentId,
+      'courseCode': courseCode,
+      'studentUid': studentUid,
       'date': date,
-      'isPresent': isPresent,
+      'status': status,
       'remarks': remarks,
-    };
-  }
-}
-
-class AttendanceSummary {
-  final String studentId;
-  final String studentName;
-  final int totalClasses;
-  final int classesPresent;
-  final double attendancePercentage;
-
-  AttendanceSummary({
-    required this.studentId,
-    required this.studentName,
-    required this.totalClasses,
-    required this.classesPresent,
-    required this.attendancePercentage,
-  });
-
-  factory AttendanceSummary.fromJson(Map<String, dynamic> json) {
-    return AttendanceSummary(
-      studentId: json['studentId'],
-      studentName: json['studentName'],
-      totalClasses: json['totalClasses'],
-      classesPresent: json['classesPresent'],
-      attendancePercentage: (json['attendancePercentage'] as num).toDouble(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'studentId': studentId,
-      'studentName': studentName,
-      'totalClasses': totalClasses,
-      'classesPresent': classesPresent,
-      'attendancePercentage': attendancePercentage,
+      'facultyUid': facultyUid,
+      'institutionId': institutionId,
+      'departmentId': departmentId,
     };
   }
 }

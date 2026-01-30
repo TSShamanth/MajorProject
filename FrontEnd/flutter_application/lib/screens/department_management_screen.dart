@@ -247,6 +247,7 @@ class _DepartmentManagementScreenState
                         semester: semesterController.text,
                         studentsEnrolled: selectedStudentIds,
                         totalClasses: totalClassesController.text,
+                        departmentId: _departmentId!, // Added departmentId
                       );
 
                       final url = course == null

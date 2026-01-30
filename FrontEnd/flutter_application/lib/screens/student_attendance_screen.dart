@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application/services/attendance_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../config/constants.dart'; // Import AppConstants
+import '../models/attendance_model.dart'; // Import the AttendanceModel
+import '../models/course_model.dart'; // Import Course model
+import '../services/session_manager.dart';
 
 class StudentAttendanceScreen extends StatefulWidget {
   const StudentAttendanceScreen({super.key});
@@ -10,64 +14,147 @@ class StudentAttendanceScreen extends StatefulWidget {
 }
 
 class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
-  late List<Map<String, dynamic>> subjectAttendance = [];
-  bool isLoading = true;
-  String? errorMessage;
-  String studentName = 'Student';
-  String? sortBy = 'name_asc'; // name_asc, name_desc, percentage_desc, percentage_asc
+  List<Map<String, dynamic>> _aggregatedAttendance = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+  String _studentName = 'Student'; // Will update from UserModel
+  String? _sortBy = 'name_asc'; // name_asc, name_desc, percentage_desc, percentage_asc
+
+  String? _institutionId;
+  List<Course> _allCourses = []; // To map course codes to names
 
   @override
   void initState() {
     super.initState();
+    _initializeScreen();
+  }
+
+  Future<void> _initializeScreen() async {
+    _institutionId = await SessionManager.getInstitutionId();
+    if (_institutionId == null) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Could not retrieve institution ID.';
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+    await _loadAllCourses();
     _loadStudentAttendance();
+  }
+
+  Future<void> _loadAllCourses() async {
+    try {
+      // Reusing getSubjects to get all courses (as a student might be enrolled in courses taught by different faculty)
+      final loadedCourses = await AttendanceService.getSubjects(); 
+      if (mounted) {
+        setState(() {
+          _allCourses = loadedCourses;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error loading all courses: ${e.toString()}';
+        });
+      }
+    }
   }
 
   Future<void> _loadStudentAttendance() async {
     if (!mounted) return;
 
     setState(() {
-      isLoading = true;
-      errorMessage = null;
+      _isLoading = true;
+      _errorMessage = null;
     });
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
+      if (user == null || _institutionId == null) {
         if (mounted) {
           setState(() {
-            errorMessage = 'Please log in to view your attendance';
-            isLoading = false;
+            _errorMessage = 'Please log in to view your attendance';
+            _isLoading = false;
           });
         }
         return;
       }
 
-      // Get student attendance from service
-      final attendance = await AttendanceService.getStudentAttendance(user.uid);
+      // Fetch raw attendance records
+      final List<AttendanceModel> rawAttendance = await AttendanceService.getStudentAttendance(user.uid);
+
+      // Aggregate raw attendance into desired structure
+      Map<String, Map<String, dynamic>> tempAggregated = {};
+
+      for (var record in rawAttendance) {
+        if (!tempAggregated.containsKey(record.courseCode)) {
+          final course = _allCourses.firstWhere(
+            (c) => c.courseCode == record.courseCode,
+            orElse: () => Course(
+              courseCode: record.courseCode,
+              courseName: 'Unknown Course',
+              facultyUid: '',
+              institutionId: '',
+              program: '',
+              semester: '',
+              studentsEnrolled: [],
+              totalClasses: '',
+              departmentId: '', // Default for missing
+            ),
+          );
+
+          tempAggregated[record.courseCode] = {
+            'subjectId': record.courseCode,
+            'subjectName': course.courseName,
+            'subjectCode': course.courseCode,
+            'total': 0,
+            'present': 0,
+            'absent': 0,
+            'percentage': 0.0,
+          };
+        }
+
+        tempAggregated[record.courseCode]!['total']++;
+        if (record.status == 'Present') {
+          tempAggregated[record.courseCode]!['present']++;
+        } else if (record.status == 'Absent') {
+          tempAggregated[record.courseCode]!['absent']++;
+        }
+      }
+
+      // Calculate percentages
+      _aggregatedAttendance = tempAggregated.values.map((data) {
+        final total = data['total'] as int;
+        final present = data['present'] as int;
+        data['percentage'] = total > 0 ? (present / total) * 100 : 0.0;
+        return data;
+      }).toList();
 
       if (mounted) {
         setState(() {
-          subjectAttendance = attendance;
-          isLoading = false;
+          _studentName = user.displayName ?? 'Student'; // Assuming displayName is available
+          _isLoading = false;
           _applySorting();
         });
       }
     } on Exception catch (e) {
       if (mounted) {
         setState(() {
-          errorMessage = 'Failed to load attendance: ${e.toString()}';
-          isLoading = false;
+          _errorMessage = 'Failed to load attendance: ${e.toString()}';
+          _isLoading = false;
         });
       }
     }
   }
 
   void _applySorting() {
-    if (sortBy == null) return;
+    if (_sortBy == null) return;
 
-    final sorted = List<Map<String, dynamic>>.from(subjectAttendance);
+    final sorted = List<Map<String, dynamic>>.from(_aggregatedAttendance);
 
-    switch (sortBy) {
+    switch (_sortBy) {
       case 'name_asc':
         sorted.sort((a, b) => (a['subjectName'] as String).compareTo(b['subjectName'] as String));
         break;
@@ -84,37 +171,36 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
 
     if (mounted) {
       setState(() {
-        subjectAttendance = sorted;
+        _aggregatedAttendance = sorted;
       });
     }
   }
 
   Color _getAttendanceColor(double percentage) {
-    if (percentage >= 80) return Colors.green;
-    if (percentage >= 70) return Colors.amber;
+    if (percentage >= AppConstants.attendanceExcellent) return Colors.green;
+    if (percentage >= AppConstants.attendanceGood) return Colors.amber;
     return Colors.red;
   }
 
   String _getAttendanceStatus(double percentage) {
-    if (percentage >= 80) return 'Excellent';
-    if (percentage >= 70) return 'Good';
-    if (percentage >= 60) return 'Satisfactory';
-    return 'At Risk';
+    if (percentage >= AppConstants.attendanceExcellent) return 'Excellent';
+    if (percentage >= AppConstants.attendanceGood) return 'Good';
+    return 'At Risk'; // Simplified for now
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Attendance'),
+        title: Text('My Attendance - $_studentName'),
         elevation: 0,
         backgroundColor: const Color(0xFF6366F1),
       ),
-      body: isLoading
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : errorMessage != null
+          : _errorMessage != null
               ? _buildErrorState()
-              : subjectAttendance.isEmpty
+              : _aggregatedAttendance.isEmpty
                   ? _buildEmptyState()
                   : _buildAttendanceList(),
     );
@@ -128,7 +214,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
           Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
           const SizedBox(height: 16),
           Text(
-            errorMessage!,
+            _errorMessage!,
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.red.shade700, fontSize: 14),
           ),
@@ -184,11 +270,11 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: subjectAttendance.length,
+              itemCount: _aggregatedAttendance.length,
               itemBuilder: (context, index) {
-                final subject = subjectAttendance[index];
+                final subject = _aggregatedAttendance[index];
                 final percentage = subject['percentage'] as double;
-                final isAtRisk = percentage < 75;
+                final isAtRisk = percentage < 75; // Using a fixed threshold for 'at risk' for now
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
@@ -325,8 +411,8 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
   }
 
   Widget _buildSummaryCard() {
-    final totalClasses = subjectAttendance.fold<int>(0, (sum, s) => sum + (s['total'] as int));
-    final totalPresent = subjectAttendance.fold<int>(0, (sum, s) => sum + (s['present'] as int));
+    final totalClasses = _aggregatedAttendance.fold<int>(0, (sum, s) => sum + (s['total'] as int));
+    final totalPresent = _aggregatedAttendance.fold<int>(0, (sum, s) => sum + (s['present'] as int));
     final overallPercentage = totalClasses > 0 ? (totalPresent / totalClasses) * 100 : 0.0;
 
     return Container(
@@ -396,7 +482,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${subjectAttendance.length}',
+                    '${_aggregatedAttendance.length}',
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                 ],
@@ -422,7 +508,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: DropdownButton<String>(
-              value: sortBy,
+              value: _sortBy,
               isExpanded: true,
               underline: const SizedBox(),
               items: const [
@@ -445,7 +531,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
               ],
               onChanged: (value) {
                 if (value != null) {
-                  setState(() => sortBy = value);
+                  setState(() => _sortBy = value);
                   _applySorting();
                 }
               },
