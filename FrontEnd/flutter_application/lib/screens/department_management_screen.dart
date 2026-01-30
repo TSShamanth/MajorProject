@@ -326,7 +326,7 @@ class _DepartmentManagementScreenState
                     if (institutionId == null || _departmentId == null) return;
 
                     final role = user.role == 'faculty' ? 'faculty' : 'student';
-                    final url = '${ApiConfig.baseUrl}/$institutionId/api/departments/$_departmentId/courses/$role/${user.uid}/courses';
+                    final url = '${ApiConfig.baseUrl}/$institutionId/api/departments/$_departmentId/$role/${user.uid}/courses';
                     
                     final response = await http.put(
                       Uri.parse(url),
@@ -384,10 +384,10 @@ class _DepartmentManagementScreenState
                     await http.delete(Uri.parse(url));
                   } else if (item is UserModel) {
                     if (widget.assetType == 'Faculty') {
-                      final url = '${ApiConfig.baseUrl}/$institutionId/api/departments/$_departmentId/courses/faculty/${item.uid}';
+                      final url = '${ApiConfig.baseUrl}/$institutionId/api/departments/$_departmentId/faculty/${item.uid}';
                       await http.delete(Uri.parse(url));
                     } else if (widget.assetType == 'Students') {
-                      final url = '${ApiConfig.baseUrl}/$institutionId/api/departments/$_departmentId/courses/student/${item.uid}';
+                      final url = '${ApiConfig.baseUrl}/$institutionId/api/departments/$_departmentId/student/${item.uid}';
                       await http.delete(Uri.parse(url));
                     }
                   }
