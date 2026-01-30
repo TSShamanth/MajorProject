@@ -500,20 +500,31 @@ class _DepartmentManagementScreenState
   }
 
   String _getUserCourseInfo(UserModel user, List<Course> courses) {
+    List<String> userCourseCodes;
     if (user.role == 'faculty') {
-      final assignedCourses = courses.where((c) => c.facultyUid == user.uid).toList();
-      if (assignedCourses.isEmpty) {
-        return 'Not assigned to any courses.';
-      }
-      final courseCodes = assignedCourses.map((c) => c.courseCode).join(', ');
+      userCourseCodes = user.assignedCourseCodes ?? [];
+    } else if (user.role == 'student') {
+      userCourseCodes = user.enrolledCourseCodes ?? [];
+    } else {
+      userCourseCodes = [];
+    }
+
+    if (userCourseCodes.isEmpty) {
+      return 'No courses assigned/enrolled.';
+    }
+
+    final assignedCourses = courses.where((c) => userCourseCodes.contains(c.courseCode)).toList();
+
+    if (assignedCourses.isEmpty) {
+      return 'No courses assigned/enrolled.';
+    }
+
+    final courseCodes = assignedCourses.map((c) => c.courseCode).join(', ');
+
+    if (user.role == 'faculty') {
       final totalClasses = assignedCourses.fold<int>(0, (prev, course) => prev + (int.tryParse(course.totalClasses) ?? 0));
       return 'Courses: $courseCodes | Total Classes: $totalClasses';
     } else if (user.role == 'student') {
-      final enrolledCourses = courses.where((c) => c.studentsEnrolled.contains(user.uid)).toList();
-      if (enrolledCourses.isEmpty) {
-        return 'Not enrolled in any courses.';
-      }
-      final courseCodes = enrolledCourses.map((c) => c.courseCode).join(', ');
       return 'Courses: $courseCodes';
     }
     return '';

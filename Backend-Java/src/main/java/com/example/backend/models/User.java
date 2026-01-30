@@ -1,0 +1,180 @@
+package com.example.backend.models;
+
+import java.util.List;
+
+public class User {
+    private String uid;
+    private String email;
+    private String displayName;
+    private String role;
+    private String name;
+    private String usn;
+    private String phone;
+    private String sem;
+    private String mentorName;
+    private String photoUrl;
+    private String programme;
+    private String school;
+    private String address;
+    private String dob;
+    private String bloodGroup;
+    private String emergencyContact;
+    private String validUpto;
+    private List<String> enrolledCourseCodes; // For students
+    private List<String> assignedCourseCodes;  // For faculty
+
+    public User() {
+    }
+
+    public String getUid() {
+        return uid;
+    }
+
+    public void setUid(String uid) {
+        this.uid = uid;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getUsn() {
+        return usn;
+    }
+
+    public void setUsn(String usn) {
+        this.usn = usn;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getSem() {
+        return sem;
+    }
+
+    public void setSem(String sem) {
+        this.sem = sem;
+    }
+
+    public String getMentorName() {
+        return mentorName;
+    }
+
+    public void setMentorName(String mentorName) {
+        this.mentorName = mentorName;
+    }
+
+    public String getPhotoUrl() {
+        return photoUrl;
+    }
+
+    public void setPhotoUrl(String photoUrl) {
+        this.photoUrl = photoUrl;
+    }
+
+    public String getProgramme() {
+        return programme;
+    }
+
+    public void setProgramme(String programme) {
+        this.programme = programme;
+    }
+
+    public String getSchool() {
+        return school;
+    }
+
+    public void setSchool(String school) {
+        this.school = school;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getDob() {
+        return dob;
+    }
+
+    public void setDob(String dob) {
+        this.dob = dob;
+    }
+
+    public String getBloodGroup() {
+        return bloodGroup;
+    }
+
+    public void setBloodGroup(String bloodGroup) {
+        this.bloodGroup = bloodGroup;
+    }
+
+    public String getEmergencyContact() {
+        return emergencyContact;
+    }
+
+    public void setEmergencyContact(String emergencyContact) {
+        this.emergencyContact = emergencyContact;
+    }
+
+    public String getValidUpto() {
+        return validUpto;
+    }
+
+    public void setValidUpto(String validUpto) {
+        this.validUpto = validUpto;
+    }
+
+    public List<String> getEnrolledCourseCodes() {
+        return enrolledCourseCodes;
+    }
+
+    public void setEnrolledCourseCodes(List<String> enrolledCourseCodes) {
+        this.enrolledCourseCodes = enrolledCourseCodes;
+    }
+
+    public List<String> getAssignedCourseCodes() {
+        return assignedCourseCodes;
+    }
+
+    public void setAssignedCourseCodes(List<String> assignedCourseCodes) {
+        this.assignedCourseCodes = assignedCourseCodes;
+    }
+}

@@ -16,9 +16,11 @@ import java.util.concurrent.ExecutionException;
 public class CourseService {
 
     private final Firestore firestore;
+    private final UserService userService; // Inject UserService
 
-    public CourseService(Firestore firestore) {
+    public CourseService(Firestore firestore, UserService userService) {
         this.firestore = firestore;
+        this.userService = userService;
     }
 
     public Course createCourse(String institutionId, String departmentId, Course course) throws ExecutionException, InterruptedException {
@@ -62,25 +64,31 @@ public class CourseService {
         for (QueryDocumentSnapshot document : documents) {
             document.getReference().update("facultyUid", null);
         }
+        userService.updateAssignedCourses(institutionId, facultyId, new ArrayList<>()); // Update user document
     }    public void unassignStudent(String institutionId, String departmentId, String studentId) throws ExecutionException, InterruptedException {
         ApiFuture<QuerySnapshot> future = firestore.collection("Institutions").document(institutionId).collection("departments").document(departmentId).collection("courses").whereArrayContains("studentsEnrolled", studentId).get();
         List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+        List<String> enrolledCourseCodes = new ArrayList<>();
         for (QueryDocumentSnapshot document : documents) {
             Course course = document.toObject(Course.class);
             course.getStudentsEnrolled().remove(studentId);
             document.getReference().set(course);
+            enrolledCourseCodes.add(course.getCourseCode());
         }
+        userService.updateEnrolledCourses(institutionId, studentId, new ArrayList<>()); // Update user document
     }
     public void updateFacultyCourses(String institutionId, String departmentId, String facultyId, List<String> courseCodes) throws ExecutionException, InterruptedException {
         unassignFaculty(institutionId, departmentId, facultyId);
         for (String courseCode : courseCodes) {
             firestore.collection("Institutions").document(institutionId).collection("departments").document(departmentId).collection("courses").document(courseCode).update("facultyUid", facultyId);
         }
+        userService.updateAssignedCourses(institutionId, facultyId, courseCodes); // Update user document
     }
     public void updateStudentCourses(String institutionId, String departmentId, String studentId, List<String> courseCodes) throws ExecutionException, InterruptedException {
         unassignStudent(institutionId, departmentId, studentId);
         for (String courseCode : courseCodes) {
             firestore.collection("Institutions").document(institutionId).collection("departments").document(departmentId).collection("courses").document(courseCode).update("studentsEnrolled", com.google.cloud.firestore.FieldValue.arrayUnion(studentId));
         }
+        userService.updateEnrolledCourses(institutionId, studentId, courseCodes); // Update user document
     }
 }
