@@ -1,26 +1,31 @@
 package com.example.backend.service;
 
+import com.example.backend.dto.SubjectWiseAttendance;
 import com.example.backend.models.Attendance;
-
+import com.example.backend.models.Course;
+import com.example.backend.models.User;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-
 import java.util.List;
-
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 @Service
 public class AttendanceService {
 
     private final Firestore firestore;
+    private final UserService userService;
+    private final CourseService courseService;
 
     @Autowired
-    public AttendanceService(Firestore firestore) {
+    public AttendanceService(Firestore firestore, UserService userService, CourseService courseService) {
         this.firestore = firestore;
+        this.userService = userService;
+        this.courseService = courseService;
     }
 
     private CollectionReference getAttendanceCollection(String institutionId, String departmentId, String courseCode) {
@@ -128,5 +133,55 @@ public class AttendanceService {
             attendanceList.add(document.toObject(Attendance.class));
         }
         return attendanceList;
+    }
+
+    /**
+     * Retrieves subject-wise attendance for a given student.
+     */
+    public List<SubjectWiseAttendance> getSubjectWiseAttendance(String institutionId, String studentUid)
+            throws ExecutionException, InterruptedException {
+        List<SubjectWiseAttendance> subjectWiseAttendanceList = new ArrayList<>();
+        User student = userService.getUserById(institutionId, studentUid);
+
+        if (student != null && student.getEnrolledCourseCodes() != null) {
+            for (String courseCode : student.getEnrolledCourseCodes()) {
+                Course course = courseService.getCourseByCode(institutionId, courseCode);
+                if (course != null) {
+                    List<Attendance> attendanceForCourse = getAttendanceForCourse(institutionId, course.getDepartmentId(), courseCode);
+                    
+                    int totalClasses = 0;
+                    if(attendanceForCourse != null && !attendanceForCourse.isEmpty()){
+                        totalClasses = attendanceForCourse.stream().map(Attendance::getDate).distinct().collect(Collectors.toList()).size();
+                    }
+
+                    int attendedClasses = 0;
+                    for (Attendance attendance : attendanceForCourse) {
+                        if (attendance.getStudentUid().equals(studentUid) && "Present".equals(attendance.getStatus())) {
+                            attendedClasses++;
+                        }
+                    }
+
+                    double attendancePercentage = (totalClasses > 0) ? ((double) attendedClasses / totalClasses) * 100 : 0;
+
+                    String facultyName = "N/A";
+                    if (course.getFacultyUid() != null) {
+                        User faculty = userService.getUserById(institutionId, course.getFacultyUid());
+                        if (faculty != null) {
+                            facultyName = faculty.getDisplayName();
+                        }
+                    }
+
+                    subjectWiseAttendanceList.add(new SubjectWiseAttendance(
+                            course.getCourseName(),
+                            course.getCourseCode(),
+                            facultyName,
+                            attendancePercentage,
+                            totalClasses,
+                            attendedClasses
+                    ));
+                }
+            }
+        }
+        return subjectWiseAttendanceList;
     }
 }

@@ -5,6 +5,7 @@ import '../config/api_config.dart';
 import '../models/attendance_model.dart';
 import '../models/course_model.dart';
 import '../models/user_model.dart';
+import '../models/subject_wise_attendance_model.dart';
 import '../services/session_manager.dart';
 
 class AttendanceException implements Exception {
@@ -227,6 +228,29 @@ class AttendanceService {
       }
     } catch (e) {
       throw AttendanceException(message: 'Error fetching attendance for date: ${e.toString()}');
+    }
+  }
+
+  /// Get subject-wise attendance for a specific student
+  static Future<List<dynamic>> getSubjectWiseAttendance(String studentId) async {
+    try {
+      final institutionId = await SessionManager.getInstitutionId();
+      if (institutionId == null) {
+        throw AttendanceException(message: 'Institution ID not found.');
+      }
+      final url = Uri.parse('${ApiConfig.baseUrl}/institutions/$institutionId/students/$studentId/subject-wise-attendance');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        List<dynamic> attendanceJson = json.decode(response.body);
+        return attendanceJson.map((json) => SubjectWiseAttendance.fromJson(json)).toList();
+      } else {
+        throw AttendanceException(
+            message: _getHttpErrorMessage(response.statusCode),
+            code: response.statusCode.toString());
+      }
+    } catch (e) {
+      throw AttendanceException(message: 'Error fetching subject-wise attendance: ${e.toString()}');
     }
   }
 

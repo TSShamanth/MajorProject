@@ -132,4 +132,21 @@ public class AttendanceController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    /**
+     * Endpoint to get subject-wise attendance for a specific student.
+     * GET /institutions/{institutionId}/students/{studentUid}/subject-wise-attendance
+     */
+    @GetMapping("/students/{studentUid}/subject-wise-attendance")
+    public ResponseEntity<List<com.example.backend.dto.SubjectWiseAttendance>> getSubjectWiseAttendance(
+            @PathVariable String institutionId,
+            @PathVariable String studentUid) {
+        try {
+            List<com.example.backend.dto.SubjectWiseAttendance> attendanceList = attendanceService.getSubjectWiseAttendance(
+                    institutionId, studentUid);
+            return ResponseEntity.ok(attendanceList);
+        } catch (ExecutionException | InterruptedException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }

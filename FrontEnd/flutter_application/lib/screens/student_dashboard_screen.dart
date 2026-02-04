@@ -1,3 +1,5 @@
+import 'package:flutter_application/models/subject_wise_attendance_model.dart';
+import 'package:flutter_application/services/attendance_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,10 +17,50 @@ class StudentDashboardScreen extends StatefulWidget {
 class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String? _uid = FirebaseAuth.instance.currentUser?.uid;
+  Future<Map<String, int>>? _attendanceSummaryFuture;
 
   Future<DocumentSnapshot<Map<String, dynamic>>> _fetchProfile() async {
     if (_uid == null) throw Exception('Not logged in');
-    return await _firestore.collection('users').doc(_uid).get();
+    String? institutionId = await SessionManager.getInstitutionId();
+    if (institutionId == null) throw Exception('Institution ID not found');
+    return await _firestore.collection('Institutions').doc(institutionId).collection('users').doc(_uid).get();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _attendanceSummaryFuture = _fetchAttendanceSummary();
+  }
+
+  Future<Map<String, int>> _fetchAttendanceSummary() async {
+    if (_uid == null) {
+      throw Exception('User not logged in');
+    }
+    try {
+      final List<dynamic> subjectWiseAttendance = await AttendanceService.getSubjectWiseAttendance(_uid);
+      final List<SubjectWiseAttendance> attendance = subjectWiseAttendance.cast<SubjectWiseAttendance>();
+
+      int totalClasses = 0;
+      int presentClasses = 0;
+
+      for (var subject in attendance) {
+        totalClasses += subject.totalClasses;
+        presentClasses += subject.attendedClasses;
+      }
+
+      return {
+        'total': totalClasses,
+        'present': presentClasses,
+        'absent': totalClasses - presentClasses,
+      };
+    } catch (e) {
+      // Return a map with 0 values in case of an error
+      return {
+        'total': 0,
+        'present': 0,
+        'absent': 0,
+      };
+    }
   }
 
   @override
@@ -253,13 +295,32 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildAttendanceStatChip('Total Classes', '20', Colors.white),
-                  _buildAttendanceStatChip('Present', '18', Colors.greenAccent),
-                  _buildAttendanceStatChip('Absent', '2', Colors.red),
-                ],
+              FutureBuilder<Map<String, int>>(
+                future: _attendanceSummaryFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        CircularProgressIndicator(color: Colors.white),
+                      ],
+                    );
+                  }
+
+                  final summary = snapshot.data ?? {'total': 0, 'present': 0, 'absent': 0};
+                  final total = summary['total']!;
+                  final present = summary['present']!;
+                  final absent = summary['absent']!;
+
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildAttendanceStatChip('Total Classes', total.toString(), Colors.white),
+                      _buildAttendanceStatChip('Present', present.toString(), Colors.greenAccent),
+                      _buildAttendanceStatChip('Absent', absent.toString(), Colors.red),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 12),
               SizedBox(
