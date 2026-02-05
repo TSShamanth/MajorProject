@@ -419,7 +419,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     final quickActions = [
       {'icon': Icons.person_add_alt_1_outlined, 'label': 'Add User', 'color': Colors.blue, 'action': _showAddUserDialog},
-      {'icon': Icons.business_outlined, 'label': 'Institution Setup', 'color': Colors.purple, 'action': () {}},
+      {'icon': Icons.business_outlined, 'label': 'Institution Setup', 'color': Colors.purple, 'action': () {
+        if (_institutionId != null) { 
+          context.go('/$_institutionId/admin/institution-settings');
+        }
+      }},
       {'icon': Icons.business_center_outlined, 'label': 'New Placement', 'color': Colors.green, 'action': () {}},
       {'icon': Icons.calendar_today_outlined, 'label': 'Add Holiday', 'color': Colors.orange, 'action': () {}}
     ];
@@ -527,6 +531,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             _buildUserManagementCard(),
             const SizedBox(height: 16),
 
+            _buildAcademicsCard(),
+            const SizedBox(height: 16),
+
+            _buildFinancialsCard(),
+            const SizedBox(height: 16),
+
+            _buildResourcesCard(),
+            const SizedBox(height: 16),
+
+            _buildToolsCard(),
+            const SizedBox(height: 16),
+
+            _buildCommunityCard(),
+            const SizedBox(height: 16),
+
             // Attendance Analytics
             _buildAttendanceAnalyticsCard(),
             const SizedBox(height: 16),
@@ -537,6 +556,195 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             
             // Academic Management
             _buildAcademicManagementCard(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAcademicsCard() {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.school_outlined),
+                SizedBox(width: 8),
+                Text('Academics', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildInfoTile(
+              'Class & Section Management',
+              'Assign students to classes',
+              '',
+              Colors.teal,
+              onTap: () {
+                if (_institutionId != null) {
+                  context.go('/$_institutionId/admin/class-management');
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+            _buildInfoTile(
+              'Examination Management',
+              'Schedule exams and manage grades',
+              '',
+              Colors.orange,
+              onTap: () {
+                if (_institutionId != null) {
+                  context.go('/$_institutionId/admin/exam-dashboard');
+                }
+              },
+            ),
+             const SizedBox(height: 8),
+            _buildInfoTile(
+              'Report Card Generation',
+              'Generate and distribute grade reports',
+              '',
+              Colors.purple,
+              onTap: () {
+                if (_institutionId != null) {
+                  context.go('/$_institutionId/admin/report-card-dashboard');
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFinancialsCard() {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.monetization_on_outlined),
+                SizedBox(width: 8),
+                Text('Financials', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildInfoTile(
+              'Student Fee Management', 
+              'Manage fee structures and payments', 
+              '',
+              Colors.green,
+              onTap: () {
+                if (_institutionId != null) {
+                  context.go('/$_institutionId/admin/fee-management');
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResourcesCard() {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.inventory_2_outlined),
+                SizedBox(width: 8),
+                Text('Resource Management', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildInfoTile(
+              'Inventory Management', 
+              'Track and manage campus assets', 
+              '',
+              Colors.brown,
+              onTap: () {
+                if (_institutionId != null) {
+                  context.go('/$_institutionId/admin/inventory');
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolsCard() {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.build_outlined),
+                SizedBox(width: 8),
+                Text('Content & Tools', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildInfoTile(
+              'Form & Survey Builder',
+              'Create custom forms and surveys',
+              '',
+              Colors.blueGrey,
+              onTap: () {
+                if (_institutionId != null) {
+                  context.go('/$_institutionId/admin/form-builder');
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCommunityCard() {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.people_alt_outlined),
+                SizedBox(width: 8),
+                Text('Community', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildInfoTile(
+              'Alumni Network Portal',
+              'Engage with the alumni community',
+              '',
+              Colors.indigo,
+              onTap: () {
+                if (_institutionId != null) {
+                  context.go('/$_institutionId/admin/alumni-dashboard');
+                }
+              },
+            ),
           ],
         ),
       ),
@@ -564,6 +772,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
     );
   }
+
 
   Widget _buildQuickActionsCard(List<Map<String, Object>> actions) {
     return Card(
@@ -863,26 +1072,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildInfoTile(String title, String subtitle, String trailing, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-              Text(subtitle, style: TextStyle(fontSize: 12, color: color.withOpacity(0.8))),
-            ],
-          ),
-          Chip(backgroundColor: color.withOpacity(0.3), label: Text(trailing)),
-        ],
+  Widget _buildInfoTile(String title, String subtitle, String trailing, Color color, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+                Text(subtitle, style: TextStyle(fontSize: 12, color: color.withOpacity(0.8))),
+              ],
+            ),
+            Chip(backgroundColor: color.withOpacity(0.3), label: Text(trailing)),
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../config/constants.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart'; // To get current user UID
+import '../config/api_config.dart';
 import '../models/attendance_model.dart';
+import '../models/course_model.dart';
+import '../models/user_model.dart';
+import '../services/session_manager.dart';
 
 class AttendanceException implements Exception {
   final String message;
@@ -12,487 +17,232 @@ class AttendanceException implements Exception {
   String toString() => message;
 }
 
+// Helper class for attendance summary
+class AttendanceSummary {
+  final String studentId;
+  final String studentName;
+  final int totalClasses;
+  final int classesPresent;
+  final double attendancePercentage;
+
+  AttendanceSummary({
+    required this.studentId,
+    required this.studentName,
+    required this.totalClasses,
+    required this.classesPresent,
+    required this.attendancePercentage,
+  });
+}
+
 class AttendanceService {
-  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  static const Map<String, List<Subject>> _subjectsCache = {};
-  static const Map<String, List<Student>> _studentsCache = {};
-
-  /// Get all subjects for a faculty with retry mechanism
-  static Future<List<Subject>> getSubjects({int retryCount = 0}) async {
-    try {
-      // Check cache first
-      const cacheKey = 'all_subjects';
-      if (_subjectsCache.containsKey(cacheKey) && _subjectsCache[cacheKey]!.isNotEmpty) {
-        return _subjectsCache[cacheKey]!;
+  // Helper to get departmentId from courseCode
+  static Future<String?> _getDepartmentIdFromCourseCode(
+      String institutionId, String courseCode) async {
+    final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/departments'));
+    if (response.statusCode == 200) {
+      List<dynamic> departmentsJson = json.decode(response.body);
+      for (var deptJson in departmentsJson) {
+        // Fetch courses for each department to find the matching courseCode
+        final deptId = deptJson['id'];
+        final coursesResponse = await http.get(Uri.parse(
+            '${ApiConfig.baseUrl}/$institutionId/api/departments/$deptId/courses'));
+        if (coursesResponse.statusCode == 200) {
+          List<dynamic> coursesJson = json.decode(coursesResponse.body);
+          for (var courseJson in coursesJson) {
+            if (courseJson['courseCode'] == courseCode) {
+              return deptId;
+            }
+          }
+        }
       }
-
-      final snapshot = await _firestore
-          .collection(AppConstants.subjectsCollection)
-          .get()
-          .timeout(
-            const Duration(seconds: AppConstants.firestoreTimeout),
-            onTimeout: () => throw AttendanceException(
-              message: 'Request timed out. Using sample data.',
-              code: 'TIMEOUT',
-            ),
-          );
-
-      if (snapshot.docs.isNotEmpty) {
-        final subjects = snapshot.docs
-            .map((doc) => Subject.fromJson({...doc.data(), 'id': doc.id}))
-            .toList();
-        _subjectsCache[cacheKey] = subjects;
-        return subjects;
-      }
-    } on FirebaseException catch (e) {
-      // For permission-denied, silently use sample data instead of throwing error
-      if (e.code == 'permission-denied') {
-        return _getSampleSubjects();
-      }
-      
-      if (retryCount < AppConstants.retryAttempts) {
-        return getSubjects(retryCount: retryCount + 1);
-      }
-      // For other Firebase errors, also fall back to sample data
-      return _getSampleSubjects();
-    } catch (e) {
-      if (retryCount < AppConstants.retryAttempts && e is AttendanceException && e.code == 'TIMEOUT') {
-        return getSubjects(retryCount: retryCount + 1);
-      }
-      // Fall back to sample data on any error
-      return _getSampleSubjects();
     }
-    return _getSampleSubjects();
+    return null;
   }
 
-  /// Get students for a subject with retry mechanism
-  static Future<List<Student>> getStudentsForSubject(String subjectId, {int retryCount = 0}) async {
+  /// Get all subjects (Courses) for the currently logged-in faculty
+  static Future<List<Course>> getSubjects() async {
     try {
-      // Check cache first
-      if (_studentsCache.containsKey(subjectId) && _studentsCache[subjectId]!.isNotEmpty) {
-        return _studentsCache[subjectId]!;
+      final institutionId = await SessionManager.getInstitutionId();
+      final facultyUid = FirebaseAuth.instance.currentUser?.uid;
+
+      if (institutionId == null || facultyUid == null) {
+        throw AttendanceException(message: 'User not logged in or institution ID not found.');
       }
 
-      final snapshot = await _firestore
-          .collection(AppConstants.usersCollection)
-          .where('role', isEqualTo: AppConstants.roleStudent)
-          .get()
-          .timeout(
-            const Duration(seconds: AppConstants.firestoreTimeout),
-            onTimeout: () => throw AttendanceException(
-              message: 'Request timed out. Using sample data.',
-              code: 'TIMEOUT',
-            ),
-          );
+      final url = Uri.parse('${ApiConfig.baseUrl}/institutions/$institutionId/faculty/$facultyUid/courses');
+      final response = await http.get(url);
 
-      if (snapshot.docs.isNotEmpty) {
-        final students = snapshot.docs
-            .map((doc) => Student.fromJson({...doc.data(), 'id': doc.id}))
-            .toList();
-        _studentsCache[subjectId] = students;
-        return students;
+      if (response.statusCode == 200) {
+        List<dynamic> coursesJson = json.decode(response.body);
+        return coursesJson.map((json) => Course.fromJson(json)).toList();
+      } else {
+        throw AttendanceException(
+            message: _getHttpErrorMessage(response.statusCode),
+            code: response.statusCode.toString());
       }
-    } on FirebaseException catch (e) {
-      // For permission-denied, silently use sample data instead of throwing error
-      if (e.code == 'permission-denied') {
-        return _getSampleStudents();
-      }
-      
-      if (retryCount < AppConstants.retryAttempts) {
-        return getStudentsForSubject(subjectId, retryCount: retryCount + 1);
-      }
-      // For other Firebase errors, also fall back to sample data
-      return _getSampleStudents();
     } catch (e) {
-      if (retryCount < AppConstants.retryAttempts && e is AttendanceException && e.code == 'TIMEOUT') {
-        return getStudentsForSubject(subjectId, retryCount: retryCount + 1);
-      }
-      // Fall back to sample data on any error
-      return _getSampleStudents();
+      throw AttendanceException(message: 'Error fetching subjects: ${e.toString()}');
     }
-    return _getSampleStudents();
   }
 
-  /// Mark attendance for students with validation
+  /// Get students for a subject (Course)
+  static Future<List<UserModel>> getStudentsForSubject(String courseCode) async {
+    try {
+      final institutionId = await SessionManager.getInstitutionId();
+      if (institutionId == null) {
+        throw AttendanceException(message: 'Institution ID not found.');
+      }
+
+      // Need departmentId for the endpoint
+      // Resolve departmentId using Course object if possible, or another service.
+      // For now, _getDepartmentIdFromCourseCode needs to be updated or a new way to get departmentId needs to be implemented.
+      // Since Course model's departmentId is now nullable from backend, we need to handle this.
+      // A more robust solution involves storing departmentId in the Course model or fetching it directly from the backend API.
+      // For immediate fix, if we cannot get departmentId, we'll throw an error.
+      final departmentId = await _getDepartmentIdFromCourseCode(institutionId, courseCode);
+      if (departmentId == null) {
+        throw AttendanceException(message: 'Department ID not found for course: $courseCode. Cannot fetch students.');
+      }
+
+      final url = Uri.parse(
+          '${ApiConfig.baseUrl}/institutions/$institutionId/departments/$departmentId/courses/$courseCode/students');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        List<dynamic> studentsJson = json.decode(response.body);
+        return studentsJson.map((json) => UserModel.fromJson(json)).toList();
+      } else {
+        throw AttendanceException(
+            message: _getHttpErrorMessage(response.statusCode),
+            code: response.statusCode.toString());
+      }
+    } catch (e) {
+      throw AttendanceException(message: 'Error fetching students for subject: ${e.toString()}');
+    }
+  }
+
+  /// Mark attendance for students
   static Future<bool> markAttendance({
-    required String subjectId,
-    required Map<String, bool> studentAttendance,
-    required String date,
-    int retryCount = 0,
+    required String courseCode,
+    required String institutionId,
+    required String? departmentId, // Changed to nullable
+    required String facultyUid,
+    required List<AttendanceModel> attendanceRecords,
   }) async {
-    // Validate inputs
-    if (subjectId.isEmpty) {
-      throw AttendanceException(message: AppConstants.errorSelectSubject);
+    // Add null check for departmentId as it's required for the URL
+    if (departmentId == null) {
+      throw AttendanceException(message: 'Department ID is missing for marking attendance.');
     }
-    if (studentAttendance.isEmpty) {
-      throw AttendanceException(message: 'Please select at least one student.');
-    }
-    if (date.isEmpty) {
-      throw AttendanceException(message: AppConstants.errorSelectDate);
-    }
-
     try {
-      final batch = _firestore.batch();
+      final url = Uri.parse(
+          '${ApiConfig.baseUrl}/institutions/$institutionId/departments/$departmentId/courses/$courseCode/attendance');
       
-      studentAttendance.forEach((studentId, isPresent) {
-        final docRef = _firestore.collection(AppConstants.attendanceCollection).doc();
-        batch.set(docRef, {
-          'subjectId': subjectId,
-          'studentId': studentId,
-          'date': date,
-          'isPresent': isPresent,
-          'remarks': '',
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-      });
-
-      await batch.commit().timeout(
-        const Duration(seconds: AppConstants.firestoreTimeout),
-        onTimeout: () => throw AttendanceException(
-          message: 'Request timed out. Please try again.',
-          code: 'TIMEOUT',
-        ),
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(attendanceRecords.map((e) => e.toJson()).toList()),
       );
 
-      // Clear cache after successful update
-      _clearCache();
-      return true;
-    } on FirebaseException catch (e) {
-      if (retryCount < AppConstants.retryAttempts) {
-        return markAttendance(
-          subjectId: subjectId,
-          studentAttendance: studentAttendance,
-          date: date,
-          retryCount: retryCount + 1,
-        );
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        throw AttendanceException(
+            message: _getHttpErrorMessage(response.statusCode),
+            code: response.statusCode.toString());
       }
-      throw AttendanceException(
-        message: _getFirebaseErrorMessage(e.code),
-        code: e.code,
-      );
     } catch (e) {
-      if (retryCount < AppConstants.retryAttempts && e is AttendanceException && e.code == 'TIMEOUT') {
-        return markAttendance(
-          subjectId: subjectId,
-          studentAttendance: studentAttendance,
-          date: date,
-          retryCount: retryCount + 1,
-        );
-      }
-      throw AttendanceException(message: AppConstants.errorMarkingAttendance);
+      throw AttendanceException(message: 'Error marking attendance: ${e.toString()}');
     }
   }
 
-  /// Get attendance history for a subject
-  static Future<List<AttendanceSummary>> getAttendanceHistory(String subjectId) async {
+  /// Get attendance history for a subject (course)
+  static Future<List<AttendanceModel>> getAttendanceHistory(
+      String institutionId, String? departmentId, String courseCode) async {
+    // Add null check for departmentId as it's required for the URL
+    if (departmentId == null) {
+      throw AttendanceException(message: 'Department ID is missing for fetching attendance history.');
+    }
     try {
-      final snapshot = await _firestore
-          .collection(AppConstants.attendanceCollection)
-          .where('subjectId', isEqualTo: subjectId)
-          .get()
-          .timeout(
-            const Duration(seconds: AppConstants.firestoreTimeout),
-            onTimeout: () => throw AttendanceException(
-              message: 'Request timed out. Using sample data.',
-              code: 'TIMEOUT',
-            ),
-          );
+      final url = Uri.parse(
+          '${ApiConfig.baseUrl}/institutions/$institutionId/departments/$departmentId/courses/$courseCode/attendance'); 
+      final response = await http.get(url);
 
-      if (snapshot.docs.isEmpty) {
-        return _getSampleAttendanceHistory();
+      if (response.statusCode == 200) {
+        List<dynamic> attendanceJson = json.decode(response.body);
+        return attendanceJson.map((json) => AttendanceModel.fromJson(json)).toList();
+
+      } else {
+        throw AttendanceException(
+            message: _getHttpErrorMessage(response.statusCode),
+            code: response.statusCode.toString());
       }
-
-      Map<String, dynamic> studentData = {};
-
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        final studentId = data['studentId'];
-
-        if (!studentData.containsKey(studentId)) {
-          studentData[studentId] = {
-            'total': 0,
-            'present': 0,
-            'name': '',
-          };
-        }
-
-        studentData[studentId]['total']++;
-        if (data['isPresent'] == true) {
-          studentData[studentId]['present']++;
-        }
-      }
-
-      List<AttendanceSummary> summaries = [];
-      for (var studentId in studentData.keys) {
-        final data = studentData[studentId];
-        final percentage = data['total'] > 0 ? (data['present'] / data['total']) * 100 : 0.0;
-
-        summaries.add(AttendanceSummary(
-          studentId: studentId,
-          studentName: data['name'].isEmpty ? 'Student $studentId' : data['name'],
-          totalClasses: data['total'],
-          classesPresent: data['present'],
-          attendancePercentage: percentage,
-        ));
-      }
-
-      summaries.sort((a, b) => a.attendancePercentage.compareTo(b.attendancePercentage));
-      return summaries;
-    } on FirebaseException catch (e) {
-      // For permission-denied, silently use sample data instead of throwing error
-      if (e.code == 'permission-denied') {
-        return _getSampleAttendanceHistory();
-      }
-      // For other Firebase errors, also fall back to sample data
-      return _getSampleAttendanceHistory();
     } catch (e) {
-      // Fall back to sample data on any error
-      return _getSampleAttendanceHistory();
+      throw AttendanceException(message: 'Error fetching attendance history: ${e.toString()}');
     }
   }
 
-  /// Get attendance for a specific student across all subjects
-  static Future<List<Map<String, dynamic>>> getStudentAttendance(String studentId) async {
+  /// Get attendance for a specific student across all courses
+  static Future<List<AttendanceModel>> getStudentAttendance(String studentId) async {
     try {
-      final snapshot = await _firestore
-          .collection(AppConstants.attendanceCollection)
-          .where('studentId', isEqualTo: studentId)
-          .get()
-          .timeout(
-            const Duration(seconds: AppConstants.firestoreTimeout),
-            onTimeout: () => throw AttendanceException(
-              message: 'Request timed out. Using sample data.',
-              code: 'TIMEOUT',
-            ),
-          );
-
-      if (snapshot.docs.isEmpty) {
-        return _getSampleStudentAttendance();
+      final institutionId = await SessionManager.getInstitutionId();
+      if (institutionId == null) {
+        throw AttendanceException(message: 'Institution ID not found.');
       }
+      final url = Uri.parse('${ApiConfig.baseUrl}/institutions/$institutionId/students/$studentId/attendance');
+      final response = await http.get(url);
 
-      Map<String, dynamic> subjectData = {};
-
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        final subjectId = data['subjectId'];
-
-        if (!subjectData.containsKey(subjectId)) {
-          subjectData[subjectId] = {
-            'total': 0,
-            'present': 0,
-            'absent': 0,
-            'subjectName': '',
-            'subjectCode': '',
-          };
-        }
-
-        subjectData[subjectId]['total']++;
-        if (data['isPresent'] == true) {
-          subjectData[subjectId]['present']++;
-        } else {
-          subjectData[subjectId]['absent']++;
-        }
+      if (response.statusCode == 200) {
+        List<dynamic> attendanceJson = json.decode(response.body);
+        return attendanceJson.map((json) => AttendanceModel.fromJson(json)).toList();
+      } else {
+        throw AttendanceException(
+            message: _getHttpErrorMessage(response.statusCode),
+            code: response.statusCode.toString());
       }
-
-      List<Map<String, dynamic>> attendance = [];
-      for (var subjectId in subjectData.keys) {
-        final data = subjectData[subjectId];
-        final percentage = data['total'] > 0 ? (data['present'] / data['total']) * 100 : 0.0;
-
-        attendance.add({
-          'subjectId': subjectId,
-          'subjectName': data['subjectName'].isEmpty ? 'Subject $subjectId' : data['subjectName'],
-          'subjectCode': data['subjectCode'].isEmpty ? 'CODE' : data['subjectCode'],
-          'total': data['total'],
-          'present': data['present'],
-          'absent': data['absent'],
-          'percentage': percentage,
-        });
-      }
-
-      attendance.sort((a, b) => (a['subjectName'] as String).compareTo(b['subjectName'] as String));
-      return attendance;
-    } on FirebaseException catch (e) {
-      // For permission-denied, silently use sample data instead of throwing error
-      if (e.code == 'permission-denied') {
-        return _getSampleStudentAttendance();
-      }
-      // For other Firebase errors, also fall back to sample data
-      return _getSampleStudentAttendance();
     } catch (e) {
-      // Fall back to sample data on any error
-      return _getSampleStudentAttendance();
+      throw AttendanceException(message: 'Error fetching student attendance: ${e.toString()}');
     }
   }
 
-  /// Get attendance for a specific date
-  static Future<List<AttendanceRecord>> getAttendanceForDate(String subjectId, String date) async {
+  /// Get attendance for a specific date (for a course)
+  static Future<List<AttendanceModel>> getAttendanceForDate(
+      String institutionId, String? departmentId, String courseCode, String date) async {
+    // Add null check for departmentId as it's required for the URL
+    if (departmentId == null) {
+      throw AttendanceException(message: 'Department ID is missing for fetching attendance for date.');
+    }
     try {
-      final snapshot = await _firestore
-          .collection(AppConstants.attendanceCollection)
-          .where('subjectId', isEqualTo: subjectId)
-          .where('date', isEqualTo: date)
-          .get();
+      final url = Uri.parse(
+          '${ApiConfig.baseUrl}/institutions/$institutionId/departments/$departmentId/courses/$courseCode/attendance?date=$date');
+      final response = await http.get(url);
 
-      return snapshot.docs
-          .map((doc) => AttendanceRecord.fromJson({...doc.data(), 'id': doc.id}))
-          .toList();
-    } on FirebaseException catch (e) {
-      throw AttendanceException(
-        message: _getFirebaseErrorMessage(e.code),
-        code: e.code,
-      );
+      if (response.statusCode == 200) {
+        List<dynamic> attendanceJson = json.decode(response.body);
+        return attendanceJson.map((json) => AttendanceModel.fromJson(json)).toList();
+      } else {
+        throw AttendanceException(
+            message: _getHttpErrorMessage(response.statusCode),
+            code: response.statusCode.toString());
+      }
     } catch (e) {
-      return [];
+      throw AttendanceException(message: 'Error fetching attendance for date: ${e.toString()}');
     }
   }
 
-  /// Clear all caches
-  static void _clearCache() {
-    _subjectsCache.clear();
-    _studentsCache.clear();
-  }
-
-  /// Map Firebase error codes to user-friendly messages
-  static String _getFirebaseErrorMessage(String code) {
-    switch (code) {
-      case 'permission-denied':
-        return 'You do not have permission to access this data.';
-      case 'unavailable':
-        return 'Service is temporarily unavailable. Please try again.';
-      case 'unauthenticated':
-        return 'Please log in to continue.';
-      case 'not-found':
-        return 'The requested data was not found.';
-      case 'invalid-argument':
-        return 'Invalid request. Please check your input.';
+  /// Map HTTP error codes to user-friendly messages
+  static String _getHttpErrorMessage(int statusCode) {
+    switch (statusCode) {
+      case 401:
+        return 'Authentication required. Please log in.';
+      case 403:
+        return 'You do not have permission to perform this action.';
+      case 404:
+        return 'The requested resource was not found.';
+      case 500:
+        return 'Server error. Please try again later.';
       default:
-        return 'An error occurred. Please try again.';
+        return 'An unexpected error occurred (Status: $statusCode).';
     }
-  }
-
-  /// Sample data for development/fallback
-  static List<Subject> _getSampleSubjects() {
-    return [
-      Subject(id: '1', name: 'Data Structures', code: 'CSE301', className: 'CSE-A'),
-      Subject(id: '2', name: 'Algorithms', code: 'CSE302', className: 'CSE-B'),
-      Subject(id: '3', name: 'Database Management Systems', code: 'CSE303', className: 'CSE-C'),
-      Subject(id: '4', name: 'Web Development', code: 'CSE304', className: 'CSE-D'),
-    ];
-  }
-
-  static List<Student> _getSampleStudents() {
-    return [
-      Student(id: '1', name: 'Rahul Kumar', usn: 'USN001', email: 'rahul@college.edu'),
-      Student(id: '2', name: 'Priya Sharma', usn: 'USN002', email: 'priya@college.edu'),
-      Student(id: '3', name: 'Amit Patel', usn: 'USN003', email: 'amit@college.edu'),
-      Student(id: '4', name: 'Deepika Singh', usn: 'USN004', email: 'deepika@college.edu'),
-      Student(id: '5', name: 'Arun Verma', usn: 'USN005', email: 'arun@college.edu'),
-      Student(id: '6', name: 'Neha Gupta', usn: 'USN006', email: 'neha@college.edu'),
-      Student(id: '7', name: 'Vikram Roy', usn: 'USN007', email: 'vikram@college.edu'),
-      Student(id: '8', name: 'Anjali Desai', usn: 'USN008', email: 'anjali@college.edu'),
-    ];
-  }
-
-  static List<AttendanceSummary> _getSampleAttendanceHistory() {
-    return [
-      AttendanceSummary(
-        studentId: '1',
-        studentName: 'Rahul Kumar',
-        totalClasses: 20,
-        classesPresent: 18,
-        attendancePercentage: 90.0,
-      ),
-      AttendanceSummary(
-        studentId: '2',
-        studentName: 'Priya Sharma',
-        totalClasses: 20,
-        classesPresent: 16,
-        attendancePercentage: 80.0,
-      ),
-      AttendanceSummary(
-        studentId: '3',
-        studentName: 'Amit Patel',
-        totalClasses: 20,
-        classesPresent: 14,
-        attendancePercentage: 70.0,
-      ),
-      AttendanceSummary(
-        studentId: '4',
-        studentName: 'Deepika Singh',
-        totalClasses: 20,
-        classesPresent: 19,
-        attendancePercentage: 95.0,
-      ),
-      AttendanceSummary(
-        studentId: '5',
-        studentName: 'Arun Verma',
-        totalClasses: 20,
-        classesPresent: 12,
-        attendancePercentage: 60.0,
-      ),
-      AttendanceSummary(
-        studentId: '6',
-        studentName: 'Neha Gupta',
-        totalClasses: 20,
-        classesPresent: 17,
-        attendancePercentage: 85.0,
-      ),
-      AttendanceSummary(
-        studentId: '7',
-        studentName: 'Vikram Roy',
-        totalClasses: 20,
-        classesPresent: 15,
-        attendancePercentage: 75.0,
-      ),
-      AttendanceSummary(
-        studentId: '8',
-        studentName: 'Anjali Desai',
-        totalClasses: 20,
-        classesPresent: 18,
-        attendancePercentage: 90.0,
-      ),
-    ];
-  }
-
-  static List<Map<String, dynamic>> _getSampleStudentAttendance() {
-    return [
-      {
-        'subjectId': '1',
-        'subjectName': 'Data Structures',
-        'subjectCode': 'CSE301',
-        'total': 20,
-        'present': 18,
-        'absent': 2,
-        'percentage': 90.0,
-      },
-      {
-        'subjectId': '2',
-        'subjectName': 'Algorithms',
-        'subjectCode': 'CSE302',
-        'total': 20,
-        'present': 16,
-        'absent': 4,
-        'percentage': 80.0,
-      },
-      {
-        'subjectId': '3',
-        'subjectName': 'Database Management Systems',
-        'subjectCode': 'CSE303',
-        'total': 20,
-        'present': 14,
-        'absent': 6,
-        'percentage': 70.0,
-      },
-      {
-        'subjectId': '4',
-        'subjectName': 'Web Development',
-        'subjectCode': 'CSE304',
-        'total': 20,
-        'present': 19,
-        'absent': 1,
-        'percentage': 95.0,
-      },
-    ];
   }
 }

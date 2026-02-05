@@ -1,6 +1,7 @@
 package com.example.backend.controller;
 
 import com.example.backend.dto.CreateUserRequest;
+import com.example.backend.models.User; // Import the new User POJO
 import com.example.backend.service.UserService;
 import com.google.firebase.auth.UserRecord;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -42,31 +42,31 @@ public class AdminController {
 
     @GetMapping("/users")
     @PreAuthorize("hasAuthority('admin')")
-    public ResponseEntity<?> getUsers(
+    public ResponseEntity<List<User>> getUsers(
             @RequestParam String institutionId,
             @RequestParam(required = false) String role) {
         try {
-            List<Map<String, Object>> users = userService.getUsers(institutionId, role);
+            List<User> users = userService.getUsers(institutionId, role);
             return ResponseEntity.ok(users);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error fetching users: " + e.getMessage());
+            return ResponseEntity.status(500).build();
         }
     }
 
     @GetMapping("/users/{uid}")
     @PreAuthorize("hasAuthority('admin')")
-    public ResponseEntity<?> getUserById(
+    public ResponseEntity<User> getUserById(
             @PathVariable String uid,
             @RequestParam String institutionId) {
         try {
-            Map<String, Object> user = userService.getUserById(institutionId, uid);
+            User user = userService.getUserById(institutionId, uid);
             if (user != null) {
                 return ResponseEntity.ok(user);
             } else {
-                return ResponseEntity.status(404).body("User not found with ID: " + uid);
+                return ResponseEntity.status(404).build(); // Return 404 with empty body
             }
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error fetching user: " + e.getMessage());
+            return ResponseEntity.status(500).build();
         }
     }
 
@@ -75,13 +75,12 @@ public class AdminController {
     public ResponseEntity<?> updateUser(
             @PathVariable String uid,
             @RequestParam String institutionId,
-            @RequestBody Map<String, Object> updates) {
+            @RequestBody User updates) {
         try {
             userService.updateUser(institutionId, uid, updates);
-            return ResponseEntity.ok("User updated successfully: " + uid);
+            return ResponseEntity.ok().build(); // Return 200 OK with empty body
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error updating user: " + e.getMessage());
+            return ResponseEntity.status(500).build();
         }
     }
 }
-
