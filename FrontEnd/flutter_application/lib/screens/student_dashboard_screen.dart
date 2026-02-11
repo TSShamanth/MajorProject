@@ -22,7 +22,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   late Animation<Offset> _slideAnimation;
   bool _isDarkMode = false;
   bool _isSidebarCollapsed = false;
-  bool _isMobileSidebarOpen = false;
+  // bool _isMobileSidebarOpen = false;
   final TextEditingController _searchController = TextEditingController();
 
   @override
