@@ -78,6 +78,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       'Timetable': '/$institutionId/student/timetable',
       'Academics': '/$institutionId/student/academics',
       'Academic Records': '/$institutionId/student/academics',
+      'Attendance': '/$institutionId/student/attendance',
       'Leave': '/$institutionId/student/leave',
       'Events': '/$institutionId/student/events',
       'Events & Calendar': '/$institutionId/student/events',
@@ -1061,11 +1062,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
     return InkWell(
       onTap: () {
         if (label == 'Attendance') {
-          _navigateToRoute('Academics');
+          _navigateToRoute('Attendance');
         } else if (label == 'Assignments') {
           _navigateToRoute('Assignments');
         } else if (label == 'Credits') {
-          _navigateToRoute('Academics');
+          _navigateToRoute('Credits');
         }
       },
       borderRadius: BorderRadius.circular(8),

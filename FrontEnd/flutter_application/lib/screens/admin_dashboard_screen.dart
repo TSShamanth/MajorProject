@@ -1,8 +1,8 @@
-import 'dart:typed_data'; // Import for Uint8List
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:go_router/go_router.dart';
-import '../services/image_service.dart'; // Import the new image service
+import '../services/image_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 
@@ -13,7 +13,7 @@ class AdminDashboardScreen extends StatefulWidget {
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
-class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+class _AdminDashboardScreenState extends State<AdminDashboardScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -39,6 +39,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _studentCount = 0;
   int _facultyCount = 0;
   int _adminCount = 0;
+  bool _sidebarExpanded = true;
+  bool _isDarkMode = false;
+  late AnimationController _animationController;
 
   final ApiService _apiService = ApiService();
   final ImageService _imageService = ImageService();
@@ -46,6 +49,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
     _fetchInstitutionId().then((_) {
       if (_institutionId != null) {
         _fetchUsersAndCounts();
@@ -64,33 +71,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (_institutionId == null) return;
     try {
       final users = await _apiService.getUsers(_institutionId!);
-      debugPrint('Fetched users count: ${users.length}'); // Debug print
+      debugPrint('Fetched users count: ${users.length}');
       int studentCount = 0;
       int facultyCount = 0;
-      int adminCount = 0; // New admin counter
+      int adminCount = 0;
       for (var user in users) {
-        debugPrint('User role: ${user.role}'); // Debug print
+        debugPrint('User role: ${user.role}');
         if (user.role == 'student') {
           studentCount++;
         } else if (user.role == 'faculty') {
           facultyCount++;
-        } else if (user.role == 'admin') { // Count admins
+        } else if (user.role == 'admin') {
           adminCount++;
         }
       }
       setState(() {
         _studentCount = studentCount;
         _facultyCount = facultyCount;
-        _adminCount = adminCount; // Update admin count
+        _adminCount = adminCount;
       });
     } catch (e) {
-      // Handle error
-      debugPrint('Error fetching users and counts: $e'); // Debug print
+      debugPrint('Error fetching users and counts: $e');
     }
   }
 
   @override
   void dispose() {
+    _animationController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _displayNameController.dispose();
@@ -138,132 +145,194 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              backgroundColor: const Color(0xFFF8F9FA),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: const Row(
+              backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
                 children: [
-                  Icon(Icons.person_add_alt_1_outlined, color: Color(0xFF1E293B)),
-                  SizedBox(width: 8),
-                  Text('Create New User', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4F46E5).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.person_add_alt_1_rounded, color: Color(0xFF4F46E5), size: 22),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Create New User',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
+                      color: _isDarkMode ? Colors.white : const Color(0xFF1F2937),
+                    ),
+                  ),
                 ],
               ),
-              content: Form(
-                key: _formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Center(
-                        child: Stack(
-                          children: [
-                            CircleAvatar(
-                              radius: 50,
-                              backgroundColor: Colors.grey.shade300,
-                              backgroundImage: _pickedImageBytes != null ? MemoryImage(_pickedImageBytes!) : null,
-                              child: _pickedImageBytes == null
-                                  ? const Icon(Icons.person_outline, size: 50, color: Colors.white)
-                                  : null,
-                            ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: CircleAvatar(
-                                radius: 18,
-                                backgroundColor: const Color(0xFF1E293B),
-                                child: IconButton(
-                                  icon: const Icon(Icons.camera_alt_outlined, color: Colors.white, size: 18),
-                                  onPressed: () async {
-                                    Navigator.of(context).pop();
-                                    await _pickAndUploadImage();
-                                    _showAddUserDialog();
-                                  },
+              content: SizedBox(
+                width: 500,
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 8),
+                        Center(
+                          child: Stack(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF4F46E5).withOpacity(0.2),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: CircleAvatar(
+                                  radius: 56,
+                                  backgroundColor: const Color(0xFFEEF2FF),
+                                  backgroundImage: _pickedImageBytes != null ? MemoryImage(_pickedImageBytes!) : null,
+                                  child: _pickedImageBytes == null
+                                      ? const Icon(Icons.person_outline_rounded, size: 56, color: Color(0xFF4F46E5))
+                                      : null,
                                 ),
                               ),
-                            ),
-                          ],
+                              Positioned(
+                                bottom: 2,
+                                right: 2,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.15),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: const Color(0xFF4F46E5),
+                                    child: IconButton(
+                                      icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 18),
+                                      onPressed: () async {
+                                        Navigator.of(context).pop();
+                                        await _pickAndUploadImage();
+                                        _showAddUserDialog();
+                                      },
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      DropdownButtonFormField<String>(
-                        value: selectedRole,
-                        decoration: _inputDecoration('Role', Icons.school_outlined),
-                        items: ['student', 'faculty', 'admin'].map((String role) {
-                          return DropdownMenuItem<String>(
-                            value: role,
-                            child: Text(role.substring(0, 1).toUpperCase() + role.substring(1)),
-                          );
-                        }).toList(),
-                        onChanged: (newValue) {
-                          setDialogState(() {
-                            selectedRole = newValue;
-                            _selectedRole = newValue;
-                          });
-                        },
-                        validator: (value) => value == null ? 'Please select a role' : null,
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 32),
+                        
+                        DropdownButtonFormField<String>(
+                          value: selectedRole,
+                          decoration: _inputDecoration('Role', Icons.school_rounded),
+                          dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
+                          style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
+                          items: ['student', 'faculty', 'admin'].map((String role) {
+                            return DropdownMenuItem<String>(
+                              value: role,
+                              child: Text(role.substring(0, 1).toUpperCase() + role.substring(1)),
+                            );
+                          }).toList(),
+                          onChanged: (newValue) {
+                            setDialogState(() {
+                              selectedRole = newValue;
+                              _selectedRole = newValue;
+                            });
+                          },
+                          validator: (value) => value == null ? 'Please select a role' : null,
+                        ),
+                        const SizedBox(height: 20),
 
-                      _buildTextField(_displayNameController, 'Display Name', Icons.badge_outlined),
-                      const SizedBox(height: 16),
-                      _buildTextField(_emailController, 'Email', Icons.email_outlined),
-                      const SizedBox(height: 16),
-                      _buildTextField(_passwordController, 'Password', Icons.lock_outline, obscureText: true),
-                      
-                      if (selectedRole == 'student') ...[
-                        const SizedBox(height: 16),
-                        _buildTextField(_nameController, 'Full Name', Icons.person_outline),
-                        const SizedBox(height: 16),
-                        _buildTextField(_usnController, 'USN', Icons.confirmation_number_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_phoneController, 'Phone Number', Icons.phone_outlined),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(child: _buildTextField(_semController, 'Semester', Icons.format_list_numbered_outlined)),
-                            const SizedBox(width: 16),
-                            Expanded(child: _buildTextField(_mentorController, 'Mentor Name', Icons.supervisor_account_outlined)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(_programmeController, 'Programme', Icons.class_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_schoolController, 'School', Icons.school_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_addressController, 'Address', Icons.home_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_dobController, 'Date of Birth', Icons.cake_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_bloodGroupController, 'Blood Group', Icons.bloodtype_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_emergencyContactController, 'Emergency Contact', Icons.contact_phone_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_outlined),
+                        _buildTextField(_displayNameController, 'Display Name', Icons.badge_rounded),
+                        const SizedBox(height: 20),
+                        _buildTextField(_emailController, 'Email', Icons.email_rounded),
+                        const SizedBox(height: 20),
+                        _buildTextField(_passwordController, 'Password', Icons.lock_rounded, obscureText: true),
+                        
+                        if (selectedRole == 'student') ...[
+                          const SizedBox(height: 20),
+                          _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_usnController, 'USN', Icons.confirmation_number_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_phoneController, 'Phone Number', Icons.phone_rounded),
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Expanded(child: _buildTextField(_semController, 'Semester', Icons.format_list_numbered_rounded)),
+                              const SizedBox(width: 20),
+                              Expanded(child: _buildTextField(_mentorController, 'Mentor Name', Icons.supervisor_account_rounded)),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(_programmeController, 'Programme', Icons.class_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_schoolController, 'School', Icons.school_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_addressController, 'Address', Icons.home_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_dobController, 'Date of Birth', Icons.cake_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_bloodGroupController, 'Blood Group', Icons.bloodtype_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_emergencyContactController, 'Emergency Contact', Icons.contact_phone_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_rounded),
+                        ],
+                        const SizedBox(height: 8),
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
               actions: [
                 TextButton(
-                  child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
                   onPressed: () {
                     Navigator.of(context).pop();
                     _clearForm();
                   },
                 ),
+                const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: _handleCreateUser,
-                  icon: _isLoading ? const SizedBox.shrink() : const Icon(Icons.check_circle_outline, color: Colors.white),
+                  icon: _isLoading ? const SizedBox.shrink() : const Icon(Icons.check_circle_rounded, size: 20),
                   label: _isLoading 
-                      ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2) 
-                      : const Text('Create User', style: TextStyle(color: Colors.white)),
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                        )
+                      : const Text('Create User', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E293B),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    backgroundColor: const Color(0xFF4F46E5),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    elevation: 0,
                   ),
                 ),
               ],
+              actionsPadding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
             );
           },
         );
@@ -276,6 +345,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       controller: controller,
       obscureText: obscureText,
       decoration: _inputDecoration(label, icon),
+      style: TextStyle(fontSize: 15, color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
       validator: (value) {
         if (value == null || value.isEmpty) {
           return 'Please enter a $label';
@@ -294,21 +364,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon, color: const Color(0xFF1E293B)),
+      labelStyle: TextStyle(fontSize: 14, color: _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+      prefixIcon: Icon(icon, color: const Color(0xFF4F46E5), size: 22),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF1E293B), width: 2),
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 2),
       ),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: _isDarkMode ? const Color(0xFF111827) : const Color(0xFFFAFAFA),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
   }
 
@@ -354,6 +426,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           );
           Navigator.of(context).pop();
           _clearForm();
+          _fetchUsersAndCounts();
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: ${response.body}'), backgroundColor: Colors.red),
@@ -397,736 +470,1144 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     });
   }
 
+  Color get _bgColor => _isDarkMode ? const Color(0xFF111827) : const Color(0xFFF8FAFC);
+  Color get _cardColor => _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+  Color get _textPrimary => _isDarkMode ? const Color(0xFFF9FAFB) : const Color(0xFF1F2937);
+  Color get _textSecondary => _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
+  Color get _borderColor => _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+  Color get _sidebarColor => const Color(0xFF4F46E5);
+
   @override
   Widget build(BuildContext context) {
-    final menuItems = [
-      {'icon': Icons.business_outlined, 'label': 'Institution', 'description': 'Manage institution settings'},
-      {'icon': Icons.person_add_alt_1_outlined, 'label': 'User Management', 'description': 'Create & manage users'},
-      {'icon': Icons.bar_chart_outlined, 'label': 'Attendance Reports', 'description': 'View attendance analytics'},
-      {'icon': Icons.calendar_today_outlined, 'label': 'Academic Calendar', 'description': 'Manage timetables & holidays'},
-      {'icon': Icons.business_center_outlined, 'label': 'Placements', 'description': 'Manage placement drives'},
-      {'icon': Icons.celebration_outlined, 'label': 'Events', 'description': 'Oversee all events'},
-      {'icon': Icons.analytics_outlined, 'label': 'Analytics', 'description': 'Institution-wide reports'},
-      {'icon': Icons.settings_outlined, 'label': 'Settings', 'description': 'System configuration'}
-    ];
-
-    final stats = [
-      {'label': 'Total Students', 'value': _studentCount.toString(), 'change': '+12%', 'color': Colors.blue},
-      {'label': 'Total Faculty', 'value': _facultyCount.toString(), 'change': '+3%', 'color': Colors.purple},
-      {'label': 'Avg Attendance', 'value': '87%', 'change': '+2%', 'color': Colors.green},
-      {'label': 'Active Placements', 'value': '15', 'change': '+5', 'color': Colors.orange}
-    ];
-
-    final quickActions = [
-      {'icon': Icons.person_add_alt_1_outlined, 'label': 'Add User', 'color': Colors.blue, 'action': _showAddUserDialog},
-      {'icon': Icons.business_outlined, 'label': 'Institution Setup', 'color': Colors.purple, 'action': () {
-        if (_institutionId != null) { 
-          context.go('/$_institutionId/admin/institution-settings');
-        }
-      }},
-      {'icon': Icons.business_center_outlined, 'label': 'New Placement', 'color': Colors.green, 'action': () {}},
-      {'icon': Icons.calendar_today_outlined, 'label': 'Add Holiday', 'color': Colors.orange, 'action': () {}}
-    ];
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        title: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
-                child: Text('A', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: _bgColor,
+      body: Row(
+        children: [
+          _buildModernSidebar(),
+          Expanded(
+            child: Column(
               children: [
-                Text('Acadexa', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                Text('Admin Portal', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                _buildModernTopBar(),
+                _buildBreadcrumb(),
+                Expanded(
+                  child: _buildDashboardContent(),
+                ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Color(0xFF1E293B)),
-            onPressed: () async {
-              final router = GoRouter.of(context);
-              await SessionManager.clearSession();
-              await AuthService.logout();
-              router.go('/login');
-            },
           ),
         ],
       ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Color(0xFF1E293B),
-              ),
-              child: Text(
-                'Menu',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
+    );
+  }
+
+  Widget _buildModernSidebar() {
+    final menuItems = [
+      {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
+      {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
+      {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
+      {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
+      {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': null},
+      {'icon': Icons.bar_chart_rounded, 'label': 'Analytics & Reports', 'active': false, 'route': null},
+      {'icon': Icons.article_rounded, 'label': 'Content Management', 'active': false, 'route': null},
+      {'icon': Icons.settings_rounded, 'label': 'System Settings', 'active': false, 'route': null},
+    ];
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: _sidebarExpanded ? 270 : 80,
+      decoration: BoxDecoration(
+        color: _sidebarColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(2, 0),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1,
                 ),
               ),
             ),
-            for (var item in menuItems)
-              ListTile(
-                leading: Icon(item['icon'] as IconData, color: const Color(0xFF1E293B)),
-                title: Text(item['label'] as String),
-                subtitle: Text(item['description'] as String),
-                onTap: () {
-                  Navigator.pop(context);
-                },
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'A',
+                      style: TextStyle(
+                        color: Color(0xFF4F46E5),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_sidebarExpanded) ...[
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Text(
+                      'AcadWorkHub',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ),
+                ],
+                IconButton(
+                  icon: Icon(
+                    _sidebarExpanded ? Icons.chevron_left_rounded : Icons.menu_rounded,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _sidebarExpanded = !_sidebarExpanded;
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              children: menuItems.map((item) {
+                final isActive = item['active'] == true;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {},
+                      borderRadius: BorderRadius.circular(12),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: isActive ? Colors.white.withOpacity(0.15) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: isActive 
+                              ? const Border(left: BorderSide(color: Colors.white, width: 3))
+                              : null,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              item['icon'] as IconData,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                            if (_sidebarExpanded) ...[
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  item['label'] as String,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+          if (_sidebarExpanded)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(
+                    color: Colors.white.withOpacity(0.1),
+                    width: 1,
+                  ),
+                ),
               ),
-          ],
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Welcome, Admin', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-            const Text('VIT Chennai | Administrator', style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 24),
-
-            // Stats Grid
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 2.0,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  InkWell(
+                    onTap: () {},
+                    child: Text(
+                      'Help & Support',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: () {},
+                    child: Text(
+                      'Documentation',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              itemCount: stats.length,
-              itemBuilder: (context, index) {
-                final stat = stats[index];
-                return _buildStatCard(stat['label'] as String, stat['value'] as String, stat['change'] as String, stat['color'] as Color);
-              },
             ),
-            const SizedBox(height: 24),
-
-            // Quick Actions
-            _buildQuickActionsCard(quickActions),
-            const SizedBox(height: 24),
-
-            _buildUserManagementCard(),
-            const SizedBox(height: 16),
-            
-            _buildFacultyManagementCard(), // Added this
-            const SizedBox(height: 16),
-
-            _buildAcademicsCard(),
-            const SizedBox(height: 16),
-
-            _buildFinancialsCard(),
-            const SizedBox(height: 16),
-
-            _buildResourcesCard(),
-            const SizedBox(height: 16),
-
-            _buildToolsCard(),
-            const SizedBox(height: 16),
-
-            _buildCommunityCard(),
-            const SizedBox(height: 16),
-
-            _buildAttendanceAnalyticsCard(),
-            const SizedBox(height: 16),
-
-            _buildPlacementDrivesCard(),
-            const SizedBox(height: 16),
-            
-            _buildAcademicManagementCard(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFacultyManagementCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.supervised_user_circle_outlined),
-                SizedBox(width: 8),
-                Text('Faculty Management', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildInfoTile(
-              'Faculty Attendance',
-              'View live status and history',
-              '',
-              Colors.cyan,
-              onTap: () {
-                if (_institutionId != null) {
-                  context.go('/$_institutionId/admin/attendance-dashboard');
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAcademicsCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.school_outlined),
-                SizedBox(width: 8),
-                Text('Academics', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildInfoTile(
-              'Class & Section Management',
-              'Assign students to classes',
-              '',
-              Colors.teal,
-              onTap: () {
-                if (_institutionId != null) {
-                  context.go('/$_institutionId/admin/class-management');
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            _buildInfoTile(
-              'Examination Management',
-              'Schedule exams and manage grades',
-              '',
-              Colors.orange,
-              onTap: () {
-                if (_institutionId != null) {
-                  context.go('/$_institutionId/admin/exam-dashboard');
-                }
-              },
-            ),
-             const SizedBox(height: 8),
-            _buildInfoTile(
-              'Report Card Generation',
-              'Generate and distribute grade reports',
-              '',
-              Colors.purple,
-              onTap: () {
-                if (_institutionId != null) {
-                  context.go('/$_institutionId/admin/report-card-dashboard');
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFinancialsCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.monetization_on_outlined),
-                SizedBox(width: 8),
-                Text('Financials', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildInfoTile(
-              'Student Fee Management', 
-              'Manage fee structures and payments', 
-              '',
-              Colors.green,
-              onTap: () {
-                if (_institutionId != null) {
-                  context.go('/$_institutionId/admin/fee-management');
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResourcesCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.inventory_2_outlined),
-                SizedBox(width: 8),
-                Text('Resource Management', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildInfoTile(
-              'Inventory Management', 
-              'Track and manage campus assets', 
-              '',
-              Colors.brown,
-              onTap: () {
-                if (_institutionId != null) {
-                  context.go('/$_institutionId/admin/inventory');
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToolsCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.build_outlined),
-                SizedBox(width: 8),
-                Text('Content & Tools', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildInfoTile(
-              'Form & Survey Builder',
-              'Create custom forms and surveys',
-              '',
-              Colors.blueGrey,
-              onTap: () {
-                if (_institutionId != null) {
-                  context.go('/$_institutionId/admin/form-builder');
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCommunityCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.people_alt_outlined),
-                SizedBox(width: 8),
-                Text('Community', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildInfoTile(
-              'Alumni Network Portal',
-              'Engage with the alumni community',
-              '',
-              Colors.indigo,
-              onTap: () {
-                if (_institutionId != null) {
-                  context.go('/$_institutionId/admin/alumni-dashboard');
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String label, String value, String change, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-          const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(change, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
+  Widget _buildModernTopBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        border: Border(
+          bottom: BorderSide(color: _borderColor),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 46,
+              decoration: BoxDecoration(
+                color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _borderColor),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 18),
+                  Icon(Icons.search_rounded, color: _textSecondary, size: 22),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search students, courses, companies...',
+                        hintStyle: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 15,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                      style: TextStyle(color: _textPrimary, fontSize: 15),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 20),
 
-  Widget _buildQuickActionsCard(List<Map<String, Object>> actions) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          Container(
+            decoration: BoxDecoration(
+              color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _borderColor),
+            ),
+            child: IconButton(
+              icon: Icon(
+                _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                color: _isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFF4F46E5),
+                size: 22,
+              ),
+              onPressed: () {
+                setState(() {
+                  _isDarkMode = !_isDarkMode;
+                });
+              },
+              tooltip: _isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+            ),
+          ),
+          const SizedBox(width: 16),
+
+          Stack(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
+                  icon: Icon(Icons.notifications_rounded, color: _textPrimary, size: 24),
+                  onPressed: () {},
+                ),
+              ),
+              Positioned(
+                right: 12,
+                top: 12,
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEF4444),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 20),
+
+          Container(
+            padding: const EdgeInsets.only(left: 20),
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(color: _borderColor),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(23),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'AD',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 17,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Admin',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: _textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Administrator',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 10),
+                PopupMenuButton(
+                  icon: Icon(Icons.arrow_drop_down_rounded, color: _textSecondary, size: 26),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  color: _cardColor,
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      child: Row(
+                        children: [
+                          Icon(Icons.settings_rounded, size: 20, color: _textPrimary),
+                          const SizedBox(width: 14),
+                          Text('Settings', style: TextStyle(fontSize: 15, color: _textPrimary)),
+                        ],
+                      ),
+                      onTap: () {},
+                    ),
+                    PopupMenuItem(
+                      child: const Row(
+                        children: [
+                          Icon(Icons.logout_rounded, size: 20, color: Color(0xFFEF4444)),
+                          SizedBox(width: 14),
+                          Text('Logout', style: TextStyle(color: Color(0xFFEF4444), fontSize: 15)),
+                        ],
+                      ),
+                      onTap: () async {
+                        final router = GoRouter.of(context);
+                        await SessionManager.clearSession();
+                        await AuthService.logout();
+                        router.go('/login');
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBreadcrumb() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        border: Border(
+          bottom: BorderSide(color: _borderColor),
+        ),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'Home',
+            style: TextStyle(
+              fontSize: 14,
+              color: _textSecondary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Icon(Icons.chevron_right_rounded, size: 18, color: _textSecondary),
+          const SizedBox(width: 10),
+          Text(
+            'Dashboard',
+            style: TextStyle(
+              fontSize: 14,
+              color: const Color(0xFF4F46E5),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardContent() {
+    return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Quick Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 2.5,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
+            Text(
+              'System Overview',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: _textPrimary,
+                letterSpacing: -0.5,
               ),
-              itemCount: actions.length,
-              itemBuilder: (context, index) {
-                final action = actions[index];
-                return ElevatedButton.icon(
-                  onPressed: action['action'] as void Function(),
-                  icon: Icon(action['icon'] as IconData, color: action['color'] as Color),
-                  label: Text(action['label'] as String, style: const TextStyle(color: Color(0xFF1E293B))),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: (action['color'] as Color).withOpacity(0.1),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                );
-              },
             ),
+            const SizedBox(height: 4),
+            Text(
+              'Complete academic workforce and placement management',
+              style: TextStyle(
+                fontSize: 14,
+                color: _textSecondary,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            Row(
+              children: [
+                Expanded(child: _buildStatCard('Active Students', _studentCount.toString(), '298 Final Year', Icons.people_rounded, const Color(0xFF4F46E5))),
+                const SizedBox(width: 16),
+                Expanded(child: _buildStatCard('Faculty', _facultyCount.toString(), '12 Departments', Icons.school_rounded, const Color(0xFF10B981))),
+                const SizedBox(width: 16),
+                Expanded(child: _buildStatCard('Placement', '82%', 'Current Season', Icons.business_center_rounded, const Color(0xFF8B5CF6))),
+                const SizedBox(width: 16),
+                Expanded(child: _buildStatCard('Actions', '12', '8 Pending', Icons.warning_rounded, const Color(0xFFF59E0B))),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    children: [
+                      _buildUserManagementCard(),
+                      const SizedBox(height: 16),
+                      _buildRecentActivityCard(),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    children: [
+                      _buildQuickActionsCard(),
+                      const SizedBox(height: 16),
+                      _buildSystemOverviewCard(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildAcademicsCard()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildFinancialsCard()),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildResourcesCard()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildToolsCard()),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildCommunityCard(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, String subtext, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.w800,
+              color: _textPrimary,
+              letterSpacing: -1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 13,
+              color: _textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtext,
+            style: TextStyle(
+              fontSize: 12,
+              color: _textSecondary.withOpacity(0.7),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildUserManagementCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.group_outlined),
-                    SizedBox(width: 8),
-                    Text('User Management', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                ElevatedButton(onPressed: _showAddUserDialog, child: const Text('+ Add User')),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildUserTypeTile(
-              'Students', 
-              _studentCount.toString(), 
-              'Active accounts', 
-              Colors.blue,
-              onTap: () {
-                if (_institutionId != null) {
-                  final path = '/$_institutionId/admin/users/student';
-                  debugPrint('Navigating to: $path'); // Debug print
-                  context.go(path);
-                } else {
-                  debugPrint('Institution ID is null, cannot navigate.'); // Debug print
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            _buildUserTypeTile(
-              'Faculty', 
-              _facultyCount.toString(), 
-              'Active accounts', 
-              Colors.purple,
-              onTap: () {
-                if (_institutionId != null) {
-                  final path = '/$_institutionId/admin/users/faculty';
-                  debugPrint('Navigating to: $path'); // Debug print
-                  context.go(path);
-                } else {
-                  debugPrint('Institution ID is null, cannot navigate.'); // Debug print
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            _buildUserTypeTile(
-              'Admins', 
-              _adminCount.toString(), 
-              'System administrators', 
-              Colors.grey,
-              onTap: () {
-                if (_institutionId != null) {
-                  final path = '/$_institutionId/admin/users/admin';
-                  debugPrint('Navigating to: $path'); // Debug print
-                  context.go(path);
-                } else {
-                  debugPrint('Institution ID is null, cannot navigate.'); // Debug print
-                }
-              },
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildUserTypeTile(String title, String count, String subtitle, Color color, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-                Text(subtitle, style: TextStyle(color: color.withOpacity(0.8), fontSize: 12)),
-              ],
-            ),
-            Text(count, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
-          ],
-        ),
-      ),
-    );
-  }
-  Widget _buildAttendanceAnalyticsCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.bar_chart_outlined),
-                SizedBox(width: 8),
-                Text('Attendance Overview', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildProgressRow('CSE Department', '89%', 0.89, Colors.blue),
-            _buildProgressRow('ECE Department', '85%', 0.85, Colors.purple),
-            _buildProgressRow('MECH Department', '83%', 0.83, Colors.green),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 40)),
-              child: const Text('View Detailed Reports'),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProgressRow(String label, String value, double progress, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label),
-              Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4F46E5).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.people_rounded, color: Color(0xFF4F46E5), size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'User Management',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: _textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                onPressed: _showAddUserDialog,
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text('Add User', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 4),
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: color.withOpacity(0.2),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
+          const SizedBox(height: 16),
+          _buildUserTypeTile('Students', _studentCount.toString(), 'Active accounts', const Color(0xFF4F46E5), Icons.school_rounded, onTap: () {
+            if (_institutionId != null) {
+              context.go('/$_institutionId/admin/users/student');
+            }
+          }),
+          const SizedBox(height: 10),
+          _buildUserTypeTile('Faculty', _facultyCount.toString(), 'Active accounts', const Color(0xFF10B981), Icons.people_rounded, onTap: () {
+            if (_institutionId != null) {
+              context.go('/$_institutionId/admin/users/faculty');
+            }
+          }),
+          const SizedBox(height: 10),
+          _buildUserTypeTile('Admins', _adminCount.toString(), 'System administrators', const Color(0xFF8B5CF6), Icons.admin_panel_settings_rounded, onTap: () {
+            if (_institutionId != null) {
+              context.go('/$_institutionId/admin/users/admin');
+            }
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserTypeTile(String title, String count, String subtitle, Color color, IconData icon, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withOpacity(_isDarkMode ? 0.15 : 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(_isDarkMode ? 0.3 : 0.2)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(_isDarkMode ? 0.25 : 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: color,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: _textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              count,
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: color,
+                letterSpacing: -1,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, color: color, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentActivityCard() {
+    final activities = [
+      {'title': 'New Company Registration - Wipro', 'time': '1 hour ago', 'icon': Icons.info_rounded, 'color': const Color(0xFF4F46E5)},
+      {'title': 'Semester Results Published', 'time': '3 hours ago', 'icon': Icons.check_circle_rounded, 'color': const Color(0xFF10B981)},
+      {'title': 'Faculty Leave Approval', 'time': '5 pending', 'icon': Icons.access_time_rounded, 'color': const Color(0xFFF59E0B)},
+      {'title': 'Placement Drive - Microsoft', 'time': 'Jan 18', 'icon': Icons.event_rounded, 'color': const Color(0xFF8B5CF6)},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Recent Activity',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: _textPrimary,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: Icon(Icons.filter_list_rounded, size: 18, color: _textSecondary),
+                onPressed: () {},
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...activities.map((activity) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: activity['color'] as Color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            activity['title'] as String,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            activity['time'] as String,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      activity['icon'] as IconData,
+                      size: 16,
+                      color: activity['color'] as Color,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionsCard() {
+    final actions = [
+      {'label': 'Manage Users', 'color': const Color(0xFF4F46E5), 'icon': Icons.people_rounded},
+      {'label': 'Schedule Drive', 'color': const Color(0xFF10B981), 'icon': Icons.event_rounded},
+      {'label': 'System Reports', 'color': const Color(0xFF8B5CF6), 'icon': Icons.bar_chart_rounded},
+      {'label': 'Publish Results', 'color': const Color(0xFFF59E0B), 'icon': Icons.publish_rounded},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Quick Actions',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: _textPrimary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            itemCount: actions.length,
+            itemBuilder: (context, index) {
+              final action = actions[index];
+              return InkWell(
+                onTap: () {
+                  if (action['label'] == 'Manage Users') {
+                    _showAddUserDialog();
+                  }
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: (action['color'] as Color).withOpacity(_isDarkMode ? 0.15 : 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        action['icon'] as IconData,
+                        color: action['color'] as Color,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          action['label'] as String,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: action['color'] as Color,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPlacementDrivesCard() {
-    final drives = [
-      {'company': 'Google India', 'applicants': '145 students registered', 'status': 'Active', 'color': Colors.green},
-      {'company': 'Microsoft', 'applicants': '89 students registered', 'status': 'Shortlisting', 'color': Colors.blue},
-      {'company': 'Amazon', 'applicants': '203 students registered', 'status': 'Active', 'color': Colors.green}
-    ];
+  Widget _buildSystemOverviewCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF4F46E5), Color(0xFF8B5CF6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF4F46E5).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'System Overview',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          GridView.count(
+            shrinkWrap: true,
+            crossAxisCount: 2,
+            childAspectRatio: 1.8,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _buildOverviewItem('₹6.8L', 'Avg Package'),
+              _buildOverviewItem('45', 'Recruiters'),
+              _buildOverviewItem('1,248', 'Applications'),
+              _buildOverviewItem('342', 'Active Users'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.business_center_outlined),
-                    SizedBox(width: 8),
-                    Text('Placement Drives', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
+  Widget _buildOverviewItem(String value, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.white.withOpacity(0.9),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAcademicsCard() {
+    return _buildManagementCard(
+      'Academics',
+      const Color(0xFF10B981),
+      Icons.school_rounded,
+      [
+        {'title': 'Class Management', 'route': '/$_institutionId/admin/class-management'},
+        {'title': 'Examinations', 'route': '/$_institutionId/admin/exam-dashboard'},
+        {'title': 'Report Cards', 'route': '/$_institutionId/admin/report-card-dashboard'},
+      ],
+    );
+  }
+
+  Widget _buildFinancialsCard() {
+    return _buildManagementCard(
+      'Financials',
+      const Color(0xFFF59E0B),
+      Icons.monetization_on_rounded,
+      [
+        {'title': 'Fee Management', 'route': '/$_institutionId/admin/fee-management'},
+      ],
+    );
+  }
+
+  Widget _buildResourcesCard() {
+    return _buildManagementCard(
+      'Resources',
+      const Color(0xFF8B5CF6),
+      Icons.inventory_2_rounded,
+      [
+        {'title': 'Inventory', 'route': '/$_institutionId/admin/inventory'},
+      ],
+    );
+  }
+
+  Widget _buildToolsCard() {
+    return _buildManagementCard(
+      'Tools',
+      const Color(0xFF14B8A6),
+      Icons.build_rounded,
+      [
+        {'title': 'Form Builder', 'route': '/$_institutionId/admin/form-builder'},
+      ],
+    );
+  }
+
+  Widget _buildCommunityCard() {
+    return _buildManagementCard(
+      'Community',
+      const Color(0xFF4F46E5),
+      Icons.groups_rounded,
+      [
+        {'title': 'Alumni Network', 'route': '/$_institutionId/admin/alumni-dashboard'},
+      ],
+    );
+  }
+
+  Widget _buildManagementCard(String title, Color color, IconData icon, List<Map<String, String>> items) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                ElevatedButton(onPressed: () {}, child: const Text('+ Create Drive')),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Column(
-              children: drives.map((drive) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: (drive['color'] as Color).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: (drive['color'] as Color).withOpacity(0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(drive['company'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            Chip(
-                              label: Text(drive['status'] as String),
-                              backgroundColor: Colors.white,
-                              labelStyle: const TextStyle(fontSize: 10),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(drive['applicants'] as String, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                      ],
-                    ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: _textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...items.map((item) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                onTap: () {
+                  final route = item['route'];
+                  if (route != null && _institutionId != null) {
+                    context.go(route);
+                  }
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(_isDarkMode ? 0.15 : 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: color.withOpacity(_isDarkMode ? 0.3 : 0.2)),
                   ),
-                );
-              }).toList(),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAcademicManagementCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.calendar_today_outlined),
-                SizedBox(width: 8),
-                Text('Academic Calendar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildInfoTile('Upcoming Holiday', 'Republic Day', 'Jan 26', Colors.orange),
-            const SizedBox(height: 8),
-            _buildInfoTile('Semester End', 'Spring 2025', 'Apr 30', Colors.purple),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(child: ElevatedButton(onPressed: () {}, child: const Text('Add Holiday'))),
-                const SizedBox(width: 8),
-                Expanded(child: ElevatedButton(onPressed: () {}, child: const Text('Manage Timetable'))),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoTile(String title, String subtitle, String trailing, Color color, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-                Text(subtitle, style: TextStyle(fontSize: 12, color: color.withOpacity(0.8))),
-              ],
-            ),
-            Chip(backgroundColor: color.withOpacity(0.3), label: Text(trailing)),
-          ],
-        ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item['title']!,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: color,
+                          ),
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios_rounded, color: color, size: 14),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
