@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/institution.dart';
 import '../models/user_model.dart';
+import '../models/section_model.dart';
+import '../models/department_model.dart';
 
 class ApiService {
   static Future<List<Institution>> getInstitutions() async {
@@ -14,6 +16,30 @@ class ApiService {
       return data.map((json) => Institution.fromJson(json)).toList();
     } else {
       throw Exception('Failed to load institutions');
+    }
+  }
+
+  Future<List<Department>> getDepartments(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/departments');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => Department.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load departments');
     }
   }
 
@@ -165,5 +191,122 @@ class ApiService {
     );
 
     return response;
+  }
+
+  // Section Methods
+  Future<List<Section>> getSections(String institutionId, String departmentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/departments/$departmentId/sections');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => Section.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load sections');
+    }
+  }
+
+  Future<Section> createSection(String institutionId, String departmentId, Section section) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/departments/$departmentId/sections');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(section.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return Section.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to create section');
+    }
+  }
+
+  Future<Section> updateSection(String institutionId, String departmentId, String sectionId, Section section) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/departments/$departmentId/sections/$sectionId');
+
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(section.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return Section.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to update section');
+    }
+  }
+
+  Future<void> deleteSection(String institutionId, String departmentId, String sectionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/departments/$departmentId/sections/$sectionId');
+
+    final response = await http.delete(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete section');
+    }
+  }
+
+  Future<Section> getSection(String institutionId, String departmentId, String sectionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/departments/$departmentId/sections/$sectionId');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return Section.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to load section');
+    }
   }
 }
