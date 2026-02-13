@@ -23,6 +23,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   bool _isDarkMode = false;
+  bool _isSidebarCollapsed = false;
+  // bool _isMobileSidebarOpen = false;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -109,21 +111,25 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isTablet = MediaQuery.of(context).size.width >= 768 && MediaQuery.of(context).size.width < 1024;
+    
     return Scaffold(
       backgroundColor: _bgColor,
+      drawer: isMobile ? _buildMobileDrawer() : null,
       body: Row(
         children: [
-          // Sidebar
-          _buildSidebar(),
+          // Sidebar - Only show on desktop/tablet
+          if (!isMobile) _buildSidebar(isTablet),
           
           // Main Content
           Expanded(
             child: Column(
               children: [
-                _buildTopBar(),
+                _buildTopBar(isMobile),
                 _buildBreadcrumb(),
                 Expanded(
-                  child: _buildDashboardContent(),
+                  child: _buildDashboardContent(isMobile, isTablet),
                 ),
               ],
             ),
@@ -133,7 +139,26 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
     );
   }
 
-  Widget _buildSidebar() {
+  Widget _buildMobileDrawer() {
+    return Drawer(
+      backgroundColor: _sidebarColor,
+      child: _buildSidebarContent(false),
+    );
+  }
+
+  Widget _buildSidebar(bool isTablet) {
+    final width = _isSidebarCollapsed ? 70.0 : 260.0;
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      width: width,
+      color: _sidebarColor,
+      child: _buildSidebarContent(isTablet),
+    );
+  }
+
+  Widget _buildSidebarContent(bool isTablet) {
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true},
       {'icon': Icons.person_outline_rounded, 'label': 'My Profile'},
@@ -156,25 +181,21 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       {'icon': Icons.settings_rounded, 'label': 'Settings'},
     ];
 
-    return Container(
-      width: 260,
-      color: _sidebarColor,
-      child: Column(
-        children: [
-          // Logo Area
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: Colors.white.withOpacity(0.1),
-                  width: 1,
-                ),
+    return Column(
+      children: [
+        // Logo Area
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.white.withOpacity(0.1),
+                width: 1,
               ),
             ),
-            child: Row(
-              children: [
-                Container(
+          ),
+          child: _isSidebarCollapsed
+              ? Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
@@ -191,87 +212,138 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
                       ),
                     ),
                   ),
+                )
+              : Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'A',
+                          style: TextStyle(
+                            color: Color(0xFF4F46E5),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Acadexa',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Acadexa',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        ),
 
-          // Menu Items
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              children: menuItems.map((item) {
-                final isActive = item['active'] == true;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => _navigateToRoute(item['label'] as String),
-                      borderRadius: BorderRadius.circular(8),
+        // Menu Items
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            children: menuItems.map((item) {
+              final isActive = item['active'] == true;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _navigateToRoute(item['label'] as String),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Tooltip(
+                      message: _isSidebarCollapsed ? item['label'] as String : '',
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
                           color: isActive ? Colors.white.withOpacity(0.15) : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
-                          border: isActive ? Border(
-                            left: BorderSide(color: Colors.white, width: 3),
-                          ) : null,
+                          border: isActive
+                              ? Border(
+                                  left: BorderSide(color: Colors.white, width: 3),
+                                )
+                              : null,
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              item['icon'] as IconData,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                item['label'] as String,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            if (item['badge'] != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEF4444),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  item['badge'] as String,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
+                        child: _isSidebarCollapsed
+                            ? Stack(
+                                children: [
+                                  Center(
+                                    child: Icon(
+                                      item['icon'] as IconData,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
                                   ),
-                                ),
+                                  if (item['badge'] != null)
+                                    Positioned(
+                                      right: 0,
+                                      top: 0,
+                                      child: Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFFEF4444),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Icon(
+                                    item['icon'] as IconData,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      item['label'] as String,
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  if (item['badge'] != null)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEF4444),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        item['badge'] as String,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
-                          ],
-                        ),
                       ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+              );
+            }).toList(),
           ),
+        ),
 
-          // Footer
+        // Footer
+        if (!_isSidebarCollapsed)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -303,14 +375,13 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
               ],
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(bool isMobile) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24, vertical: 12),
       decoration: BoxDecoration(
         color: _cardColor,
         border: Border(
@@ -326,71 +397,96 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       ),
       child: Row(
         children: [
-          // Search Bar
-          Expanded(
-            flex: 2,
-            child: Container(
-              height: 38,
-              decoration: BoxDecoration(
-                color: _bgColor,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: _borderColor),
+          // Mobile Menu Button OR Desktop Collapse Button
+          if (isMobile)
+            IconButton(
+              icon: Icon(Icons.menu_rounded, color: _textPrimary, size: 24),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+              padding: EdgeInsets.zero,
+            )
+          else
+            IconButton(
+              icon: Icon(
+                _isSidebarCollapsed ? Icons.menu_open_rounded : Icons.menu_rounded,
+                color: _textPrimary,
+                size: 22,
               ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 12),
-                  Icon(Icons.search_rounded, color: _textSecondary, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search assignments, courses, placements...',
-                        hintStyle: TextStyle(
-                          color: _textSecondary,
-                          fontSize: 13,
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                      ),
-                      style: TextStyle(color: _textPrimary, fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
+              onPressed: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+              tooltip: _isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar',
             ),
-          ),
-          const Spacer(),
+          
+          if (isMobile) const SizedBox(width: 8),
 
-          // Virtual ID Button
-          InkWell(
-            onTap: () => _navigateToRoute('Virtual ID'),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              height: 38,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4F46E5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
+          // Search Bar
+          if (!isMobile)
+            Expanded(
+              flex: 2,
+              child: Container(
+                height: 38,
+                decoration: BoxDecoration(
+                  color: _bgColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _borderColor),
+                ),
                 child: Row(
                   children: [
-                    Icon(Icons.credit_card_rounded, color: Colors.white, size: 15),
-                    SizedBox(width: 6),
-                    Text(
-                      'Virtual ID',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                    const SizedBox(width: 12),
+                    Icon(Icons.search_rounded, color: _textSecondary, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search assignments, courses, placements...',
+                          hintStyle: TextStyle(
+                            color: _textSecondary,
+                            fontSize: 13,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
+                        style: TextStyle(color: _textPrimary, fontSize: 13),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-          ),
+          
+          const Spacer(),
+
+          // Virtual ID Button - Hide on small mobile
+          if (!isMobile || MediaQuery.of(context).size.width > 400)
+            InkWell(
+              onTap: () => _navigateToRoute('Virtual ID'),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                height: 38,
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4F46E5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.credit_card_rounded, color: Colors.white, size: 15),
+                      if (!isMobile) ...[
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Virtual ID',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
           const SizedBox(width: 10),
 
           // Notifications
@@ -423,29 +519,31 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
               ),
             ],
           ),
-          const SizedBox(width: 10),
-
-          // Dark Mode Toggle
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: _bgColor,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: IconButton(
-              icon: Icon(
-                _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                color: _textPrimary,
-                size: 18,
+          
+          if (!isMobile) ...[
+            const SizedBox(width: 10),
+            // Dark Mode Toggle
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: _bgColor,
+                borderRadius: BorderRadius.circular(8),
               ),
-              onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
-              padding: EdgeInsets.zero,
+              child: IconButton(
+                icon: Icon(
+                  _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: _textPrimary,
+                  size: 18,
+                ),
+                onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
+                padding: EdgeInsets.zero,
+              ),
             ),
-          ),
-          const SizedBox(width: 14),
+            const SizedBox(width: 14),
+          ],
 
-          // User Profile
+          // User Profile - Simplified on mobile
           FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
             future: _fetchProfile(),
             builder: (context, snapshot) {
@@ -454,6 +552,79 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
               if (snapshot.hasData && snapshot.data!.exists) {
                 final data = snapshot.data!.data();
                 name = data?['name'] ?? 'Student';
+              }
+
+              if (isMobile) {
+                return PopupMenuButton(
+                  icon: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4F46E5),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Center(
+                      child: Text(
+                        name.isNotEmpty ? name[0].toUpperCase() : 'S',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.person_outline_rounded, size: 18),
+                          const SizedBox(width: 10),
+                          const Text('Profile'),
+                        ],
+                      ),
+                      onTap: () => _navigateToRoute('Profile'),
+                    ),
+                    PopupMenuItem(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.settings_outlined, size: 18),
+                          const SizedBox(width: 10),
+                          const Text('Settings'),
+                        ],
+                      ),
+                      onTap: () => _navigateToRoute('Settings'),
+                    ),
+                    PopupMenuItem(
+                      child: Row(
+                        children: [
+                          Icon(
+                            _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(_isDarkMode ? 'Light Mode' : 'Dark Mode'),
+                        ],
+                      ),
+                      onTap: () => setState(() => _isDarkMode = !_isDarkMode),
+                    ),
+                    PopupMenuItem(
+                      child: const Row(
+                        children: [
+                          Icon(Icons.logout_rounded, size: 18, color: Color(0xFFEF4444)),
+                          SizedBox(width: 10),
+                          Text('Logout', style: TextStyle(color: Color(0xFFEF4444))),
+                        ],
+                      ),
+                      onTap: () async {
+                        final router = GoRouter.of(context);
+                        await SessionManager.clearSession();
+                        await AuthService.logout();
+                        router.go('/login');
+                      },
+                    ),
+                  ],
+                );
               }
 
               return Container(
@@ -557,6 +728,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   }
 
   Widget _buildBreadcrumb() {
+    final institutionId = _getInstitutionId();
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
       decoration: BoxDecoration(
@@ -567,11 +740,19 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       ),
       child: Row(
         children: [
-          Text(
-            'Home',
-            style: TextStyle(
-              fontSize: 12,
-              color: _textSecondary,
+          InkWell(
+            onTap: () => context.go('/$institutionId/student/dashboard'),
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Text(
+                'Home',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 6),
@@ -590,42 +771,59 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
     );
   }
 
-  Widget _buildDashboardContent() {
+  Widget _buildDashboardContent(bool isMobile, bool isTablet) {
     return FadeTransition(
       opacity: _fadeAnimation,
       child: SlideTransition(
         position: _slideAnimation,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // Calculate available height for bottom section
-            // Account for: welcome (65px) + progress card (110px) + stat cards (130px) + spacing (54px)
+            if (isMobile) {
+              // Mobile: Single column scrollable layout
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildWelcomeSection(),
+                    const SizedBox(height: 16),
+                    _buildProgressRingsCard(),
+                    const SizedBox(height: 16),
+                    _buildDashboardCardsMobile(),
+                    const SizedBox(height: 16),
+                    _buildRecentActivity(),
+                    const SizedBox(height: 16),
+                    _buildTodaySchedule(),
+                    const SizedBox(height: 16),
+                    _buildQuickActions(),
+                    const SizedBox(height: 16),
+                    _buildProgressStats(),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              );
+            }
+            
+            // Tablet/Desktop: Grid layout
             final topSectionHeight = 65 + 110 + 130 + 54;
-            final bottomSectionHeight = constraints.maxHeight - topSectionHeight - 48; // 48 = top/bottom padding
+            final bottomSectionHeight = constraints.maxHeight - topSectionHeight - 48;
             
             return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(isTablet ? 20 : 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Welcome Section
                   _buildWelcomeSection(),
                   const SizedBox(height: 18),
-
-                  // Progress Rings Card - Attendance Feature
                   _buildProgressRingsCard(),
                   const SizedBox(height: 18),
-
-                  // Dashboard Cards (4 main stats)
                   _buildDashboardCards(),
                   const SizedBox(height: 18),
-
-                  // Bottom Section - With calculated height
                   SizedBox(
                     height: bottomSectionHeight > 400 ? bottomSectionHeight : 400,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Left Column - Recent Activity & Today's Schedule
                         Expanded(
                           flex: 2,
                           child: Column(
@@ -637,7 +835,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
                           ),
                         ),
                         const SizedBox(width: 16),
-                        // Right Column - Quick Actions & Progress Stats
                         Expanded(
                           child: Column(
                             children: [
@@ -656,6 +853,124 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildDashboardCardsMobile() {
+    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      future: _fetchProfile(),
+      builder: (context, snapshot) {
+        String branch = '';
+        
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data();
+          branch = data?['branch'] ?? '';
+        }
+
+        final cards = [
+          {
+            'title': 'Current Semester',
+            'value': 'VI',
+            'icon': Icons.menu_book_rounded,
+            'color': const Color(0xFF4F46E5),
+            'subtext': branch.isNotEmpty ? branch : 'B.Tech CSE',
+          },
+          {
+            'title': 'CGPA',
+            'value': '8.6',
+            'icon': Icons.trending_up_rounded,
+            'color': const Color(0xFF10B981),
+            'subtext': 'Current Standing',
+          },
+          {
+            'title': 'Pending Tasks',
+            'value': '5',
+            'icon': Icons.assignment_rounded,
+            'color': const Color(0xFFF59E0B),
+            'subtext': '2 Assignments, 3 Tests',
+          },
+          {
+            'title': 'Active Applications',
+            'value': '8',
+            'icon': Icons.business_center_rounded,
+            'color': const Color(0xFF8B5CF6),
+            'subtext': '3 Pending Reviews',
+          },
+        ];
+
+        return Column(
+          children: cards.map((card) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _borderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: (card['color'] as Color).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        card['icon'] as IconData,
+                        color: card['color'] as Color,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            card['title'] as String,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            card['value'] as String,
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: _textPrimary,
+                              height: 1.0,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            card['subtext'] as String,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _textSecondary.withOpacity(0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
