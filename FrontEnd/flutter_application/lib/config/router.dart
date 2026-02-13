@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application/models/user_model.dart';
+import 'package:flutter_application/screens/admin_attendance_dashboard.dart';
 import 'package:flutter_application/screens/user_list_screen.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/admin_dashboard_screen.dart';
@@ -73,6 +74,10 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/admin/dashboard',
       builder: (context, state) => const AdminDashboardScreen(),
+    ),
+     GoRoute(
+      path: '/:institutionId/admin/attendance-dashboard',
+      builder: (context, state) => const AdminAttendanceDashboardScreen(),
     ),
     GoRoute(
       path: '/:institutionId/admin/class-management',

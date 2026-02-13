@@ -1,7 +1,7 @@
 package com.example.backend.service;
 
 import com.example.backend.dto.CreateUserRequest;
-import com.example.backend.models.User; // Import the new User POJO
+import com.example.backend.models.User;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.DocumentReference;
@@ -12,7 +12,8 @@ import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.QuerySnapshot;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.UserRecord;
-import com.google.firebase.cloud.FirestoreClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -24,13 +25,23 @@ import java.util.concurrent.ExecutionException;
 @Service
 public class UserService {
 
+    private final FirebaseAuth firebaseAuth;
+    private final Firestore firestore;
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+
+
+    public UserService(FirebaseAuth firebaseAuth, Firestore firestore) {
+        this.firebaseAuth = firebaseAuth;
+        this.firestore = firestore;
+    }
+
     public UserRecord createUser(CreateUserRequest createUserRequest) throws Exception {
         UserRecord.CreateRequest request = new UserRecord.CreateRequest()
                 .setEmail(createUserRequest.getEmail())
                 .setPassword(createUserRequest.getPassword())
                 .setDisplayName(createUserRequest.getDisplayName());
 
-        UserRecord userRecord = FirebaseAuth.getInstance().createUser(request);
+        UserRecord userRecord = firebaseAuth.createUser(request);
 
         String uid = userRecord.getUid();
         if (uid == null) {
@@ -40,10 +51,9 @@ public class UserService {
         // Set custom claim for role
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", createUserRequest.getRole());
-        FirebaseAuth.getInstance().setCustomUserClaims(uid, claims);
+        firebaseAuth.setCustomUserClaims(uid, claims);
 
         // Save user details in Firestore
-        Firestore db = FirestoreClient.getFirestore();
         Map<String, Object> user = new HashMap<>();
         user.put("email", createUserRequest.getEmail());
         user.put("displayName", createUserRequest.getDisplayName());
@@ -63,14 +73,13 @@ public class UserService {
         user.put("validUpto", createUserRequest.getValidUpto());
         user.put("enrolledCourseCodes", new ArrayList<String>()); // Initialize as empty list
         user.put("assignedCourseCodes", new ArrayList<String>()); // Initialize as empty list
-        db.collection("Institutions").document(createUserRequest.getInstitutionId()).collection("users").document(uid).set(user).get();
+        firestore.collection("Institutions").document(createUserRequest.getInstitutionId()).collection("users").document(uid).set(user).get();
 
         return userRecord;
     }
 
     public List<User> getUsers(String institutionId, String role) throws ExecutionException, InterruptedException {
-        Firestore db = FirestoreClient.getFirestore();
-        CollectionReference usersCollection = db.collection("Institutions").document(institutionId).collection("users");
+        CollectionReference usersCollection = firestore.collection("Institutions").document(institutionId).collection("users");
         Query query = usersCollection;
 
         if (role != null && !role.isEmpty()) {
@@ -82,44 +91,43 @@ public class UserService {
 
         List<User> users = new ArrayList<>();
         for (QueryDocumentSnapshot document : documents) {
-            User userData = document.toObject(User.class); // Convert to User POJO
-            userData.setUid(document.getId()); // Set UID from document ID
+            User userData = document.toObject(User.class);
+            userData.setUid(document.getId());
             users.add(userData);
         }
         return users;
     }
 
     public User getUserById(String institutionId, String uid) throws ExecutionException, InterruptedException {
-        Firestore db = FirestoreClient.getFirestore();
-        DocumentReference userDocRef = db.collection("Institutions").document(institutionId).collection("users").document(uid);
+        logger.info("UserService: Searching for user with institutionId='{}' and uid='{}'", institutionId, uid);
+        DocumentReference userDocRef = firestore.collection("Institutions").document(institutionId).collection("users").document(uid);
         ApiFuture<DocumentSnapshot> documentSnapshot = userDocRef.get();
         DocumentSnapshot document = documentSnapshot.get();
 
         if (document.exists()) {
-            User userData = document.toObject(User.class); // Convert to User POJO
-            userData.setUid(document.getId()); // Set UID from document ID
+            logger.info("UserService: Found user document for uid='{}'", uid);
+            User userData = document.toObject(User.class);
+            userData.setUid(document.getId());
             return userData;
         } else {
-            return null; // User not found
+            logger.warn("UserService: User document NOT FOUND for uid='{}' in institution='{}'", uid, institutionId);
+            return null;
         }
     }
 
     public void updateUser(String institutionId, String uid, User user) throws ExecutionException, InterruptedException {
-        Firestore db = FirestoreClient.getFirestore();
-        DocumentReference userDocRef = db.collection("Institutions").document(institutionId).collection("users").document(uid);
-        user.setUid(uid); // Ensure the UID is set in the object before saving
-        userDocRef.set(user).get(); // Overwrite the entire document
+        DocumentReference userDocRef = firestore.collection("Institutions").document(institutionId).collection("users").document(uid);
+        user.setUid(uid);
+        userDocRef.set(user).get();
     }
 
     public void updateAssignedCourses(String institutionId, String facultyId, List<String> courseCodes) throws ExecutionException, InterruptedException {
-        Firestore db = FirestoreClient.getFirestore();
-        DocumentReference userDocRef = db.collection("Institutions").document(institutionId).collection("users").document(facultyId);
+        DocumentReference userDocRef = firestore.collection("Institutions").document(institutionId).collection("users").document(facultyId);
         userDocRef.update("assignedCourseCodes", courseCodes).get();
     }
 
     public void updateEnrolledCourses(String institutionId, String studentId, List<String> courseCodes) throws ExecutionException, InterruptedException {
-        Firestore db = FirestoreClient.getFirestore();
-        DocumentReference userDocRef = db.collection("Institutions").document(institutionId).collection("users").document(studentId);
+        DocumentReference userDocRef = firestore.collection("Institutions").document(institutionId).collection("users").document(studentId);
         userDocRef.update("enrolledCourseCodes", courseCodes).get();
     }
 }

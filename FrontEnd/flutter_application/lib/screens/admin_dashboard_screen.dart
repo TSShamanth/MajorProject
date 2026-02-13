@@ -527,8 +527,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             _buildQuickActionsCard(quickActions),
             const SizedBox(height: 24),
 
-            // User Management
             _buildUserManagementCard(),
+            const SizedBox(height: 16),
+            
+            _buildFacultyManagementCard(), // Added this
             const SizedBox(height: 16),
 
             _buildAcademicsCard(),
@@ -546,16 +548,46 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             _buildCommunityCard(),
             const SizedBox(height: 16),
 
-            // Attendance Analytics
             _buildAttendanceAnalyticsCard(),
             const SizedBox(height: 16),
 
-            // Placement Drives
             _buildPlacementDrivesCard(),
             const SizedBox(height: 16),
             
-            // Academic Management
             _buildAcademicManagementCard(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFacultyManagementCard() {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.supervised_user_circle_outlined),
+                SizedBox(width: 8),
+                Text('Faculty Management', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildInfoTile(
+              'Faculty Attendance',
+              'View live status and history',
+              '',
+              Colors.cyan,
+              onTap: () {
+                if (_institutionId != null) {
+                  context.go('/$_institutionId/admin/attendance-dashboard');
+                }
+              },
+            ),
           ],
         ),
       ),

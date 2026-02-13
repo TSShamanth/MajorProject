@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application/models/user_model.dart';
+import 'package:flutter_application/services/api_service.dart';
 import 'package:go_router/go_router.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/auth_service.dart';
 import '../services/session_manager.dart';
 
@@ -12,6 +15,119 @@ class FacultyDashboardScreen extends StatefulWidget {
 
 class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
   bool sidebarOpen = true;
+  UserModel? _currentUser;
+  bool _isLoadingUser = true;
+  bool _isClockingIn = false;
+  final ApiService _apiService = ApiService();
+  String? _institutionId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _institutionId = GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId'];
+      _fetchCurrentUser();
+    });
+  }
+
+  Future<void> _fetchCurrentUser() async {
+    if (_institutionId == null) return;
+    try {
+      final user = await _apiService.getMe(_institutionId!);
+      if (!mounted) return;
+      setState(() {
+        _currentUser = user;
+        _isLoadingUser = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to fetch user data: $e')),
+      );
+      setState(() {
+        _isLoadingUser = false;
+      });
+    }
+  }
+
+  Future<Position> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error('Location services are disabled.');
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Location permissions are denied');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error(
+          'Location permissions are permanently denied, we cannot request permissions.');
+    }
+
+    return await Geolocator.getCurrentPosition();
+  }
+
+  Future<void> _handleClockIn() async {
+    if (_institutionId == null) return;
+    
+    setState(() { _isClockingIn = true; });
+
+    try {
+      final position = await _determinePosition();
+      final updatedUser = await _apiService.clockIn(_institutionId!, position.latitude, position.longitude);
+      if (!mounted) return;
+      setState(() {
+        _currentUser = updatedUser;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Successfully clocked in!'), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to clock in: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if(mounted) {
+        setState(() { _isClockingIn = false; });
+      }
+    }
+  }
+
+  Future<void> _handleClockOut() async {
+    if (_institutionId == null) return;
+
+    setState(() { _isClockingIn = true; });
+
+    try {
+      final position = await _determinePosition();
+      final updatedUser = await _apiService.clockOut(_institutionId!, position.latitude, position.longitude);
+      if (!mounted) return;
+      setState(() {
+        _currentUser = updatedUser;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Successfully clocked out!'), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to clock out: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if(mounted) {
+        setState(() { _isClockingIn = false; });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +142,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
       {'icon': Icons.celebration_outlined, 'label': 'Events', 'route': '/faculty/events'},
       {'icon': Icons.notifications_none_outlined, 'label': 'Meetings', 'route': '/faculty/meetings'},
       {'icon': Icons.assignment_outlined, 'label': 'Mark Attendance', 'route': '/faculty/mark-attendance'},
-      {'icon': Icons.history_outlined, 'label': 'Attendance History', 'route': '/faculty/attendance-history'},
+      {'icon': Icons.history_outlined, 'label': 'Clock-in History', 'route': '/faculty/attendance-history'},
       {'icon': Icons.settings_outlined, 'label': 'Settings', 'route': '/faculty/settings'},
     ];
 
@@ -304,10 +420,10 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                                 color: Color(0xFF4F46E5),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Center(
+                              child: Center(
                                 child: Text(
-                                  'PS',
-                                  style: TextStyle(
+                                  _currentUser != null && _currentUser!.displayName.isNotEmpty ? _currentUser!.displayName.substring(0, 2).toUpperCase() : '..',
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
@@ -316,21 +432,21 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const Column(
+                            Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'Dr. Priya Sharma',
-                                  style: TextStyle(
+                                  _currentUser?.displayName ?? 'Loading...',
+                                  style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
                                     color: Color(0xFF374151),
                                   ),
                                 ),
                                 Text(
-                                  'FAC2021',
-                                  style: TextStyle(
+                                  'FAC2021', // This should probably come from the user model
+                                  style: const TextStyle(
                                     fontSize: 11,
                                     color: Color(0xFF6B7280),
                                   ),
@@ -378,113 +494,192 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                 ),
                 // Dashboard Content - Scrollable
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Welcome Section
-                        const Text(
-                          'Welcome, Dr. Priya Sharma',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF111827),
-                          ),
-                        ),
-                        const Text(
-                          'Computer Science Department | FAC2021',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
-                        ),
-                        const SizedBox(height: 10),
-                        // Stats Cards - Fixed Height
-                        SizedBox(
-                          height: 75,
-                          child: Row(
+                  child: _isLoadingUser
+                      ? const Center(child: CircularProgressIndicator())
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(child: _buildStatCard('Courses', '4', Icons.book_outlined, Colors.blue, '142 Students')),
-                              const SizedBox(width: 8),
-                              Expanded(child: _buildStatCard('Evaluations', '28', Icons.assignment_outlined, Colors.orange, '3 Pending')),
-                              const SizedBox(width: 8),
-                              Expanded(child: _buildStatCard('Placements', '32/42', Icons.work_outline, Colors.green, '76% Placed')),
-                              const SizedBox(width: 8),
-                              Expanded(child: _buildStatCard('Classes', '6', Icons.calendar_today_outlined, Colors.purple, 'This Week')),
+                              // Welcome Section
+                              Text(
+                                'Welcome, ${_currentUser?.displayName ?? '...'}',
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF111827),
+                                ),
+                              ),
+                              Text(
+                                '${_currentUser?.programme ?? '...'} Department | FAC2021',
+                                style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                              ),
+                              const SizedBox(height: 10),
+                              // Clock In Card
+                              _buildClockInCard(),
+                              const SizedBox(height: 10),
+                              // Stats Cards - Fixed Height
+                              SizedBox(
+                                height: 75,
+                                child: Row(
+                                  children: [
+                                    Expanded(child: _buildStatCard('Courses', '4', Icons.book_outlined, Colors.blue, '142 Students')),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: _buildStatCard('Evaluations', '28', Icons.assignment_outlined, Colors.orange, '3 Pending')),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: _buildStatCard('Placements', '32/42', Icons.work_outline, Colors.green, '76% Placed')),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: _buildStatCard('Classes', '6', Icons.calendar_today_outlined, Colors.purple, 'This Week')),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              // Main Content Grid - Intrinsic Height
+                              IntrinsicHeight(
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    // Column 1 - 35%
+                                    Expanded(
+                                      flex: 35,
+                                      child: Column(
+                                        children: [
+                                          SizedBox(
+                                            height: 400,
+                                            child: _buildTodaysScheduleCard(),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          SizedBox(
+                                            height: 400,
+                                            child: _buildRecentActivity(),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Column 2 - 32%
+                                    Expanded(
+                                      flex: 32,
+                                      child: Column(
+                                        children: [
+                                          SizedBox(
+                                            height: 280,
+                                            child: _buildMenteesOverviewCard(),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          SizedBox(
+                                            height: 250,
+                                            child: _buildEventsMeetingsCard(),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          SizedBox(
+                                            height: 270,
+                                            child: _buildPayrollSummaryCard(),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Column 3 - 33%
+                                    Expanded(
+                                      flex: 33,
+                                      child: Column(
+                                        children: [
+                                          SizedBox(
+                                            height: 240,
+                                            child: _buildQuickActionsCard(),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          SizedBox(
+                                            height: 560,
+                                            child: _buildLeaveStatusCard(),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        // Main Content Grid - Intrinsic Height
-                        IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Column 1 - 35%
-                              Expanded(
-                                flex: 35,
-                                child: Column(
-                                  children: [
-                                    SizedBox(
-                                      height: 400,
-                                      child: _buildTodaysScheduleCard(),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    SizedBox(
-                                      height: 400,
-                                      child: _buildRecentActivity(),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Column 2 - 32%
-                              Expanded(
-                                flex: 32,
-                                child: Column(
-                                  children: [
-                                    SizedBox(
-                                      height: 280,
-                                      child: _buildMenteesOverviewCard(),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    SizedBox(
-                                      height: 250,
-                                      child: _buildEventsMeetingsCard(),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    SizedBox(
-                                      height: 270,
-                                      child: _buildPayrollSummaryCard(),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Column 3 - 33%
-                              Expanded(
-                                flex: 33,
-                                child: Column(
-                                  children: [
-                                    SizedBox(
-                                      height: 240,
-                                      child: _buildQuickActionsCard(),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    SizedBox(
-                                      height: 560,
-                                      child: _buildLeaveStatusCard(),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClockInCard() {
+    bool isClockedIn = _currentUser?.attendanceStatus == 'Clocked-in';
+    String statusText = isClockedIn ? 'You are currently Clocked-in' : 'You are Clocked-out';
+    String buttonText = isClockedIn ? 'Clock-out' : 'Clock-in';
+    Color statusColor = isClockedIn ? Colors.green : Colors.red;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+         boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Attendance Status',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF111827)),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    statusText,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontWeight: FontWeight.bold,
+                       fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          ElevatedButton(
+            onPressed: _isClockingIn ? null : (isClockedIn ? _handleClockOut : _handleClockIn),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isClockedIn ? Colors.red : Colors.green,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+               shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: _isClockingIn 
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2,))
+                : Text(buttonText, style: const TextStyle(fontSize: 13)),
           ),
         ],
       ),

@@ -18,6 +18,8 @@ class UserModel {
   final String? validUpto;
   final List<String>? enrolledCourseCodes; // For students
   final List<String>? assignedCourseCodes; // For faculty
+  final String? attendanceStatus;
+  final String? activeLogId;
 
   UserModel({
     required this.uid,
@@ -39,6 +41,8 @@ class UserModel {
     this.validUpto,
     this.enrolledCourseCodes,
     this.assignedCourseCodes,
+    this.attendanceStatus,
+    this.activeLogId,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -67,6 +71,8 @@ class UserModel {
       validUpto: json['validUpto'] as String?,
       enrolledCourseCodes: (json['enrolledCourseCodes'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
       assignedCourseCodes: (json['assignedCourseCodes'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+      attendanceStatus: json['attendanceStatus'] as String?,
+      activeLogId: json['activeLogId'] as String?,
     );
   }
 }

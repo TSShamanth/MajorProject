@@ -22,6 +22,8 @@ public class User {
     private String validUpto;
     private List<String> enrolledCourseCodes; // For students
     private List<String> assignedCourseCodes;  // For faculty
+    private String attendanceStatus;
+    private String activeLogId;
 
     public User() {
     }
@@ -176,5 +178,21 @@ public class User {
 
     public void setAssignedCourseCodes(List<String> assignedCourseCodes) {
         this.assignedCourseCodes = assignedCourseCodes;
+    }
+
+    public String getAttendanceStatus() {
+        return attendanceStatus;
+    }
+
+    public void setAttendanceStatus(String attendanceStatus) {
+        this.attendanceStatus = attendanceStatus;
+    }
+
+    public String getActiveLogId() {
+        return activeLogId;
+    }
+
+    public void setActiveLogId(String activeLogId) {
+        this.activeLogId = activeLogId;
     }
 }

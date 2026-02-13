@@ -6,6 +6,7 @@ import '../models/institution.dart';
 import '../models/user_model.dart';
 import '../models/section_model.dart';
 import '../models/department_model.dart';
+import '../models/attendance_log_model.dart';
 
 class ApiService {
   static Future<List<Institution>> getInstitutions() async {
@@ -307,6 +308,133 @@ class ApiService {
       return Section.fromJson(json.decode(response.body));
     } else {
       throw Exception('Failed to load section');
+    }
+  }
+
+  // User-specific methods
+  Future<UserModel> getMe(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/users/me');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return UserModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to load user data');
+    }
+  }
+
+  // Clock-in/Clock-out Methods
+  Future<UserModel> clockIn(String institutionId, double latitude, double longitude) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/attendance/clock-in');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'latitude': latitude,
+        'longitude': longitude,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return UserModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to clock in: ${response.body}');
+    }
+  }
+
+  Future<UserModel> clockOut(String institutionId, double latitude, double longitude) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/attendance/clock-out');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'latitude': latitude,
+        'longitude': longitude,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return UserModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to clock out: ${response.body}');
+    }
+  }
+
+  Future<List<AttendanceLog>> getAttendanceHistory(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/attendance/history');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => AttendanceLog.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load attendance history: ${response.body}');
+    }
+  }
+
+  Future<List<AttendanceLog>> getAttendanceHistoryForFaculty(String institutionId, String facultyId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/admin/users/$facultyId/attendance-history?institutionId=$institutionId');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => AttendanceLog.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load attendance history for faculty: ${response.body}');
     }
   }
 }
