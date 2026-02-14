@@ -475,7 +475,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   Color get _textPrimary => _isDarkMode ? const Color(0xFFF9FAFB) : const Color(0xFF1F2937);
   Color get _textSecondary => _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
   Color get _borderColor => _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
-  Color get _sidebarColor => const Color(0xFF4F46E5);
+  // Color get _sidebarColor => const Color(0xFF4F46E5);
 
   @override
   Widget build(BuildContext context) {
