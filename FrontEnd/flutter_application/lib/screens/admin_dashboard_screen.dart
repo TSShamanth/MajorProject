@@ -505,6 +505,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
       {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
       {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
+      {'icon': Icons.approval, 'label': 'Approval', 'active': false, 'route': '/admin/approval'},
       {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
       {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': null},
       {'icon': Icons.bar_chart_rounded, 'label': 'Analytics & Reports', 'active': false, 'route': null},
@@ -597,7 +598,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () {},
+                      onTap: () {
+                        if (item['route'] != null && _institutionId != null) {
+                          context.go('/$_institutionId${item['route']}');
+                        }
+                      },
                       borderRadius: BorderRadius.circular(12),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),

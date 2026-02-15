@@ -7,6 +7,7 @@ import '../models/user_model.dart';
 import '../models/section_model.dart';
 import '../models/department_model.dart';
 import '../models/attendance_log_model.dart';
+import '../models/regularisation_request_model.dart';
 
 class ApiService {
   static Future<List<Institution>> getInstitutions() async {
@@ -435,6 +436,118 @@ class ApiService {
       return data.map((json) => AttendanceLog.fromJson(json)).toList();
     } else {
       throw Exception('Failed to load attendance history for faculty: ${response.body}');
+    }
+  }
+
+  Future<void> createRegularisationRequest(String institutionId, Map<String, dynamic> requestData) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/regularisation/request?institutionId=$institutionId');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(requestData),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to create regularisation request: ${response.body}');
+    }
+  }
+
+  Future<List<RegularisationRequest>> getMyRegularisationRequests(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/regularisation/requests/me?institutionId=$institutionId');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => RegularisationRequest.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load regularisation requests: ${response.body}');
+    }
+  }
+
+  Future<List<RegularisationRequest>> getPendingRegularisationRequests(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/regularisation/admin/requests?institutionId=$institutionId');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => RegularisationRequest.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load pending requests: ${response.body}');
+    }
+  }
+
+  Future<void> approveRegularisationRequest(String institutionId, String requestId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/regularisation/admin/requests/$requestId/approve?institutionId=$institutionId');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to approve request: ${response.body}');
+    }
+  }
+
+  Future<void> denyRegularisationRequest(String institutionId, String requestId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/regularisation/admin/requests/$requestId/deny?institutionId=$institutionId');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to deny request: ${response.body}');
     }
   }
 }

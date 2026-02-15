@@ -15,6 +15,7 @@ public class AttendanceLog {
     private Double clockOutLongitude;
     private String locationStatus; // e.g., "On-Campus", "Off-Campus"
     private String locationDetail; // e.g., "RVU Campus" or "Lat: 12.9, Lon: 77.4"
+    private String regularisationStatus;
 
     public AttendanceLog() {
     }
@@ -115,5 +116,13 @@ public class AttendanceLog {
 
     public void setLocationDetail(String locationDetail) {
         this.locationDetail = locationDetail;
+    }
+
+    public String getRegularisationStatus() {
+        return regularisationStatus;
+    }
+
+    public void setRegularisationStatus(String regularisationStatus) {
+        this.regularisationStatus = regularisationStatus;
     }
 }

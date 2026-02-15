@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 class AttendanceLog {
@@ -15,6 +16,7 @@ class AttendanceLog {
   final double? clockInLongitude;
   final double? clockOutLatitude;
   final double? clockOutLongitude;
+  final String? regularisationStatus;
 
 
   AttendanceLog({
@@ -30,15 +32,25 @@ class AttendanceLog {
     this.clockInLongitude,
     this.clockOutLatitude,
     this.clockOutLongitude,
+    this.regularisationStatus,
   });
 
   factory AttendanceLog.fromJson(Map<String, dynamic> json) {
+    DateTime parseDateTime(dynamic value) {
+      if (value is String) {
+        return DateTime.parse(value);
+      } else if (value is Timestamp) {
+        return value.toDate();
+      }
+      throw TypeError();
+    }
+
     return AttendanceLog(
       id: json['id'] as String,
       facultyId: json['facultyId'] as String,
       institutionId: json['institutionId'] as String,
-      clockInTime: DateTime.parse(json['clockInTime'] as String),
-      clockOutTime: json['clockOutTime'] != null ? DateTime.parse(json['clockOutTime'] as String) : null,
+      clockInTime: parseDateTime(json['clockInTime']),
+      clockOutTime: json['clockOutTime'] != null ? parseDateTime(json['clockOutTime']) : null,
       duration: json['duration'] as int?,
       locationStatus: json['locationStatus'] as String?,
       locationDetail: json['locationDetail'] as String?,
@@ -46,12 +58,13 @@ class AttendanceLog {
       clockInLongitude: (json['clockInLongitude'] as num?)?.toDouble(),
       clockOutLatitude: (json['clockOutLatitude'] as num?)?.toDouble(),
       clockOutLongitude: (json['clockOutLongitude'] as num?)?.toDouble(),
+      regularisationStatus: json['regularisationStatus'] as String?,
     );
   }
 
   // Helper for displaying date
-  String get formattedDate => DateFormat('MMM dd, yyyy').format(clockInTime);
-  String get formattedClockInTime => DateFormat('hh:mm a').format(clockInTime);
-  String get formattedClockOutTime => clockOutTime != null ? DateFormat('hh:mm a').format(clockOutTime!) : 'N/A';
+  String get formattedDate => DateFormat('MMM dd, yyyy').format(clockInTime.toLocal());
+  String get formattedClockInTime => DateFormat('hh:mm a').format(clockInTime.toLocal());
+  String get formattedClockOutTime => clockOutTime != null ? DateFormat('hh:mm a').format(clockOutTime!.toLocal()) : 'N/A';
   String get formattedDuration => duration != null ? '${duration! ~/ 60}h ${duration! % 60}m' : 'N/A';
 }

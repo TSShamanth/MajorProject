@@ -37,6 +37,10 @@ import '../screens/alumni_dashboard_screen.dart';
 import '../screens/alumni_directory_screen.dart';
 import '../screens/alumni_job_board_screen.dart';
 import '../screens/student_attendance_screen.dart';
+import '../screens/regularisation_request_screen.dart';
+import '../screens/regularisation_status_screen.dart';
+import '../screens/admin_regularisation_screen.dart';
+import '../screens/approval_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -144,6 +148,14 @@ final router = GoRouter(
       builder: (context, state) => const AlumniJobBoardScreen(),
     ),
     GoRoute(
+      path: '/:institutionId/admin/regularisation',
+      builder: (context, state) => const AdminRegularisationScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/approval',
+      builder: (context, state) => const ApprovalScreen(),
+    ),
+    GoRoute(
       path: '/:institutionId/admin/institution-settings',
       builder: (context, state) => const InstitutionSettingsScreen(),
     ),
@@ -197,6 +209,14 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/faculty/attendance-history',
       builder: (context, state) => const AttendanceHistoryScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/regularisation',
+      builder: (context, state) => const RegularisationRequestScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/regularisation/status',
+      builder: (context, state) => const RegularisationStatusScreen(),
     ),
     GoRoute(
       path: '/',
