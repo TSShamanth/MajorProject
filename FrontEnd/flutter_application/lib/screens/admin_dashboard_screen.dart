@@ -504,7 +504,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
       {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
-      {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/$_institutionId/admin/institution-setup'},
+      {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
       {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
       {'icon': Icons.approval, 'label': 'Approval', 'active': false, 'route': '/admin/approval'},
       {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
