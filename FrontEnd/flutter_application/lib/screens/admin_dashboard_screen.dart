@@ -475,7 +475,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   Color get _textPrimary => _isDarkMode ? const Color(0xFFF9FAFB) : const Color(0xFF1F2937);
   Color get _textSecondary => _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
   Color get _borderColor => _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
-  Color get _sidebarColor => const Color(0xFF4F46E5);
+  // Color get _sidebarColor => const Color(0xFF4F46E5);
 
   @override
   Widget build(BuildContext context) {
@@ -504,6 +504,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
       {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
+      {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/$_institutionId/admin/institution-setup'},
       {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
       {'icon': Icons.approval, 'label': 'Approval', 'active': false, 'route': '/admin/approval'},
       {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
@@ -515,25 +516,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      width: _sidebarExpanded ? 270 : 80,
+      curve: Curves.easeInOut,
+      width: _sidebarExpanded ? 270 : 0,
       decoration: BoxDecoration(
-        color: _sidebarColor,
-        boxShadow: [
+        gradient: LinearGradient(
+          colors: _isDarkMode 
+              ? [const Color(0xFF1F2937), const Color(0xFF111827)]
+              : [const Color(0xFF4F46E5), const Color(0xFF4338CA)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: _sidebarExpanded ? [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(2, 0),
+            color: Colors.black.withOpacity(_isDarkMode ? 0.3 : 0.15),
+            blurRadius: 20,
+            offset: const Offset(4, 0),
           ),
-        ],
+        ] : [],
       ),
-      child: Column(
+      child: _sidebarExpanded ? Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
                   width: 1,
                 ),
               ),
@@ -546,43 +554,58 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: const Center(
+                  child: Center(
                     child: Text(
                       'A',
                       style: TextStyle(
-                        color: Color(0xFF4F46E5),
+                        color: _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5),
                         fontWeight: FontWeight.w900,
                         fontSize: 22,
                       ),
                     ),
                   ),
                 ),
-                if (_sidebarExpanded) ...[
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Text(
-                      'AcadWorkHub',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.3,
-                      ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Text(
+                    'AcadWorkHub',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
                     ),
                   ),
-                ],
-                IconButton(
-                  icon: Icon(
-                    _sidebarExpanded ? Icons.chevron_left_rounded : Icons.menu_rounded,
-                    color: Colors.white,
-                    size: 26,
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _sidebarExpanded = !_sidebarExpanded;
-                    });
-                  },
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.chevron_left_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _sidebarExpanded = false;
+                      });
+                    },
+                    tooltip: 'Collapse sidebar',
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                  ),
                 ),
               ],
             ),
@@ -590,7 +613,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
               children: menuItems.map((item) {
                 final isActive = item['active'] == true;
                 return Padding(
@@ -608,32 +631,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                         duration: const Duration(milliseconds: 200),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
-                          color: isActive ? Colors.white.withOpacity(0.15) : Colors.transparent,
+                          color: isActive 
+                              ? Colors.white.withOpacity(_isDarkMode ? 0.1 : 0.15) 
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
                           border: isActive 
-                              ? const Border(left: BorderSide(color: Colors.white, width: 3))
+                              ? Border.all(
+                                  color: Colors.white.withOpacity(_isDarkMode ? 0.2 : 0.3),
+                                  width: 1,
+                                )
                               : null,
                         ),
                         child: Row(
                           children: [
                             Icon(
                               item['icon'] as IconData,
-                              color: Colors.white,
+                              color: Colors.white.withOpacity(isActive ? 1.0 : 0.7),
                               size: 24,
                             ),
-                            if (_sidebarExpanded) ...[
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Text(
-                                  item['label'] as String,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                                  ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                item['label'] as String,
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(isActive ? 1.0 : 0.8),
+                                  fontSize: 15,
+                                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                                 ),
                               ),
-                            ],
+                            ),
                           ],
                         ),
                       ),
@@ -644,46 +670,73 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             ),
           ),
 
-          if (_sidebarExpanded)
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(
-                    color: Colors.white.withOpacity(0.1),
-                    width: 1,
-                  ),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
+                  width: 1,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  InkWell(
-                    onTap: () {},
-                    child: Text(
-                      'Help & Support',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  InkWell(
-                    onTap: () {},
-                    child: Text(
-                      'Documentation',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: () {},
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.help_outline_rounded,
+                          size: 16,
+                          color: Colors.white.withOpacity(0.6),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Help & Support',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                InkWell(
+                  onTap: () {},
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.description_outlined,
+                          size: 16,
+                          color: Colors.white.withOpacity(0.6),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Documentation',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
-      ),
+      ) : const SizedBox.shrink(),
     );
   }
 
@@ -705,6 +758,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       ),
       child: Row(
         children: [
+          // Menu Toggle Button (appears when sidebar is collapsed)
+          if (!_sidebarExpanded)
+            Container(
+              margin: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                color: _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: (_isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5)).withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _sidebarExpanded = true;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 46,
+                    height: 46,
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.menu_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
           Expanded(
             child: Container(
               height: 46,
@@ -738,6 +829,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
           ),
           const SizedBox(width: 20),
 
+          // Dark Mode Toggle
           Container(
             decoration: BoxDecoration(
               color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
@@ -926,6 +1018,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header
             Text(
               'System Overview',
               style: TextStyle(
@@ -945,6 +1038,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             ),
             const SizedBox(height: 24),
 
+            // Stats Row
             Row(
               children: [
                 Expanded(child: _buildStatCard('Active Students', _studentCount.toString(), '298 Final Year', Icons.people_rounded, const Color(0xFF4F46E5))),
@@ -958,9 +1052,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             ),
             const SizedBox(height: 20),
 
+            // Main Content Grid
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Left Column - 60%
                 Expanded(
                   flex: 3,
                   child: Column(
@@ -973,6 +1069,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                 ),
                 const SizedBox(width: 16),
 
+                // Right Column - 40%
                 Expanded(
                   flex: 2,
                   child: Column(
@@ -987,6 +1084,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             ),
             const SizedBox(height: 20),
 
+            // Bottom Section - Management Cards in Grid
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1029,6 +1127,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             padding: const EdgeInsets.all(10),
@@ -1039,13 +1138,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(height: 16),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.w800,
-              color: _textPrimary,
-              letterSpacing: -1,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+                color: _textPrimary,
+                letterSpacing: -1,
+              ),
             ),
           ),
           const SizedBox(height: 4),
@@ -1056,6 +1159,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
               color: _textSecondary,
               fontWeight: FontWeight.w600,
             ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
           const SizedBox(height: 2),
           Text(
@@ -1064,6 +1169,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
               fontSize: 12,
               color: _textSecondary.withOpacity(0.7),
             ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
         ],
       ),
@@ -1171,8 +1278,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             ),
             const SizedBox(width: 12),
             Expanded(
+              flex: 3,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     title,
@@ -1181,6 +1290,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                       fontSize: 14,
                       color: color,
                     ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -1189,17 +1300,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                       color: _textSecondary,
                       fontSize: 12,
                     ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ],
               ),
             ),
-            Text(
-              count,
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: color,
-                letterSpacing: -1,
+            const SizedBox(width: 8),
+            Flexible(
+              flex: 1,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  count,
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                    letterSpacing: -1,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -1315,10 +1435,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   Widget _buildQuickActionsCard() {
     final actions = [
-      {'label': 'Manage Users', 'color': const Color(0xFF4F46E5), 'icon': Icons.people_rounded},
-      {'label': 'Schedule Drive', 'color': const Color(0xFF10B981), 'icon': Icons.event_rounded},
-      {'label': 'System Reports', 'color': const Color(0xFF8B5CF6), 'icon': Icons.bar_chart_rounded},
-      {'label': 'Publish Results', 'color': const Color(0xFFF59E0B), 'icon': Icons.publish_rounded},
+      {'label': 'Manage Users', 'color': const Color(0xFF4F46E5), 'icon': Icons.people_rounded, 'route': null},
+      {'label': 'Schedule Drive', 'color': const Color(0xFF10B981), 'icon': Icons.event_rounded, 'route': null},
+      {'label': 'System Reports', 'color': const Color(0xFF8B5CF6), 'icon': Icons.bar_chart_rounded, 'route': null},
+      {'label': 'Publish Results', 'color': const Color(0xFFF59E0B), 'icon': Icons.publish_rounded, 'route': null},
     ];
 
     return Container(
@@ -1352,7 +1472,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 2,
+              childAspectRatio: 1.8,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
             ),
@@ -1363,6 +1483,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                 onTap: () {
                   if (action['label'] == 'Manage Users') {
                     _showAddUserDialog();
+                  } else if (action['route'] != null) {
+                    final route = action['route'] as String;
+                    if (_institutionId != null) {
+                      context.go(route);
+                    }
                   }
                 },
                 borderRadius: BorderRadius.circular(10),
@@ -1374,6 +1499,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         action['icon'] as IconData,
@@ -1390,6 +1516,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                             color: action['color'] as Color,
                           ),
                           textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
                         ),
                       ),
                     ],
@@ -1552,6 +1680,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -1564,12 +1693,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                 child: Icon(icon, color: color, size: 20),
               ),
               const SizedBox(width: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: _textPrimary,
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: _textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
             ],
@@ -1603,8 +1736,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                             fontSize: 13,
                             color: color,
                           ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Icon(Icons.arrow_forward_ios_rounded, color: color, size: 14),
                     ],
                   ),
