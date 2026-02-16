@@ -475,25 +475,203 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   Color get _textPrimary => _isDarkMode ? const Color(0xFFF9FAFB) : const Color(0xFF1F2937);
   Color get _textSecondary => _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
   Color get _borderColor => _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
-  // Color get _sidebarColor => const Color(0xFF4F46E5);
+  Color get _sidebarColor => const Color(0xFF4F46E5);
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bgColor,
-      body: Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Determine screen breakpoints
+        final isMobile = constraints.maxWidth < 768;
+        final isTablet = constraints.maxWidth >= 768 && constraints.maxWidth < 1024;
+        final isDesktop = constraints.maxWidth >= 1024;
+
+        return Scaffold(
+          backgroundColor: _bgColor,
+          drawer: isMobile ? _buildMobileDrawer() : null,
+          body: isMobile 
+              ? _buildMobileLayout()
+              : Row(
+                  children: [
+                    if (!isMobile) _buildModernSidebar(),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          _buildModernTopBar(isMobile: isMobile),
+                          if (!isMobile) _buildBreadcrumb(),
+                          Expanded(
+                            child: _buildDashboardContent(
+                              isMobile: isMobile,
+                              isTablet: isTablet,
+                              isDesktop: isDesktop,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileLayout() {
+    return Column(
+      children: [
+        _buildMobileTopBar(),
+        Expanded(
+          child: _buildDashboardContent(
+            isMobile: true,
+            isTablet: false,
+            isDesktop: false,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileDrawer() {
+    final menuItems = [
+      {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
+      {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
+      {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/$_institutionId/admin/institution-setup'},
+      {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
+      {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
+      {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': null},
+      {'icon': Icons.bar_chart_rounded, 'label': 'Analytics & Reports', 'active': false, 'route': null},
+      {'icon': Icons.article_rounded, 'label': 'Content Management', 'active': false, 'route': null},
+      {'icon': Icons.settings_rounded, 'label': 'System Settings', 'active': false, 'route': null},
+    ];
+
+    return Drawer(
+      backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+      child: Column(
         children: [
-          _buildModernSidebar(),
-          Expanded(
-            child: Column(
+          DrawerHeader(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: _isDarkMode 
+                    ? [const Color(0xFF1F2937), const Color(0xFF111827)]
+                    : [const Color(0xFF4F46E5), const Color(0xFF4338CA)],
+              ),
+            ),
+            child: Row(
               children: [
-                _buildModernTopBar(),
-                _buildBreadcrumb(),
-                Expanded(
-                  child: _buildDashboardContent(),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'A',
+                      style: TextStyle(
+                        color: _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Text(
+                    'AcadWorkHub',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ],
             ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: menuItems.map((item) {
+                final isActive = item['active'] == true;
+                return ListTile(
+                  leading: Icon(
+                    item['icon'] as IconData,
+                    color: isActive ? const Color(0xFF4F46E5) : _textSecondary,
+                  ),
+                  title: Text(
+                    item['label'] as String,
+                    style: TextStyle(
+                      color: isActive ? const Color(0xFF4F46E5) : _textPrimary,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                  selected: isActive,
+                  selectedTileColor: const Color(0xFF4F46E5).withOpacity(0.1),
+                  onTap: () {
+                    Navigator.pop(context);
+                    final route = item['route'];
+                    if (route != null && _institutionId != null) {
+                      context.go(route as String);
+                    }
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileTopBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        border: Border(bottom: BorderSide(color: _borderColor)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Builder(
+            builder: (context) => IconButton(
+              icon: Icon(Icons.menu_rounded, color: _textPrimary),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'AcadWorkHub',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF4F46E5),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              color: _isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFF4F46E5),
+            ),
+            onPressed: () {
+              setState(() {
+                _isDarkMode = !_isDarkMode;
+              });
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.notifications_rounded, color: _textPrimary),
+            onPressed: () {},
           ),
         ],
       ),
@@ -740,7 +918,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     );
   }
 
-  Widget _buildModernTopBar() {
+  Widget _buildModernTopBar({bool isMobile = false}) {
+    if (isMobile) return const SizedBox.shrink(); // Use mobile top bar instead
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
       decoration: BoxDecoration(
@@ -1011,10 +1191,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     );
   }
 
-  Widget _buildDashboardContent() {
+  Widget _buildDashboardContent({
+    required bool isMobile,
+    required bool isTablet,
+    required bool isDesktop,
+  }) {
+    final padding = isMobile ? 16.0 : (isTablet ? 20.0 : 24.0);
+    
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(padding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1022,7 +1208,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             Text(
               'System Overview',
               style: TextStyle(
-                fontSize: 26,
+                fontSize: isMobile ? 22 : (isTablet ? 24 : 26),
                 fontWeight: FontWeight.w800,
                 color: _textPrimary,
                 letterSpacing: -0.5,
@@ -1032,153 +1218,251 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             Text(
               'Complete academic workforce and placement management',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: isMobile ? 13 : 14,
                 color: _textSecondary,
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: isMobile ? 16 : 24),
 
-            // Stats Row
-            Row(
-              children: [
-                Expanded(child: _buildStatCard('Active Students', _studentCount.toString(), '298 Final Year', Icons.people_rounded, const Color(0xFF4F46E5))),
-                const SizedBox(width: 16),
-                Expanded(child: _buildStatCard('Faculty', _facultyCount.toString(), '12 Departments', Icons.school_rounded, const Color(0xFF10B981))),
-                const SizedBox(width: 16),
-                Expanded(child: _buildStatCard('Placement', '82%', 'Current Season', Icons.business_center_rounded, const Color(0xFF8B5CF6))),
-                const SizedBox(width: 16),
-                Expanded(child: _buildStatCard('Actions', '12', '8 Pending', Icons.warning_rounded, const Color(0xFFF59E0B))),
-              ],
-            ),
-            const SizedBox(height: 20),
+            // Stats Row - Fully Responsive
+            _buildResponsiveStatsRow(isMobile, isTablet),
+            SizedBox(height: isMobile ? 16 : 20),
 
-            // Main Content Grid
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Left Column - 60%
-                Expanded(
-                  flex: 3,
-                  child: Column(
-                    children: [
-                      _buildUserManagementCard(),
-                      const SizedBox(height: 16),
-                      _buildRecentActivityCard(),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
+            // Main Content - Fully Responsive
+            _buildResponsiveMainContent(isMobile, isTablet, isDesktop),
+            SizedBox(height: isMobile ? 16 : 20),
 
-                // Right Column - 40%
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    children: [
-                      _buildQuickActionsCard(),
-                      const SizedBox(height: 16),
-                      _buildSystemOverviewCard(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Bottom Section - Management Cards in Grid
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _buildAcademicsCard()),
-                const SizedBox(width: 16),
-                Expanded(child: _buildFinancialsCard()),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _buildResourcesCard()),
-                const SizedBox(width: 16),
-                Expanded(child: _buildToolsCard()),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildCommunityCard(),
+            // Management Cards - Fully Responsive
+            _buildResponsiveManagementSection(isMobile, isTablet),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatCard(String title, String value, String subtext, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: _cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+  Widget _buildResponsiveStatsRow(bool isMobile, bool isTablet) {
+    if (isMobile) {
+      // Mobile - Responsive Grid (2 columns on wider phones)
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          // Calculate how many columns fit (minimum card width 150px)
+          final crossAxisCount = (constraints.maxWidth / 180).floor().clamp(1, 2);
+          
+          return GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.85,
+            children: [
+              _buildStatCard('Active Students', _studentCount.toString(), '298 Final Year', Icons.people_rounded, const Color(0xFF4F46E5)),
+              _buildStatCard('Faculty', _facultyCount.toString(), '12 Departments', Icons.school_rounded, const Color(0xFF10B981)),
+              _buildStatCard('Placement', '82%', 'Current Season', Icons.business_center_rounded, const Color(0xFF8B5CF6)),
+              _buildStatCard('Actions', '12', '8 Pending', Icons.warning_rounded, const Color(0xFFF59E0B)),
+            ],
+          );
+        },
+      );
+    } else if (isTablet) {
+      // Tablet - 2 columns
+      return GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.3,
+        children: [
+          _buildStatCard('Active Students', _studentCount.toString(), '298 Final Year', Icons.people_rounded, const Color(0xFF4F46E5)),
+          _buildStatCard('Faculty', _facultyCount.toString(), '12 Departments', Icons.school_rounded, const Color(0xFF10B981)),
+          _buildStatCard('Placement', '82%', 'Current Season', Icons.business_center_rounded, const Color(0xFF8B5CF6)),
+          _buildStatCard('Actions', '12', '8 Pending', Icons.warning_rounded, const Color(0xFFF59E0B)),
+        ],
+      );
+    } else {
+      // Desktop - 4 columns
+      return Row(
+        children: [
+          Expanded(child: _buildStatCard('Active Students', _studentCount.toString(), '298 Final Year', Icons.people_rounded, const Color(0xFF4F46E5))),
+          const SizedBox(width: 16),
+          Expanded(child: _buildStatCard('Faculty', _facultyCount.toString(), '12 Departments', Icons.school_rounded, const Color(0xFF10B981))),
+          const SizedBox(width: 16),
+          Expanded(child: _buildStatCard('Placement', '82%', 'Current Season', Icons.business_center_rounded, const Color(0xFF8B5CF6))),
+          const SizedBox(width: 16),
+          Expanded(child: _buildStatCard('Actions', '12', '8 Pending', Icons.warning_rounded, const Color(0xFFF59E0B))),
+        ],
+      );
+    }
+  }
+
+  Widget _buildResponsiveMainContent(bool isMobile, bool isTablet, bool isDesktop) {
+    if (isMobile || isTablet) {
+      // Mobile/Tablet - Single column
+      return Column(
+        children: [
+          _buildUserManagementCard(),
+          const SizedBox(height: 16),
+          _buildQuickActionsCard(),
+          const SizedBox(height: 16),
+          _buildSystemOverviewCard(),
+          const SizedBox(height: 16),
+          _buildRecentActivityCard(),
+        ],
+      );
+    } else {
+      // Desktop - Two columns
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              children: [
+                _buildUserManagementCard(),
+                const SizedBox(height: 16),
+                _buildRecentActivityCard(),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: Column(
+              children: [
+                _buildQuickActionsCard(),
+                const SizedBox(height: 16),
+                _buildSystemOverviewCard(),
+              ],
+            ),
           ),
         ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      );
+    }
+  }
+
+  Widget _buildResponsiveManagementSection(bool isMobile, bool isTablet) {
+    if (isMobile) {
+      // Mobile - Single column
+      return Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 22),
+          _buildAcademicsCard(),
+          const SizedBox(height: 12),
+          _buildFinancialsCard(),
+          const SizedBox(height: 12),
+          _buildResourcesCard(),
+          const SizedBox(height: 12),
+          _buildToolsCard(),
+          const SizedBox(height: 12),
+          _buildCommunityCard(),
+        ],
+      );
+    } else {
+      // Tablet/Desktop - Two columns
+      return Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildAcademicsCard()),
+              const SizedBox(width: 16),
+              Expanded(child: _buildFinancialsCard()),
+            ],
           ),
           const SizedBox(height: 16),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.w800,
-                color: _textPrimary,
-                letterSpacing: -1,
-              ),
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildResourcesCard()),
+              const SizedBox(width: 16),
+              Expanded(child: _buildToolsCard()),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              color: _textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            subtext,
-            style: TextStyle(
-              fontSize: 12,
-              color: _textSecondary.withOpacity(0.7),
-            ),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-          ),
+          const SizedBox(height: 16),
+          _buildCommunityCard(),
         ],
-      ),
+      );
+    }
+  }
+
+  Widget _buildStatCard(String title, String value, String subtext, IconData icon, Color color) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+        
+        return Container(
+          padding: EdgeInsets.all(isMobile ? 14 : 20),
+          decoration: BoxDecoration(
+            color: _cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _borderColor),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: EdgeInsets.all(isMobile ? 8 : 10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: isMobile ? 20 : 22),
+              ),
+              SizedBox(height: isMobile ? 12 : 16),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: isMobile ? 24 : 30,
+                    fontWeight: FontWeight.w800,
+                    color: _textPrimary,
+                    letterSpacing: -1,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: isMobile ? 11 : 13,
+                  color: _textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtext,
+                style: TextStyle(
+                  fontSize: isMobile ? 10 : 12,
+                  color: _textSecondary.withOpacity(0.7),
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _buildUserManagementCard() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _cardColor,
@@ -1193,6 +1477,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1339,6 +1624,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     ];
 
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _cardColor,
@@ -1442,6 +1728,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     ];
 
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _cardColor,
@@ -1533,6 +1820,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   Widget _buildSystemOverviewCard() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -1665,6 +1953,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   Widget _buildManagementCard(String title, Color color, IconData icon, List<Map<String, String>> items) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _cardColor,
