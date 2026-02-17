@@ -8,6 +8,8 @@ import '../models/section_model.dart';
 import '../models/department_model.dart';
 import '../models/attendance_log_model.dart';
 import '../models/regularisation_request_model.dart';
+import '../models/course_model.dart';
+import '../models/exam_model.dart';
 
 class ApiService {
   static Future<List<Institution>> getInstitutions() async {
@@ -548,6 +550,74 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw Exception('Failed to deny request: ${response.body}');
+    }
+  }
+
+  Future<List<Course>> getCourses(String institutionId, String departmentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/departments/$departmentId/courses');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => Course.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load courses');
+    }
+  }
+
+  Future<http.Response> createExam(String institutionId, Map<String, dynamic> examData) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(examData),
+    );
+
+    return response;
+  }
+
+  Future<List<Exam>> getExams(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => Exam.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load exams');
     }
   }
 }

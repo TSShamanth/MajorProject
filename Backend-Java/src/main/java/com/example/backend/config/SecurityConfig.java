@@ -37,6 +37,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").authenticated()
                 .requestMatchers("/{institutionId}/api/attendance/**").authenticated()
                 .requestMatchers("/{institutionId}/api/users/**").authenticated()
+                .requestMatchers("/api/institutions/{institutionId}/exams").authenticated()
                 .anyRequest().permitAll()
             )
             .addFilterBefore(firebaseTokenFilter, UsernamePasswordAuthenticationFilter.class);

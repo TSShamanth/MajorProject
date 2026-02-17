@@ -41,6 +41,8 @@ import '../screens/regularisation_request_screen.dart';
 import '../screens/regularisation_status_screen.dart';
 import '../screens/admin_regularisation_screen.dart';
 import '../screens/approval_screen.dart';
+import '../screens/create_exam_screen.dart';
+import '../screens/exam_management_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -104,8 +106,16 @@ final router = GoRouter(
       builder: (context, state) => const ExamDashboardScreen(),
     ),
     GoRoute(
+      path: '/:institutionId/admin/exam-management',
+      builder: (context, state) => const ExamManagementScreen(),
+    ),
+    GoRoute(
       path: '/:institutionId/admin/exam-schedule-editor',
       builder: (context, state) => const ExamScheduleEditorScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/create-exam',
+      builder: (context, state) => const CreateExamScreen(),
     ),
      GoRoute(
       path: '/:institutionId/admin/report-card-dashboard',

@@ -1901,7 +1901,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       Icons.school_rounded,
       [
         {'title': 'Class Management', 'route': '/$_institutionId/admin/class-management'},
-        {'title': 'Examinations', 'route': '/$_institutionId/admin/exam-dashboard'},
+        {'title': 'Examinations', 'route': '/$_institutionId/admin/exam-management'},
         {'title': 'Report Cards', 'route': '/$_institutionId/admin/report-card-dashboard'},
       ],
     );
