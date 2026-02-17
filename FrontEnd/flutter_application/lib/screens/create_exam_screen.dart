@@ -68,10 +68,11 @@ class _CreateExamScreenState extends State<CreateExamScreen> {
     } catch (e) {
       // Handle error
     } finally {
-      if (!mounted) return; // Ensure widget is still mounted before setState
-      setState(() {
-        _isLoadingDepartments = false;
-      });
+      if (mounted) { // Ensure widget is still mounted before setState
+        setState(() {
+          _isLoadingDepartments = false;
+        });
+      }
     }
   }
 
@@ -94,10 +95,11 @@ class _CreateExamScreenState extends State<CreateExamScreen> {
     } catch (e) {
       // Handle error
     } finally {
-      if (!mounted) return; // Ensure widget is still mounted before setState
-      setState(() {
-        _isLoadingCourses = false;
-      });
+      if (mounted) { // Ensure widget is still mounted before setState
+        setState(() {
+          _isLoadingCourses = false;
+        });
+      }
     }
   }
 

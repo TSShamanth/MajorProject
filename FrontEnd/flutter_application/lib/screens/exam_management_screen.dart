@@ -93,9 +93,12 @@ class _ExamManagementScreenState extends State<ExamManagementScreen> {
                       title: Text(exam.name),
                       subtitle: Text('$departmentName - ${exam.semester}'),
                       onTap: () async {
+                        final currentContext = context; // Capture context before async gap
                         final institutionId = await SessionManager.getInstitutionId();
-                        if (institutionId != null && mounted) {
-                          context.go('/$institutionId/admin/exams/${exam.id}/eligibility');
+                        if (institutionId != null) {
+                          if (currentContext.mounted) { // Use captured context and its mounted property
+                            currentContext.go('/$institutionId/admin/exams/${exam.id}/eligibility');
+                          }
                         }
                       },
                     );
@@ -107,10 +110,12 @@ class _ExamManagementScreenState extends State<ExamManagementScreen> {
             _isNavigating = true;
           });
           try {
+            final currentContext = context; // Capture context before async gap
             final institutionId = await SessionManager.getInstitutionId();
             if (institutionId != null) {
-              if (!mounted) return;
-              context.go('/$institutionId/admin/create-exam');
+              if (currentContext.mounted) { // Use captured context and its mounted property
+                currentContext.go('/$institutionId/admin/create-exam');
+              }
             }
           } finally {
             if (mounted) {
