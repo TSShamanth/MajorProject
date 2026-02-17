@@ -104,7 +104,8 @@ public class UserService {
         Query query = usersCollection
                 .whereEqualTo("role", "student")
                 .whereEqualTo("departmentId", departmentId) // Assuming User model has departmentId
-                .whereEqualTo("sem", semester); // Assuming User model has sem for semester
+                .whereEqualTo("sem", semester) // Assuming User model has sem for semester
+                .whereEqualTo("isDetained", false); // Filter out detained students
 
         ApiFuture<QuerySnapshot> querySnapshot = query.get();
         List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
@@ -149,5 +150,11 @@ public class UserService {
     public void updateEnrolledCourses(String institutionId, String studentId, List<String> courseCodes) throws ExecutionException, InterruptedException {
         DocumentReference userDocRef = firestore.collection("Institutions").document(institutionId).collection("users").document(studentId);
         userDocRef.update("enrolledCourseCodes", courseCodes).get();
+    }
+
+    public void updateUserDetainedStatus(String institutionId, String studentUid, boolean isDetained) throws ExecutionException, InterruptedException {
+        DocumentReference userDocRef = firestore.collection("Institutions").document(institutionId).collection("users").document(studentUid);
+        // Directly update the 'isDetained' field
+        userDocRef.update("isDetained", isDetained).get();
     }
 }

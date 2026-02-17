@@ -25,8 +25,17 @@ public class User {
     private List<String> assignedCourseCodes;  // For faculty
     private String attendanceStatus;
     private String activeLogId;
+    private boolean isDetained; // New field for student eligibility
 
     public User() {
+    }
+
+    public boolean isDetained() {
+        return isDetained;
+    }
+
+    public void setDetained(boolean detained) {
+        isDetained = detained;
     }
 
     public String getUid() {

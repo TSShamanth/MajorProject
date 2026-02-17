@@ -20,6 +20,7 @@ class UserModel {
   final List<String>? assignedCourseCodes; // For faculty
   final String? attendanceStatus;
   final String? activeLogId;
+  final bool? isDetained;
 
   UserModel({
     required this.uid,
@@ -43,6 +44,7 @@ class UserModel {
     this.assignedCourseCodes,
     this.attendanceStatus,
     this.activeLogId,
+    this.isDetained,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -73,6 +75,7 @@ class UserModel {
       assignedCourseCodes: (json['assignedCourseCodes'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
       attendanceStatus: json['attendanceStatus'] as String?,
       activeLogId: json['activeLogId'] as String?,
+      isDetained: json['isDetained'] as bool?,
     );
   }
 }

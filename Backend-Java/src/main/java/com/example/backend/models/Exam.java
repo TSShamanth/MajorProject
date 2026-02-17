@@ -12,11 +12,12 @@ public class Exam {
     private String startTime;
     private String endTime;
     private String duration;
+    private List<String> frozenCandidateList; // New field for storing frozen eligible student UIDs
 
     public Exam() {
     }
 
-    public Exam(String id, String name, String departmentId, String semester, List<String> subjects, String examDate, String startTime, String endTime, String duration) {
+    public Exam(String id, String name, String departmentId, String semester, List<String> subjects, String examDate, String startTime, String endTime, String duration, List<String> frozenCandidateList) {
         this.id = id;
         this.name = name;
         this.departmentId = departmentId;
@@ -26,6 +27,7 @@ public class Exam {
         this.startTime = startTime;
         this.endTime = endTime;
         this.duration = duration;
+        this.frozenCandidateList = frozenCandidateList;
     }
 
     public String getId() {
@@ -98,5 +100,13 @@ public class Exam {
 
     public void setDuration(String duration) {
         this.duration = duration;
+    }
+
+    public List<String> getFrozenCandidateList() {
+        return frozenCandidateList;
+    }
+
+    public void setFrozenCandidateList(List<String> frozenCandidateList) {
+        this.frozenCandidateList = frozenCandidateList;
     }
 }

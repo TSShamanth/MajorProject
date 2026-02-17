@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 @RestController
@@ -75,6 +76,38 @@ public class ExamController {
             List<User> students = userService.getStudentsByDepartmentAndSemester(
                     institutionId, exam.getDepartmentId(), exam.getSemester());
             return ResponseEntity.ok(students);
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @PostMapping("/institutions/{institutionId}/exams/{examId}/freeze-eligible-students")
+    public ResponseEntity<Void> freezeEligibleStudentsForExam(
+            @PathVariable String institutionId,
+            @PathVariable String examId,
+            @RequestBody List<String> studentUids) {
+        try {
+            examService.freezeEligibleStudentsForExam(institutionId, examId, studentUids);
+            return ResponseEntity.ok().build();
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @PutMapping("/institutions/{institutionId}/users/{studentUid}/detained-status")
+    public ResponseEntity<Void> updateStudentDetainedStatus(
+            @PathVariable String institutionId,
+            @PathVariable String studentUid,
+            @RequestBody Map<String, Boolean> requestBody) {
+        try {
+            Boolean isDetained = requestBody.get("isDetained");
+            if (isDetained == null) {
+                return ResponseEntity.badRequest().build();
+            }
+            userService.updateUserDetainedStatus(institutionId, studentUid, isDetained);
+            return ResponseEntity.ok().build();
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
             return ResponseEntity.status(500).build();

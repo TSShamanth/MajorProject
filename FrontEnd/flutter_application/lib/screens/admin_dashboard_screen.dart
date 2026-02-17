@@ -286,24 +286,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                         
                         if (selectedRole == 'student') ...[
                           const SizedBox(height: 20),
-                          DropdownButtonFormField<String>(
-                            value: _selectedDepartmentForStudent,
-                            decoration: _inputDecoration('Department', Icons.business_rounded),
-                            dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
-                            style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
-                            items: _departments.map((department) {
-                              return DropdownMenuItem<String>(
-                                value: department.id,
-                                child: Text(department.name),
-                              );
-                            }).toList(),
-                            onChanged: (newValue) {
-                              setDialogState(() {
-                                _selectedDepartmentForStudent = newValue;
-                              });
-                            },
-                            validator: (value) => value == null ? 'Please select a department' : null,
-                          ),
+                          _isLoadingDepartments
+                              ? const Center(child: CircularProgressIndicator())
+                              : DropdownButtonFormField<String>(
+                                  value: _selectedDepartmentForStudent,
+                                  decoration: _inputDecoration('Department', Icons.business_rounded),
+                                  dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
+                                  style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
+                                  items: _departments.map((department) {
+                                    return DropdownMenuItem<String>(
+                                      value: department.id,
+                                      child: Text(department.name),
+                                    );
+                                  }).toList(),
+                                  onChanged: (newValue) {
+                                    setDialogState(() {
+                                      _selectedDepartmentForStudent = newValue;
+                                    });
+                                  },
+                                  validator: (value) => value == null ? 'Please select a department' : null,
+                                ),
                           const SizedBox(height: 20),
                           _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
                           const SizedBox(height: 20),

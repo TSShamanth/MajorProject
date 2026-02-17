@@ -65,6 +65,45 @@ class _StudentEligibilityScreenState extends State<StudentEligibilityScreen> {
     }
   }
 
+  Future<void> _freezeCandidateList() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final institutionId = await SessionManager.getInstitutionId();
+      if (institutionId != null) {
+        final nonDetainedStudentUids = _eligibleStudents
+            .where((student) => !(student.isDetained ?? false))
+            .map((student) => student.uid)
+            .toList();
+
+        await _apiService.freezeEligibleStudentsForExam(
+            institutionId, widget.examId, nonDetainedStudentUids);
+
+        if (!mounted) return; // Guard against context use after async gap
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Candidate list frozen successfully!')),
+        );
+      } else {
+        _errorMessage = 'Institution ID not found.';
+      }
+    } catch (e) {
+      _errorMessage = 'Failed to freeze candidate list: $e';
+      if (!mounted) return; // Guard against context use after async gap
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_errorMessage)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -103,8 +142,119 @@ class _StudentEligibilityScreenState extends State<StudentEligibilityScreen> {
                                     itemBuilder: (context, index) {
                                       final student = _eligibleStudents[index];
                                       return ListTile(
-                                        title: Text(student.displayName ?? 'N/A'),
-                                        subtitle: Text(student.email ?? 'N/A'),
+                                        title: Text(student.displayName),
+                                        subtitle: Text(student.email),
+                                        trailing: Switch(
+                                          value: student.isDetained ?? false,
+                                          onChanged: (bool value) async {
+                                            setState(() {
+                                              // Create a new UserModel with updated isDetained status
+                                              _eligibleStudents[index] = UserModel(
+                                                uid: student.uid,
+                                                email: student.email,
+                                                displayName: student.displayName,
+                                                role: student.role,
+                                                name: student.name,
+                                                usn: student.usn,
+                                                phone: student.phone,
+                                                sem: student.sem,
+                                                mentorName: student.mentorName,
+                                                photoUrl: student.photoUrl,
+                                                programme: student.programme,
+                                                school: student.school,
+                                                address: student.address,
+                                                dob: student.dob,
+                                                bloodGroup: student.bloodGroup,
+                                                emergencyContact: student.emergencyContact,
+                                                validUpto: student.validUpto,
+                                                enrolledCourseCodes: student.enrolledCourseCodes,
+                                                assignedCourseCodes: student.assignedCourseCodes,
+                                                attendanceStatus: student.attendanceStatus,
+                                                activeLogId: student.activeLogId,
+                                                isDetained: value, // Update the detained status
+                                              );
+                                            });
+                                            // Call API to update student's detained status in backend
+                                            final institutionId = await SessionManager.getInstitutionId();
+                                            if (institutionId != null) {
+                                              try {
+                                                await _apiService.updateStudentDetainedStatus(
+                                                    institutionId, student.uid, value);
+                                                if (mounted) { // Guard against context use after async gap
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(content: Text('${student.displayName} status updated to ${value ? 'Detained' : 'Not Detained'}')),
+                                                  );
+                                                }
+                                              } catch (e) {
+                                                if (mounted) { // Guard against context use after async gap
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(content: Text('Failed to update ${student.displayName} status: $e')),
+                                                  );
+                                                  // Revert the UI state if API call fails
+                                                  setState(() {
+                                                    _eligibleStudents[index] = UserModel(
+                                                      uid: student.uid,
+                                                      email: student.email,
+                                                      displayName: student.displayName,
+                                                      role: student.role,
+                                                      name: student.name,
+                                                      usn: student.usn,
+                                                      phone: student.phone,
+                                                      sem: student.sem,
+                                                      mentorName: student.mentorName,
+                                                      photoUrl: student.photoUrl,
+                                                      programme: student.programme,
+                                                      school: student.school,
+                                                      address: student.address,
+                                                      dob: student.dob,
+                                                      bloodGroup: student.bloodGroup,
+                                                      emergencyContact: student.emergencyContact,
+                                                      validUpto: student.validUpto,
+                                                      enrolledCourseCodes: student.enrolledCourseCodes,
+                                                      assignedCourseCodes: student.assignedCourseCodes,
+                                                      attendanceStatus: student.attendanceStatus,
+                                                      activeLogId: student.activeLogId,
+                                                      isDetained: !value, // Revert to previous state
+                                                    );
+                                                  });
+                                                }
+                                              }
+                                            } else {
+                                              if (mounted) { // Guard against context use after async gap
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Institution ID not found. Cannot update status.')),
+                                                );
+                                                // Revert the UI state if institutionId is null
+                                                setState(() {
+                                                  _eligibleStudents[index] = UserModel(
+                                                    uid: student.uid,
+                                                    email: student.email,
+                                                    displayName: student.displayName,
+                                                    role: student.role,
+                                                    name: student.name,
+                                                    usn: student.usn,
+                                                    phone: student.phone,
+                                                    sem: student.sem,
+                                                    mentorName: student.mentorName,
+                                                    photoUrl: student.photoUrl,
+                                                    programme: student.programme,
+                                                    school: student.school,
+                                                    address: student.address,
+                                                    dob: student.dob,
+                                                    bloodGroup: student.bloodGroup,
+                                                    emergencyContact: student.emergencyContact,
+                                                    validUpto: student.validUpto,
+                                                    enrolledCourseCodes: student.enrolledCourseCodes,
+                                                    assignedCourseCodes: student.assignedCourseCodes,
+                                                    attendanceStatus: student.attendanceStatus,
+                                                    activeLogId: student.activeLogId,
+                                                    isDetained: !value, // Revert to previous state
+                                                  );
+                                                });
+                                              }
+                                            }
+                                          },
+                                        ),
                                       );
                                     },
                                   ),
@@ -112,12 +262,7 @@ class _StudentEligibilityScreenState extends State<StudentEligibilityScreen> {
                           Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: ElevatedButton(
-                              onPressed: () {
-                                // TODO: Implement Freeze Candidate List functionality
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Freeze Candidate List functionality not yet implemented.')),
-                                );
-                              },
+                              onPressed: _freezeCandidateList, // Call the new method
                               child: const Text('Freeze Candidate List'),
                             ),
                           ),

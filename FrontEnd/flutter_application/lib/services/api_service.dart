@@ -673,4 +673,50 @@ class ApiService {
       throw Exception('Failed to load eligible students: ${response.body}');
     }
   }
+
+  Future<void> freezeEligibleStudentsForExam(
+      String institutionId, String examId, List<String> studentUids) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/freeze-eligible-students');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(studentUids), // Send the list of student UIDs in the body
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to freeze eligible students: ${response.body}');
+    }
+  }
+
+  Future<void> updateStudentDetainedStatus(
+      String institutionId, String studentUid, bool isDetained) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/users/$studentUid/detained-status');
+
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'isDetained': isDetained}), // Send the new status in the body
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update student detained status: ${response.body}');
+    }
+  }
 }

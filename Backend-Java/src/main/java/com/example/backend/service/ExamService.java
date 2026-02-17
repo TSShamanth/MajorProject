@@ -50,4 +50,19 @@ public class ExamService {
             return null;
         }
     }
+
+    public void freezeEligibleStudentsForExam(String institutionId, String examId, List<String> studentUids) throws ExecutionException, InterruptedException {
+        // Fetch the existing exam
+        Exam exam = getExamById(institutionId, examId);
+        if (exam == null) {
+            throw new IllegalArgumentException("Exam not found with ID: " + examId);
+        }
+
+        // Set the frozen candidate list
+        exam.setFrozenCandidateList(studentUids);
+
+        // Update the exam in Firestore
+        ApiFuture<WriteResult> future = firestore.collection("Institutions").document(institutionId).collection("exams").document(examId).set(exam);
+        future.get();
+    }
 }
