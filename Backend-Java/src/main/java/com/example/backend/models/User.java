@@ -11,6 +11,7 @@ public class User {
     private String usn;
     private String phone;
     private String sem;
+    private String departmentId; // New field
     private String mentorName;
     private String photoUrl;
     private String programme;
@@ -90,6 +91,14 @@ public class User {
 
     public void setSem(String sem) {
         this.sem = sem;
+    }
+
+    public String getDepartmentId() {
+        return departmentId;
+    }
+
+    public void setDepartmentId(String departmentId) {
+        this.departmentId = departmentId;
     }
 
     public String getMentorName() {

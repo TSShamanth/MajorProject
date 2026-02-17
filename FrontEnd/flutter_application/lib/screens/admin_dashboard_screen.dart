@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../services/image_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../models/department_model.dart'; // Import Department model
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -28,10 +29,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   final _addressController = TextEditingController();
   final _dobController = TextEditingController();
   final _bloodGroupController = TextEditingController();
-  final _emergencyContactController = TextEditingController();  
+  final _emergencyContactController = TextEditingController();
   final _validUptoController = TextEditingController();
 
   String? _selectedRole = 'student';
+  String? _selectedDepartmentForStudent; // New field
   bool _isLoading = false;
   Uint8List? _pickedImageBytes;
   String? _photoUrl;
@@ -45,6 +47,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   final ApiService _apiService = ApiService();
   final ImageService _imageService = ImageService();
+  List<Department> _departments = []; // New list for departments
+  bool _isLoadingDepartments = false; // New loading flag
 
   @override
   void initState() {
@@ -56,6 +60,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     _fetchInstitutionId().then((_) {
       if (_institutionId != null) {
         _fetchUsersAndCounts();
+        _fetchDepartments(); // Fetch departments when institutionId is available
       }
     });
   }
@@ -95,6 +100,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     }
   }
 
+  Future<void> _fetchDepartments() async {
+    if (_institutionId == null) return;
+    setState(() {
+      _isLoadingDepartments = true;
+    });
+    try {
+      final departments = await _apiService.getDepartments(_institutionId!);
+      setState(() {
+        _departments = departments;
+      });
+    } catch (e) {
+      debugPrint('Error fetching departments: $e');
+    } finally {
+      setState(() {
+        _isLoadingDepartments = false;
+      });
+    }
+  }
   @override
   void dispose() {
     _animationController.dispose();
@@ -263,6 +286,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                         
                         if (selectedRole == 'student') ...[
                           const SizedBox(height: 20),
+                          DropdownButtonFormField<String>(
+                            value: _selectedDepartmentForStudent,
+                            decoration: _inputDecoration('Department', Icons.business_rounded),
+                            dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
+                            style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
+                            items: _departments.map((department) {
+                              return DropdownMenuItem<String>(
+                                value: department.id,
+                                child: Text(department.name),
+                              );
+                            }).toList(),
+                            onChanged: (newValue) {
+                              setDialogState(() {
+                                _selectedDepartmentForStudent = newValue;
+                              });
+                            },
+                            validator: (value) => value == null ? 'Please select a department' : null,
+                          ),
+                          const SizedBox(height: 20),
                           _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
                           const SizedBox(height: 20),
                           _buildTextField(_usnController, 'USN', Icons.confirmation_number_rounded),
@@ -407,6 +449,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
           usn: _usnController.text,
           phone: _phoneController.text,
           sem: _semController.text,
+          departmentId: _selectedRole == 'student' ? _selectedDepartmentForStudent : null, // Pass departmentId
           mentorName: _mentorController.text,
           photoUrl: _photoUrl,
           programme: _programmeController.text,

@@ -92,6 +92,12 @@ class _ExamManagementScreenState extends State<ExamManagementScreen> {
                     return ListTile(
                       title: Text(exam.name),
                       subtitle: Text('$departmentName - ${exam.semester}'),
+                      onTap: () async {
+                        final institutionId = await SessionManager.getInstitutionId();
+                        if (institutionId != null && mounted) {
+                          context.go('/$institutionId/admin/exams/${exam.id}/eligibility');
+                        }
+                      },
                     );
                   },
                 ),

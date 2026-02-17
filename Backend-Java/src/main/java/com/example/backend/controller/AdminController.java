@@ -25,10 +25,14 @@ public class AdminController {
         this.clockService = clockService;
     }
 
-    @PostMapping("/users")
+    @PostMapping("/institutions/{institutionId}/users")
     @PreAuthorize("hasAuthority('admin')")
-    public ResponseEntity<?> createUser(@RequestBody CreateUserRequest createUserRequest) {
+    public ResponseEntity<?> createUser(@RequestBody CreateUserRequest createUserRequest, @PathVariable String institutionId) {
         try {
+            // Ensure the institutionId in the request body matches the path variable
+            if (!institutionId.equals(createUserRequest.getInstitutionId())) {
+                return ResponseEntity.badRequest().body("Institution ID in path and body do not match.");
+            }
             UserRecord userRecord = userService.createUser(createUserRequest);
             return ResponseEntity.ok("Successfully created user: " + userRecord.getUid());
         } catch (Exception e) {

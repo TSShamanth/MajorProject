@@ -43,6 +43,7 @@ import '../screens/admin_regularisation_screen.dart';
 import '../screens/approval_screen.dart';
 import '../screens/create_exam_screen.dart';
 import '../screens/exam_management_screen.dart';
+import '../screens/student_eligibility_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -116,6 +117,13 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/admin/create-exam',
       builder: (context, state) => const CreateExamScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exams/:examId/eligibility',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        return StudentEligibilityScreen(examId: examId);
+      },
     ),
      GoRoute(
       path: '/:institutionId/admin/report-card-dashboard',

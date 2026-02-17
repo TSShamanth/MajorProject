@@ -62,6 +62,7 @@ public class UserService {
         user.put("usn", createUserRequest.getUsn());
         user.put("phone", createUserRequest.getPhone());
         user.put("sem", createUserRequest.getSem());
+        user.put("departmentId", createUserRequest.getDepartmentId()); // Save departmentId
         user.put("mentorName", createUserRequest.getMentorName());
         user.put("photoUrl", createUserRequest.getPhotoUrl()); // Save photo URL
         user.put("programme", createUserRequest.getProgramme());
@@ -96,6 +97,25 @@ public class UserService {
             users.add(userData);
         }
         return users;
+    }
+
+    public List<User> getStudentsByDepartmentAndSemester(String institutionId, String departmentId, String semester) throws ExecutionException, InterruptedException {
+        CollectionReference usersCollection = firestore.collection("Institutions").document(institutionId).collection("users");
+        Query query = usersCollection
+                .whereEqualTo("role", "student")
+                .whereEqualTo("departmentId", departmentId) // Assuming User model has departmentId
+                .whereEqualTo("sem", semester); // Assuming User model has sem for semester
+
+        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+        List<User> students = new ArrayList<>();
+        for (QueryDocumentSnapshot document : documents) {
+            User studentData = document.toObject(User.class);
+            studentData.setUid(document.getId());
+            students.add(studentData);
+        }
+        return students;
     }
 
     public User getUserById(String institutionId, String uid) throws ExecutionException, InterruptedException {

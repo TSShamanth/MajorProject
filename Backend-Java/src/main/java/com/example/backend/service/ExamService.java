@@ -6,6 +6,7 @@ import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteResult;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.QuerySnapshot;
+import com.google.cloud.firestore.DocumentSnapshot;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -38,5 +39,15 @@ public class ExamService {
             exams.add(document.toObject(Exam.class));
         }
         return exams;
+    }
+
+    public Exam getExamById(String institutionId, String examId) throws ExecutionException, InterruptedException {
+        ApiFuture<DocumentSnapshot> future = firestore.collection("Institutions").document(institutionId).collection("exams").document(examId).get();
+        DocumentSnapshot document = future.get();
+        if (document.exists()) {
+            return document.toObject(Exam.class);
+        } else {
+            return null;
+        }
     }
 }

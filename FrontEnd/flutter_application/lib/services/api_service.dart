@@ -81,6 +81,7 @@ class ApiService {
     String? usn,
     String? phone,
     String? sem,
+    String? departmentId, // New parameter
     String? mentorName,
     String? photoUrl, // New parameter
     String? programme,
@@ -97,7 +98,7 @@ class ApiService {
     }
 
     final token = await user.getIdToken();
-    final url = Uri.parse('${ApiConfig.baseUrl}/api/admin/users');
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/admin/institutions/$institutionId/users');
 
     final Map<String, dynamic> body = {
       'email': email,
@@ -109,6 +110,7 @@ class ApiService {
       'usn': usn,
       'phone': phone,
       'sem': sem,
+      'departmentId': departmentId, // Add departmentId to the body
       'mentorName': mentorName,
       'photoUrl': photoUrl, // Add photoUrl to the body
       'programme': programme,
@@ -618,6 +620,57 @@ class ApiService {
       return data.map((json) => Exam.fromJson(json)).toList();
     } else {
       throw Exception('Failed to load exams');
+    }
+  }
+
+  Future<Exam> getExamById(String institutionId, String examId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return Exam.fromJson(json.decode(response.body));
+    } else if (response.statusCode == 404) {
+      throw Exception('Exam not found');
+    } else {
+      throw Exception('Failed to load exam: ${response.body}');
+    }
+  }
+
+  Future<List<UserModel>> getEligibleStudentsForExam(String institutionId, String examId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/eligible-students');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => UserModel.fromJson(json)).toList();
+    } else if (response.statusCode == 404) {
+      throw Exception('Exam not found or no eligible students');
+    } else {
+      throw Exception('Failed to load eligible students: ${response.body}');
     }
   }
 }
