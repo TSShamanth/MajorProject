@@ -1,6 +1,7 @@
 package com.example.backend.service;
 
 import com.example.backend.models.Exam;
+import com.example.backend.models.ExamScheduleEntry; // Import ExamScheduleEntry
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteResult;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map; // Import Map
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
@@ -60,6 +62,21 @@ public class ExamService {
 
         // Set the frozen candidate list
         exam.setFrozenCandidateList(studentUids);
+
+        // Update the exam in Firestore
+        ApiFuture<WriteResult> future = firestore.collection("Institutions").document(institutionId).collection("exams").document(examId).set(exam);
+        future.get();
+    }
+
+    public void updateExamSchedule(String institutionId, String examId, Map<String, ExamScheduleEntry> newSchedule) throws ExecutionException, InterruptedException {
+        // Fetch the existing exam
+        Exam exam = getExamById(institutionId, examId);
+        if (exam == null) {
+            throw new IllegalArgumentException("Exam not found with ID: " + examId);
+        }
+
+        // Set the new schedule
+        exam.setSchedule(newSchedule);
 
         // Update the exam in Firestore
         ApiFuture<WriteResult> future = firestore.collection("Institutions").document(institutionId).collection("exams").document(examId).set(exam);

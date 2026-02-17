@@ -101,6 +101,29 @@ class _ExamManagementScreenState extends State<ExamManagementScreen> {
                           }
                         }
                       },
+                      trailing: IconButton(
+                        icon: const Icon(Icons.calendar_month),
+                        onPressed: _isNavigating ? null : () async {
+                          setState(() {
+                            _isNavigating = true;
+                          });
+                          try {
+                            final currentContext = context;
+                            final institutionId = await SessionManager.getInstitutionId();
+                            if (institutionId != null) {
+                              if (currentContext.mounted) {
+                                currentContext.go('/$institutionId/admin/exams/${exam.id}/schedule-management');
+                              }
+                            }
+                          } finally {
+                            if (mounted) {
+                              setState(() {
+                                _isNavigating = false;
+                              });
+                            }
+                          }
+                        },
+                      ),
                     );
                   },
                 ),

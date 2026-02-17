@@ -10,6 +10,7 @@ import '../models/attendance_log_model.dart';
 import '../models/regularisation_request_model.dart';
 import '../models/course_model.dart';
 import '../models/exam_model.dart';
+import '../models/exam_schedule_entry.dart'; // Add this import
 
 class ApiService {
   static Future<List<Institution>> getInstitutions() async {
@@ -717,6 +718,34 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw Exception('Failed to update student detained status: ${response.body}');
+    }
+  }
+
+  Future<void> updateExamSchedule(
+      String institutionId, String examId, Map<String, ExamScheduleEntry> schedule) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/schedule');
+
+    // Convert Map<String, ExamScheduleEntry> to Map<String, dynamic> for JSON encoding
+    Map<String, dynamic> serializableSchedule = schedule.map(
+      (key, value) => MapEntry(key, value.toJson()),
+    );
+
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(serializableSchedule),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update exam schedule: ${response.body}');
     }
   }
 }

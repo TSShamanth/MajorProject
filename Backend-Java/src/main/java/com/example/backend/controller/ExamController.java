@@ -1,6 +1,7 @@
 package com.example.backend.controller;
 
 import com.example.backend.models.Exam;
+import com.example.backend.models.ExamScheduleEntry; // Import ExamScheduleEntry
 import com.example.backend.models.User;
 import com.example.backend.service.ExamService;
 import com.example.backend.service.UserService;
@@ -108,6 +109,23 @@ public class ExamController {
             }
             userService.updateUserDetainedStatus(institutionId, studentUid, isDetained);
             return ResponseEntity.ok().build();
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @PutMapping("/institutions/{institutionId}/exams/{examId}/schedule")
+    public ResponseEntity<Void> updateExamSchedule(
+            @PathVariable String institutionId,
+            @PathVariable String examId,
+            @RequestBody Map<String, ExamScheduleEntry> schedule) {
+        try {
+            examService.updateExamSchedule(institutionId, examId, schedule);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            // Exam not found
+            return ResponseEntity.status(404).body(null);
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
             return ResponseEntity.status(500).build();

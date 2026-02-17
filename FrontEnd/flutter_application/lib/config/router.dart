@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/screens/admin_attendance_dashboard.dart';
+import 'package:flutter_application/screens/student_eligibility_screen.dart';
 import 'package:flutter_application/screens/user_list_screen.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/admin_dashboard_screen.dart';
@@ -43,7 +44,6 @@ import '../screens/admin_regularisation_screen.dart';
 import '../screens/approval_screen.dart';
 import '../screens/create_exam_screen.dart';
 import '../screens/exam_management_screen.dart';
-import '../screens/student_eligibility_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -111,8 +111,11 @@ final router = GoRouter(
       builder: (context, state) => const ExamManagementScreen(),
     ),
     GoRoute(
-      path: '/:institutionId/admin/exam-schedule-editor',
-      builder: (context, state) => const ExamScheduleEditorScreen(),
+      path: '/:institutionId/admin/exam-schedule-editor/:examId',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']; // This will be null if not present
+        return ExamScheduleEditorScreen(examId: examId);
+      },
     ),
     GoRoute(
       path: '/:institutionId/admin/create-exam',
@@ -123,6 +126,13 @@ final router = GoRouter(
       builder: (context, state) {
         final examId = state.pathParameters['examId']!;
         return StudentEligibilityScreen(examId: examId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exams/:examId/schedule-management',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        return ExamScheduleEditorScreen(examId: examId);
       },
     ),
      GoRoute(
