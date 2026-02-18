@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/announcement_model.dart';
+import 'package:flutter/foundation.dart';
 
 class AnnouncementService {
   final String baseUrl = ApiConfig.baseUrl;
@@ -34,7 +35,7 @@ class AnnouncementService {
     final uri = Uri.parse('$baseUrl/api/institutions/$institutionId/announcements/audience').replace( // Changed endpoint
       queryParameters: params,
     );
-    print('Fetching announcements from URI: $uri');
+    debugPrint('Fetching announcements from URI: $uri');
 
     try {
       final response = await http.get(
@@ -44,8 +45,8 @@ class AnnouncementService {
           'Authorization': 'Bearer $token',
         },
       );
-      print('Announcements API Response Status: ${response.statusCode}');
-      print('Announcements API Response Body: ${response.body}');
+      debugPrint('Announcements API Response Status: ${response.statusCode}');
+      debugPrint('Announcements API Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         List<dynamic> data = json.decode(response.body);
@@ -201,7 +202,7 @@ class AnnouncementService {
       );
     } catch (e) {
       // Silently fail for view tracking
-      print('Error marking announcement as viewed: $e');
+      debugPrint('Error marking announcement as viewed: $e');
     }
   }
 
