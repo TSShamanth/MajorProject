@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.concurrent.ExecutionException;
 
 @RestController
-@RequestMapping("/{institutionId}/api/users")
+@RequestMapping("/api/institutions/{institutionId}/users")
 public class UserController {
 
     private final UserService userService;
