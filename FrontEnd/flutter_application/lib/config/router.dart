@@ -51,6 +51,9 @@ import '../screens/exam_timetable_viewer_screen.dart';
 import '../screens/faculty_timetable_screen.dart';
 import '../screens/hall_allocation_screen.dart';
 import '../screens/invigilator_assignment_screen.dart';
+import '../screens/exam_hall_tickets_screen.dart';
+import '../screens/hall_ticket_viewer_screen.dart';
+import '../screens/student_hall_ticket_list_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -88,6 +91,21 @@ final router = GoRouter(
           builder: (context, state) {
             final examId = state.pathParameters['examId']!;
             return ExamTimetableViewerScreen(examId: examId);
+          },
+        ),
+        GoRoute(
+          path: '/:institutionId/student/hall-tickets',
+          builder: (context, state) => const StudentHallTicketListScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/hall-tickets/:examId',
+          builder: (context, state) {
+            final examId = state.pathParameters['examId']!;
+            final studentId = FirebaseAuth.instance.currentUser?.uid;
+            if (studentId == null) {
+              return const Scaffold(body: Center(child: Text('Error: Could not retrieve user ID.')));
+            }
+            return HallTicketViewerScreen(examId: examId, studentId: studentId);
           },
         ),
       ],
@@ -187,6 +205,21 @@ final router = GoRouter(
       builder: (context, state) {
         final examId = state.pathParameters['examId']!;
         return InvigilatorAssignmentScreen(examId: examId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exams/:examId/hall-tickets',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        return ExamHallTicketsScreen(examId: examId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exams/:examId/hall-tickets/:studentId',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        final studentId = state.pathParameters['studentId']!;
+        return HallTicketViewerScreen(examId: examId, studentId: studentId);
       },
     ),
      GoRoute(

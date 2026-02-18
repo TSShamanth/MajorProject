@@ -4,8 +4,9 @@ import com.example.backend.models.Exam;
 import com.example.backend.models.ExamScheduleEntry;
 import com.example.backend.models.InvigilatorAssignment; // Import InvigilatorAssignment
 import com.example.backend.models.Room;
-import com.example.backend.models.SeatingEntry; // Import SeatingEntry
+import com.example.backend.models.SeatingEntry;
 import com.example.backend.models.User; // Import User
+import com.example.backend.dto.HallTicketData; // Import HallTicketData
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteResult;
@@ -193,5 +194,54 @@ public class ExamService {
                  .collection("exams").document(examId)
                  .collection("invigilatorAssignments").document(assignmentId)
                  .delete().get();
+    }
+
+    public HallTicketData getHallTicketData(String institutionId, String examId, String studentId) throws ExecutionException, InterruptedException {
+        // 1. Fetch Exam Details
+        Exam exam = getExamById(institutionId, examId);
+        if (exam == null) {
+            throw new IllegalArgumentException("Exam not found with ID: " + examId);
+        }
+
+        // 2. Fetch Student Details
+        User student = userService.getUserById(institutionId, studentId);
+        if (student == null || !("student".equalsIgnoreCase(student.getRole()))) {
+            throw new IllegalArgumentException("Student not found or user is not a student.");
+        }
+        
+        // 3. Get Student's Seating Entry
+        SeatingEntry studentSeatingEntry = null;
+        if (exam.getSeatingArrangement() != null) {
+            studentSeatingEntry = exam.getSeatingArrangement().get(studentId);
+        }
+        if (studentSeatingEntry == null) {
+            throw new IllegalStateException("Student " + studentId + " not allocated a seat for exam " + examId);
+        }
+
+        // 4. Get Student's Room Details
+        Room studentRoomDetails = roomService.getRoomById(institutionId, studentSeatingEntry.getRoomId());
+        if (studentRoomDetails == null) {
+            throw new IllegalStateException("Room " + studentSeatingEntry.getRoomId() + " not found for student " + studentId);
+        }
+
+        // 5. Construct and return HallTicketData
+        HallTicketData hallTicket = new HallTicketData();
+        hallTicket.setStudentId(student.getUid());
+        hallTicket.setStudentName(student.getDisplayName());
+        hallTicket.setStudentUsn(student.getUsn());
+        hallTicket.setStudentDepartment(student.getDepartmentId()); // Assuming User has departmentId
+        hallTicket.setStudentSemester(student.getSem()); // Assuming User has semester
+
+        hallTicket.setExamId(exam.getId());
+        hallTicket.setExamName(exam.getName());
+        hallTicket.setExamDepartmentId(exam.getDepartmentId());
+        hallTicket.setExamSemester(exam.getSemester());
+        hallTicket.setSubjects(exam.getSubjects());
+        hallTicket.setSchedule(exam.getSchedule());
+        hallTicket.setSeatingArrangement(exam.getSeatingArrangement()); // All seating for context
+        hallTicket.setStudentSeatingEntry(studentSeatingEntry);
+        hallTicket.setStudentRoomDetails(studentRoomDetails);
+
+        return hallTicket;
     }
 }

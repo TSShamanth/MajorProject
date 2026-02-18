@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_application/models/seating_entry.dart';
 import '../models/invigilator_assignment.dart';
+import '../models/hall_ticket_data.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/institution.dart';
@@ -12,7 +13,7 @@ import '../models/attendance_log_model.dart';
 import '../models/regularisation_request_model.dart';
 import '../models/course_model.dart';
 import '../models/exam_model.dart';
-import '../models/exam_schedule_entry.dart'; // Add this import
+import '../models/exam_schedule_entry.dart';
 import '../models/room_model.dart';
 
 class ApiService {
@@ -896,241 +897,147 @@ class ApiService {
     }
   }
 
-    Future<Map<String, SeatingEntry>> getSeatingArrangement(String institutionId, String examId) async {
-
-      final user = FirebaseAuth.instance.currentUser;
-
-      if (user == null) {
-
-        throw Exception('No user logged in');
-
-      }
-
-      final token = await user.getIdToken();
-
-      final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/seating-arrangement');
-
-  
-
-      final response = await http.get(
-
-        url,
-
-        headers: {
-
-          'Content-Type': 'application/json',
-
-          'Authorization': 'Bearer $token',
-
-        },
-
-      );
-
-  
-
-      if (response.statusCode == 200) {
-
-        Map<String, dynamic> data = json.decode(response.body);
-
-        return data.map((key, value) => MapEntry(key, SeatingEntry.fromJson(value)));
-
-      } else if (response.statusCode == 404) {
-
-        return {}; // Return empty map if no arrangement found
-
-      } else {
-
-        throw Exception('Failed to load seating arrangement: ${response.body}');
-
-      }
-
+  Future<Map<String, SeatingEntry>> getSeatingArrangement(String institutionId, String examId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
     }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/seating-arrangement');
 
-  
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
 
-    // Invigilator Assignment Methods
-
-    Future<InvigilatorAssignment> assignInvigilator(String institutionId, String examId, InvigilatorAssignment assignment) async {
-
-      final user = FirebaseAuth.instance.currentUser;
-
-      if (user == null) {
-
-        throw Exception('No user logged in');
-
-      }
-
-      final token = await user.getIdToken();
-
-      final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/invigilator-assignments');
-
-  
-
-      final response = await http.post(
-
-        url,
-
-        headers: {
-
-          'Content-Type': 'application/json',
-
-          'Authorization': 'Bearer $token',
-
-        },
-
-        body: jsonEncode(assignment.toJson()),
-
-      );
-
-  
-
-      if (response.statusCode == 200) {
-
-        return InvigilatorAssignment.fromJson(json.decode(response.body));
-
-      } else {
-
-        throw Exception('Failed to assign invigilator: ${response.body}');
-
-      }
-
+    if (response.statusCode == 200) {
+      Map<String, dynamic> data = json.decode(response.body);
+      return data.map((key, value) => MapEntry(key, SeatingEntry.fromJson(value)));
+    } else if (response.statusCode == 404) {
+      return {}; // Return empty map if no arrangement found
+    } else {
+      throw Exception('Failed to load seating arrangement: ${response.body}');
     }
+  }
 
-  
-
-    Future<List<InvigilatorAssignment>> getInvigilatorAssignments(String institutionId, String examId) async {
-
-      final user = FirebaseAuth.instance.currentUser;
-
-      if (user == null) {
-
-        throw Exception('No user logged in');
-
-      }
-
-      final token = await user.getIdToken();
-
-      final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/invigilator-assignments');
-
-  
-
-      final response = await http.get(
-
-        url,
-
-        headers: {
-
-          'Content-Type': 'application/json',
-
-          'Authorization': 'Bearer $token',
-
-        },
-
-      );
-
-  
-
-      if (response.statusCode == 200) {
-
-        List<dynamic> data = json.decode(response.body);
-
-        return data.map((json) => InvigilatorAssignment.fromJson(json)).toList();
-
-      } else {
-
-        throw Exception('Failed to load invigilator assignments: ${response.body}');
-
-      }
-
+  // Invigilator Assignment Methods
+  Future<InvigilatorAssignment> assignInvigilator(String institutionId, String examId, InvigilatorAssignment assignment) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
     }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/invigilator-assignments');
 
-  
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(assignment.toJson()),
+    );
 
-    Future<List<InvigilatorAssignment>> getInvigilatorAssignmentsByRoom(String institutionId, String examId, String roomId) async {
-
-      final user = FirebaseAuth.instance.currentUser;
-
-      if (user == null) {
-
-        throw Exception('No user logged in');
-
-      }
-
-      final token = await user.getIdToken();
-
-      final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/invigilator-assignments/room/$roomId');
-
-  
-
-      final response = await http.get(
-
-        url,
-
-        headers: {
-
-          'Content-Type': 'application/json',
-
-          'Authorization': 'Bearer $token',
-
-        },
-
-      );
-
-  
-
-      if (response.statusCode == 200) {
-
-        List<dynamic> data = json.decode(response.body);
-
-        return data.map((json) => InvigilatorAssignment.fromJson(json)).toList();
-
-      } else {
-
-        throw Exception('Failed to load invigilator assignments by room: ${response.body}');
-
-      }
-
+    if (response.statusCode == 200) {
+      return InvigilatorAssignment.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to assign invigilator: ${response.body}');
     }
+  }
 
-  
-
-    Future<void> deleteInvigilatorAssignment(String institutionId, String examId, String assignmentId) async {
-
-      final user = FirebaseAuth.instance.currentUser;
-
-      if (user == null) {
-
-        throw Exception('No user logged in');
-
-      }
-
-      final token = await user.getIdToken();
-
-      final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/invigilator-assignments/$assignmentId');
-
-  
-
-      final response = await http.delete(
-
-        url,
-
-        headers: {
-
-          'Content-Type': 'application/json',
-
-          'Authorization': 'Bearer $token',
-
-        },
-
-      );
-
-  
-
-      if (response.statusCode != 200) {
-
-        throw Exception('Failed to delete invigilator assignment: ${response.body}');
-
-      }
-
+  Future<List<InvigilatorAssignment>> getInvigilatorAssignments(String institutionId, String examId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
     }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/invigilator-assignments');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => InvigilatorAssignment.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load invigilator assignments: ${response.body}');
+    }
+  }
+
+  Future<List<InvigilatorAssignment>> getInvigilatorAssignmentsByRoom(String institutionId, String examId, String roomId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/invigilator-assignments/room/$roomId');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => InvigilatorAssignment.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load invigilator assignments by room: ${response.body}');
+    }
+  }
+
+  Future<void> deleteInvigilatorAssignment(String institutionId, String examId, String assignmentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/invigilator-assignments/$assignmentId');
+
+    final response = await http.delete(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete invigilator assignment: ${response.body}');
+    }
+  }
+
+  // Hall Ticket Data Method
+  Future<HallTicketData> getHallTicketData(String institutionId, String examId, String studentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/students/$studentId/hall-ticket-data');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return HallTicketData.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to load hall ticket data: ${response.body}');
+    }
+  }
 }

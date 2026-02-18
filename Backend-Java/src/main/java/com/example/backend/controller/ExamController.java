@@ -5,6 +5,7 @@ import com.example.backend.models.ExamScheduleEntry; // Import ExamScheduleEntry
 import com.example.backend.models.InvigilatorAssignment; // Import InvigilatorAssignment
 import com.example.backend.models.SeatingEntry; // Import SeatingEntry
 import com.example.backend.models.User;
+import com.example.backend.dto.HallTicketData; // Import HallTicketData
 import com.example.backend.service.ExamService;
 import com.example.backend.service.UserService;
 import org.springframework.http.ResponseEntity;
@@ -221,6 +222,23 @@ public class ExamController {
         try {
             examService.deleteInvigilatorAssignment(institutionId, examId, assignmentId);
             return ResponseEntity.noContent().build();
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    // Hall Ticket Endpoints
+    @GetMapping("/institutions/{institutionId}/exams/{examId}/students/{studentId}/hall-ticket-data")
+    public ResponseEntity<HallTicketData> getHallTicketData(
+            @PathVariable String institutionId,
+            @PathVariable String examId,
+            @PathVariable String studentId) {
+        try {
+            HallTicketData hallTicketData = examService.getHallTicketData(institutionId, examId, studentId);
+            return ResponseEntity.ok(hallTicketData);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.status(404).body(null);
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
             return ResponseEntity.status(500).build();
