@@ -119,6 +119,43 @@ public class UserService {
         return students;
     }
 
+    public List<String> getProfessorNames(String institutionId) throws ExecutionException, InterruptedException {
+        CollectionReference usersCollection = firestore.collection("Institutions").document(institutionId).collection("users");
+        Query query = usersCollection.whereEqualTo("role", "faculty");
+
+        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+        List<String> professorNames = new ArrayList<>();
+        for (QueryDocumentSnapshot document : documents) {
+            String displayName = document.getString("displayName");
+            if (displayName != null && !displayName.isEmpty()) {
+                professorNames.add(displayName);
+            }
+        }
+        return professorNames;
+    }
+
+    public List<com.example.backend.dto.ProfessorDto> getProfessorsWithIds(String institutionId) throws ExecutionException, InterruptedException {
+        logger.info("UserService: Fetching professors with IDs for institution: {}", institutionId);
+        CollectionReference usersCollection = firestore.collection("Institutions").document(institutionId).collection("users");
+        Query query = usersCollection.whereEqualTo("role", "faculty");
+
+        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+        List<com.example.backend.dto.ProfessorDto> professors = new ArrayList<>();
+        for (QueryDocumentSnapshot document : documents) {
+            String displayName = document.getString("displayName");
+            String uid = document.getId();
+            if (displayName != null && !displayName.isEmpty()) {
+                professors.add(new com.example.backend.dto.ProfessorDto(uid, displayName));
+                logger.info("Added professor: {} (UID: {})", displayName, uid);
+            }
+        }
+        return professors;
+    }
+
     public User getUserById(String institutionId, String uid) throws ExecutionException, InterruptedException {
         logger.info("UserService: Searching for user with institutionId='{}' and uid='{}'", institutionId, uid);
         DocumentReference userDocRef = firestore.collection("Institutions").document(institutionId).collection("users").document(uid);

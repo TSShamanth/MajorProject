@@ -1,6 +1,7 @@
 package com.example.backend.models;
 
 import java.util.List;
+import java.util.Map; // Import Map
 
 public class Exam {
     private String id;
@@ -8,26 +9,22 @@ public class Exam {
     private String departmentId;
     private String semester;
     private List<String> subjects;
-    private String examDate;
-    private String startTime;
-    private String endTime;
-    private String duration;
+    private Map<String, ExamScheduleEntry> schedule; // New field for per-subject scheduling
     private List<String> frozenCandidateList; // New field for storing frozen eligible student UIDs
+    private Map<String, SeatingEntry> seatingArrangement; // New field for seating arrangement
 
     public Exam() {
     }
 
-    public Exam(String id, String name, String departmentId, String semester, List<String> subjects, String examDate, String startTime, String endTime, String duration, List<String> frozenCandidateList) {
+    public Exam(String id, String name, String departmentId, String semester, List<String> subjects, Map<String, ExamScheduleEntry> schedule, List<String> frozenCandidateList, Map<String, SeatingEntry> seatingArrangement) {
         this.id = id;
         this.name = name;
         this.departmentId = departmentId;
         this.semester = semester;
         this.subjects = subjects;
-        this.examDate = examDate;
-        this.startTime = startTime;
-        this.endTime = endTime;
-        this.duration = duration;
+        this.schedule = schedule;
         this.frozenCandidateList = frozenCandidateList;
+        this.seatingArrangement = seatingArrangement;
     }
 
     public String getId() {
@@ -70,36 +67,12 @@ public class Exam {
         this.subjects = subjects;
     }
 
-    public String getExamDate() {
-        return examDate;
+    public Map<String, ExamScheduleEntry> getSchedule() { // Getter for schedule
+        return schedule;
     }
 
-    public void setExamDate(String examDate) {
-        this.examDate = examDate;
-    }
-
-    public String getStartTime() {
-        return startTime;
-    }
-
-    public void setStartTime(String startTime) {
-        this.startTime = startTime;
-    }
-
-    public String getEndTime() {
-        return endTime;
-    }
-
-    public void setEndTime(String endTime) {
-        this.endTime = endTime;
-    }
-
-    public String getDuration() {
-        return duration;
-    }
-
-    public void setDuration(String duration) {
-        this.duration = duration;
+    public void setSchedule(Map<String, ExamScheduleEntry> schedule) { // Setter for schedule
+        this.schedule = schedule;
     }
 
     public List<String> getFrozenCandidateList() {
@@ -108,5 +81,13 @@ public class Exam {
 
     public void setFrozenCandidateList(List<String> frozenCandidateList) {
         this.frozenCandidateList = frozenCandidateList;
+    }
+
+    public Map<String, SeatingEntry> getSeatingArrangement() {
+        return seatingArrangement;
+    }
+
+    public void setSeatingArrangement(Map<String, SeatingEntry> seatingArrangement) {
+        this.seatingArrangement = seatingArrangement;
     }
 }

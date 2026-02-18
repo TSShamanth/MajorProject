@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/models/announcement_model.dart';
 import 'package:flutter_application/screens/admin_attendance_dashboard.dart';
+import 'package:flutter_application/screens/student_eligibility_screen.dart';
 import 'package:flutter_application/screens/user_list_screen.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/admin_dashboard_screen.dart';
@@ -12,7 +13,6 @@ import '../screens/faculty_dashboard_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/student_dashboard_screen.dart';
 import '../screens/student/profile_screen.dart';
-import '../screens/student/edit_profile_screen.dart';
 import '../screens/student/virtual_id_screen.dart';
 import '../screens/mark_attendance_screen.dart';
 import '../screens/attendance_history_screen.dart';
@@ -44,11 +44,23 @@ import '../screens/admin_regularisation_screen.dart';
 import '../screens/approval_screen.dart';
 import '../screens/create_exam_screen.dart';
 import '../screens/exam_management_screen.dart';
-import '../screens/student_eligibility_screen.dart';
 import '../screens/announcements_list_screen.dart';
 import '../screens/announcement_detail_screen.dart';
 import '../screens/create_edit_announcement_screen.dart';
 import '../screens/manage_announcements_screen.dart';
+import '../screens/faculty/virtual_id_screen.dart' as faculty_vid;
+import '../screens/faculty/profile_screen.dart' as faculty_profile;
+import '../screens/faculty/faculty_leave_approval_screen.dart';
+import '../screens/room_management_screen.dart';
+import '../screens/room_editor_screen.dart';
+import '../screens/exam_timetable_viewer_screen.dart';
+import '../screens/faculty_timetable_screen.dart';
+import '../screens/hall_allocation_screen.dart';
+import '../screens/invigilator_assignment_screen.dart';
+import '../screens/exam_hall_tickets_screen.dart';
+import '../screens/hall_ticket_viewer_screen.dart';
+import '../screens/student/student_leave_screen.dart';
+import '../screens/student/leave_history_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -78,10 +90,6 @@ final router = GoRouter(
           builder: (context, state) => const StudentAttendanceScreen(),
         ),
       ],
-    ),
-    GoRoute(
-      path: '/:institutionId/student/profile/edit',
-      builder: (context, state) => const EditProfileScreen(),
     ),
     GoRoute(
       path: '/:institutionId/admin/dashboard',
@@ -116,8 +124,26 @@ final router = GoRouter(
       builder: (context, state) => const ExamManagementScreen(),
     ),
     GoRoute(
-      path: '/:institutionId/admin/exam-schedule-editor',
-      builder: (context, state) => const ExamScheduleEditorScreen(),
+      path: '/:institutionId/admin/room-management',
+      builder: (context, state) => const RoomManagementScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/room-editor',
+      builder: (context, state) => const RoomEditorScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/room-editor/:roomId',
+      builder: (context, state) {
+        final roomId = state.pathParameters['roomId'];
+        return RoomEditorScreen(roomId: roomId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exam-schedule-editor/:examId',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']; // This will be null if not present
+        return ExamScheduleEditorScreen(examId: examId);
+      },
     ),
     GoRoute(
       path: '/:institutionId/admin/create-exam',
@@ -128,6 +154,49 @@ final router = GoRouter(
       builder: (context, state) {
         final examId = state.pathParameters['examId']!;
         return StudentEligibilityScreen(examId: examId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exams/:examId/schedule-management',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        return ExamScheduleEditorScreen(examId: examId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exams/:examId/timetable',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        return ExamTimetableViewerScreen(examId: examId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exams/:examId/hall-allocation',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        return HallAllocationScreen(examId: examId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exams/:examId/invigilator-assignment',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        return InvigilatorAssignmentScreen(examId: examId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exams/:examId/hall-tickets',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        return ExamHallTicketsScreen(examId: examId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exams/:examId/hall-tickets/:studentId',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        final studentId = state.pathParameters['studentId']!;
+        return HallTicketViewerScreen(examId: examId, studentId: studentId);
       },
     ),
      GoRoute(
@@ -226,6 +295,14 @@ final router = GoRouter(
       builder: (context, state) => const FacultyDashboardScreen(),
     ),
     GoRoute(
+      path: '/:institutionId/faculty/virtual-id',
+      builder: (context, state) => const faculty_vid.VirtualIdScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/profile',
+      builder: (context, state) => const faculty_profile.ProfileScreen(),
+    ),
+    GoRoute(
       path: '/:institutionId/faculty/mark-attendance',
       builder: (context, state) => const MarkAttendanceScreen(),
     ),
@@ -240,6 +317,29 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/faculty/regularisation/status',
       builder: (context, state) => const RegularisationStatusScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/leave-approval',
+      builder: (context, state) => const FacultyLeaveApprovalScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/timetable',
+      builder: (context, state) => const FacultyTimetableScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/student/leave',
+      builder: (context, state) => const StudentLeaveScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/student/leave/history',
+      builder: (context, state) => const LeaveHistoryScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/timetable/:examId',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        return ExamTimetableViewerScreen(examId: examId);
+      },
     ),
     GoRoute(
       path: '/:institutionId/announcements',
@@ -335,15 +435,17 @@ class StudentShell extends StatelessWidget {
       title = 'Profile';
     } else if (location == '/$institutionId/student/virtual-id') {
       title = 'Virtual ID';
+    } else if (location == '/$institutionId/student/leave') {
+      title = 'Leave Management';
     }
 
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            context.go('/$institutionId/student/dashboard');
+            context.pop();
           },
         ),
       ),

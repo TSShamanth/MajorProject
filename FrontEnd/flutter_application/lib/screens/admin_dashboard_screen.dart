@@ -2045,6 +2045,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       Icons.inventory_2_rounded,
       [
         {'title': 'Inventory', 'route': '/$_institutionId/admin/inventory'},
+        {'title': 'Room Management', 'route': '/$_institutionId/admin/room-management'},
       ],
     );
   }
