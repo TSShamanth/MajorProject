@@ -12,7 +12,6 @@ import '../screens/faculty_dashboard_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/student_dashboard_screen.dart';
 import '../screens/student/profile_screen.dart';
-import '../screens/student/edit_profile_screen.dart';
 import '../screens/student/virtual_id_screen.dart';
 import '../screens/mark_attendance_screen.dart';
 import '../screens/attendance_history_screen.dart';
@@ -44,6 +43,11 @@ import '../screens/admin_regularisation_screen.dart';
 import '../screens/approval_screen.dart';
 import '../screens/create_exam_screen.dart';
 import '../screens/exam_management_screen.dart';
+import '../screens/student/student_leave_screen.dart';
+import '../screens/faculty/virtual_id_screen.dart' as faculty_vid;
+import '../screens/faculty/profile_screen.dart' as faculty_profile;
+import '../screens/faculty/faculty_leave_approval_screen.dart'; // New import
+import '../services/auth_service.dart';
 
 final router = GoRouter(
   routes: [
@@ -72,11 +76,11 @@ final router = GoRouter(
           path: '/:institutionId/student/attendance',
           builder: (context, state) => const StudentAttendanceScreen(),
         ),
+        GoRoute(
+          path: '/:institutionId/student/leave',
+          builder: (context, state) => const StudentLeaveScreen(),
+        ),
       ],
-    ),
-    GoRoute(
-      path: '/:institutionId/student/profile/edit',
-      builder: (context, state) => const EditProfileScreen(),
     ),
     GoRoute(
       path: '/:institutionId/admin/dashboard',
@@ -231,6 +235,14 @@ final router = GoRouter(
       builder: (context, state) => const FacultyDashboardScreen(),
     ),
     GoRoute(
+      path: '/:institutionId/faculty/virtual-id',
+      builder: (context, state) => const faculty_vid.VirtualIdScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/profile',
+      builder: (context, state) => const faculty_profile.ProfileScreen(),
+    ),
+    GoRoute(
       path: '/:institutionId/faculty/mark-attendance',
       builder: (context, state) => const MarkAttendanceScreen(),
     ),
@@ -245,6 +257,10 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/faculty/regularisation/status',
       builder: (context, state) => const RegularisationStatusScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/leave-approval',
+      builder: (context, state) => const FacultyLeaveApprovalScreen(),
     ),
     GoRoute(
       path: '/',
@@ -311,15 +327,17 @@ class StudentShell extends StatelessWidget {
       title = 'Profile';
     } else if (location == '/$institutionId/student/virtual-id') {
       title = 'Virtual ID';
+    } else if (location == '/$institutionId/student/leave') {
+      title = 'Leave Management';
     }
 
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            context.go('/$institutionId/student/dashboard');
+            context.pop();
           },
         ),
       ),

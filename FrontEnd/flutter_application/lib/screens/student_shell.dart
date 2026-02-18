@@ -11,6 +11,7 @@ class StudentShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final institutionId = state.pathParameters['institutionId'];
+    final bool isDashboard = state.uri.toString() == '/$institutionId/student/dashboard';
     final menuItems = [
       {'icon': Icons.person_outline, 'label': 'Profile', 'description': 'View personal details'},
       {'icon': Icons.credit_card_outlined, 'label': 'Virtual ID', 'description': 'Access student ID card'},
@@ -26,6 +27,14 @@ class StudentShell extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 1,
+        leading: isDashboard
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF1E293B)),
+                onPressed: () {
+                  context.go('/$institutionId/student/dashboard');
+                },
+              ),
         title: Row(
           children: [
             Container(

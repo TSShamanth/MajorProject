@@ -90,7 +90,7 @@ class _UserListScreenState extends State<UserListScreen> {
                               : null,
                         ),
                         title: Text(user.displayName),
-                        subtitle: Text(user.email),
+                        subtitle: Text(user.email ?? ''),
                         onTap: () {
                           final institutionId = _institutionId ?? 'unknown'; // Fallback if null
                           context.go('/$institutionId/admin/users/details/${user.uid}'); // This route will be defined later
