@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application/models/exam_model.dart';
+import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/services/api_service.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:go_router/go_router.dart';
@@ -20,27 +21,44 @@ class FacultyTimetableScreenState extends State<FacultyTimetableScreen> {
   void initState() {
     super.initState();
     _apiService = ApiService();
-    _fetchExams();
+    _fetchData();
   }
 
-  Future<void> _fetchExams() async {
+  Future<void> _fetchData() async {
     try {
       final institutionId = await SessionManager.getInstitutionId();
-      if (institutionId != null) {
-        // TODO: This fetches all exams. We need an endpoint to fetch exams for a specific faculty.
-        // For now, we'll just fetch all.
-        final allExams = await _apiService.getExams(institutionId);
-        // TODO: Filter exams based on the logged-in faculty's department/subjects.
+      if (institutionId == null) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+        return;
+      }
+
+      // Fetch user and exams in parallel
+      final results = await Future.wait([
+        _apiService.getMe(institutionId),
+        _apiService.getExams(institutionId),
+      ]);
+
+      final user = results[0] as UserModel;
+      final allExams = results[1] as List<Exam>;
+
+      final filteredExams = allExams.where((exam) {
+        return exam.departmentId == user.departmentId;
+      }).toList();
+
+      if (mounted) {
         setState(() {
-          _exams = allExams;
+          _exams = filteredExams;
           _isLoading = false;
         });
       }
     } catch (e) {
-      // Handle error
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -53,7 +71,7 @@ class FacultyTimetableScreenState extends State<FacultyTimetableScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _exams.isEmpty
-              ? const Center(child: Text('No exam timetables found.'))
+              ? const Center(child: Text('No exam timetables found for your department.'))
               : ListView.builder(
                   itemCount: _exams.length,
                   itemBuilder: (context, index) {

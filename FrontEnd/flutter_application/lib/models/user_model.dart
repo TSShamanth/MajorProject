@@ -7,6 +7,7 @@ class UserModel {
   final String? usn;
   final String? phone;
   final String? sem;
+  final String? departmentId;
   final String? mentorName;
   final String? photoUrl;
   final String? programme;
@@ -31,6 +32,7 @@ class UserModel {
     this.usn,
     this.phone,
     this.sem,
+    this.departmentId,
     this.mentorName,
     this.photoUrl,
     this.programme,
@@ -62,6 +64,7 @@ class UserModel {
       usn: json['usn'] as String?,
       phone: json['phone'] as String?,
       sem: json['sem'] as String?,
+      departmentId: json['departmentId'] as String?,
       mentorName: json['mentorName'] as String?,
       photoUrl: json['photoUrl'] as String?,
       programme: json['programme'] as String?,
