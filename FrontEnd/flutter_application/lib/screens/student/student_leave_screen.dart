@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart'; // Import file_picker
 import '../../services/api_service.dart';
 import '../../models/leave_application_model.dart';
-import '../../models/user_model.dart';
 import '../../models/professor_model.dart';
-import '../../config/constants.dart'; // Assuming constants.dart might have styling or text
 
 class StudentLeaveScreen extends StatefulWidget {
   static const String routeName = '/student/leave';
@@ -23,7 +20,6 @@ class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
 
   String? _selectedLeaveType;
   String? _selectedProfessorUid;
-  String? _selectedProfessorName;
   DateTime? _startDate;
   DateTime? _endDate;
   final TextEditingController _reasonController = TextEditingController();
@@ -140,7 +136,6 @@ class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
     setState(() {
       _selectedLeaveType = null;
       _selectedProfessorUid = null;
-      _selectedProfessorName = null;
       _startDate = null;
       _endDate = null;
       _reasonController.clear();
@@ -302,8 +297,6 @@ class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
                     onChanged: (value) {
                       setState(() {
                         _selectedProfessorUid = value;
-                        final prof = snapshot.data!.firstWhere((p) => p.uid == value, orElse: () => ProfessorDto(uid: value ?? '', displayName: ''));
-                        _selectedProfessorName = prof.displayName;
                       });
                     },
                     validator: (value) =>

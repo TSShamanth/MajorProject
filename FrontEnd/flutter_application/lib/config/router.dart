@@ -47,7 +47,6 @@ import '../screens/student/student_leave_screen.dart';
 import '../screens/faculty/virtual_id_screen.dart' as faculty_vid;
 import '../screens/faculty/profile_screen.dart' as faculty_profile;
 import '../screens/faculty/faculty_leave_approval_screen.dart'; // New import
-import '../services/auth_service.dart';
 
 final router = GoRouter(
   routes: [

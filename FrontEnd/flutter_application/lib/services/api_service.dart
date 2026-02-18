@@ -211,9 +211,6 @@ class ApiService {
     final response =
         await http.get(url, headers: {'Authorization': 'Bearer $token'});
 
-    print('Leave Types Response Status: ${response.statusCode}');
-    print('Leave Types Response Body: ${response.body}');
-
     if (response.statusCode == 200) {
       return List<String>.from(jsonDecode(response.body));
     } else {
@@ -233,9 +230,6 @@ class ApiService {
 
     final response =
         await http.get(url, headers: {'Authorization': 'Bearer $token'});
-
-    print('Professors Response Status: ${response.statusCode}');
-    print('Professors Response Body: ${response.body}');
 
     if (response.statusCode == 200) {
       List<dynamic> data = json.decode(response.body);

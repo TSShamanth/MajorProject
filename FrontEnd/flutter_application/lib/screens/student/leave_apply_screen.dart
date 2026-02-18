@@ -18,7 +18,6 @@ class _LeaveApplyScreenState extends State<LeaveApplyScreen> {
   DateTime? _endDate;
   final TextEditingController _reasonController = TextEditingController();
   String? _selectedProfessorUid;
-  String? _selectedProfessorName;
   PlatformFile? _pickedFile;
   bool _isLoading = false;
 
@@ -108,6 +107,7 @@ class _LeaveApplyScreenState extends State<LeaveApplyScreen> {
         );
 
         if (response.statusCode == 200 || response.statusCode == 201) {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Leave application submitted successfully!'),
@@ -116,18 +116,22 @@ class _LeaveApplyScreenState extends State<LeaveApplyScreen> {
           );
           Navigator.pop(context);
         } else {
+           if (!mounted) return;
            ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Failed to submit leave application: ${response.body}')),
           );
         }
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('An error occurred: $e')),
         );
       } finally {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -382,7 +386,6 @@ class _LeaveApplyScreenState extends State<LeaveApplyScreen> {
                 onTap: () {
                   setState(() {
                     _selectedProfessorUid = prof.uid;
-                    _selectedProfessorName = prof.displayName;
                   });
                 },
               );
@@ -390,8 +393,6 @@ class _LeaveApplyScreenState extends State<LeaveApplyScreen> {
             onChanged: (value) {
               setState(() {
                 _selectedProfessorUid = value;
-                final prof = professors.firstWhere((p) => p.uid == value, orElse: () => ProfessorDto(uid: value ?? '', displayName: ''));
-                _selectedProfessorName = prof.displayName;
               });
             },
             validator: (value) {

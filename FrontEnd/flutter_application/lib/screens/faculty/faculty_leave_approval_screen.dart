@@ -205,8 +205,6 @@ class _FacultyLeaveApprovalScreenState extends State<FacultyLeaveApprovalScreen>
                           ? leave.documentUrl!
                           : '${ApiConfig.baseUrl}${leave.documentUrl!}';
                       
-                      print('Opening document URL: $url');
-                      
                       if (await canLaunchUrl(Uri.parse(url))) {
                         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
                       } else {
