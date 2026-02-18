@@ -44,6 +44,8 @@ import '../screens/admin_regularisation_screen.dart';
 import '../screens/approval_screen.dart';
 import '../screens/create_exam_screen.dart';
 import '../screens/exam_management_screen.dart';
+import '../screens/room_management_screen.dart';
+import '../screens/room_editor_screen.dart';
 import '../screens/student_timetable_screen.dart';
 import '../screens/exam_timetable_viewer_screen.dart';
 import '../screens/faculty_timetable_screen.dart';
@@ -123,6 +125,21 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/admin/exam-management',
       builder: (context, state) => const ExamManagementScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/room-management',
+      builder: (context, state) => const RoomManagementScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/room-editor',
+      builder: (context, state) => const RoomEditorScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/room-editor/:roomId',
+      builder: (context, state) {
+        final roomId = state.pathParameters['roomId'];
+        return RoomEditorScreen(roomId: roomId);
+      },
     ),
     GoRoute(
       path: '/:institutionId/admin/exam-schedule-editor/:examId',

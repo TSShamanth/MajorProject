@@ -11,6 +11,7 @@ import '../models/regularisation_request_model.dart';
 import '../models/course_model.dart';
 import '../models/exam_model.dart';
 import '../models/exam_schedule_entry.dart'; // Add this import
+import '../models/room_model.dart';
 
 class ApiService {
   static Future<List<Institution>> getInstitutions() async {
@@ -746,6 +747,125 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw Exception('Failed to update exam schedule: ${response.body}');
+    }
+  }
+
+  // Room Management Methods
+  Future<List<Room>> getRooms(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/rooms');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => Room.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load rooms');
+    }
+  }
+
+  Future<Room> getRoomById(String institutionId, String roomId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/rooms/$roomId');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return Room.fromJson(json.decode(response.body));
+    } else if (response.statusCode == 404) {
+      throw Exception('Room not found');
+    } else {
+      throw Exception('Failed to load room');
+    }
+  }
+
+  Future<Room> createRoom(String institutionId, Room room) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/rooms');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(room.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return Room.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to create room');
+    }
+  }
+
+  Future<Room> updateRoom(String institutionId, String roomId, Room room) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/rooms/$roomId');
+
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(room.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return Room.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to update room');
+    }
+  }
+
+  Future<void> deleteRoom(String institutionId, String roomId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/rooms/$roomId');
+
+    final response = await http.delete(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete room');
     }
   }
 }
