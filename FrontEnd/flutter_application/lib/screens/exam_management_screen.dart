@@ -101,28 +101,58 @@ class _ExamManagementScreenState extends State<ExamManagementScreen> {
                           }
                         }
                       },
-                      trailing: IconButton(
-                        icon: const Icon(Icons.calendar_month),
-                        onPressed: _isNavigating ? null : () async {
-                          setState(() {
-                            _isNavigating = true;
-                          });
-                          try {
-                            final currentContext = context;
-                            final institutionId = await SessionManager.getInstitutionId();
-                            if (institutionId != null) {
-                              if (currentContext.mounted) {
-                                currentContext.go('/$institutionId/admin/exams/${exam.id}/schedule-management');
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.people_alt_outlined),
+                            tooltip: 'Student Eligibility',
+                            onPressed: _isNavigating ? null : () async {
+                              setState(() => _isNavigating = true);
+                              final router = GoRouter.of(context);
+                              try {
+                                final institutionId = await SessionManager.getInstitutionId();
+                                if (mounted && institutionId != null) {
+                                  router.go('/$institutionId/admin/exams/${exam.id}/eligibility');
+                                }
+                              } finally {
+                                if (mounted) setState(() => _isNavigating = false);
                               }
-                            }
-                          } finally {
-                            if (mounted) {
-                              setState(() {
-                                _isNavigating = false;
-                              });
-                            }
-                          }
-                        },
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit_calendar),
+                            tooltip: 'Edit Schedule',
+                            onPressed: _isNavigating ? null : () async {
+                              setState(() => _isNavigating = true);
+                              final router = GoRouter.of(context);
+                              try {
+                                final institutionId = await SessionManager.getInstitutionId();
+                                if (mounted && institutionId != null) {
+                                  router.go('/$institutionId/admin/exams/${exam.id}/schedule-management');
+                                }
+                              } finally {
+                                if (mounted) setState(() => _isNavigating = false);
+                              }
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.visibility),
+                            tooltip: 'View Timetable',
+                            onPressed: _isNavigating ? null : () async {
+                              setState(() => _isNavigating = true);
+                              final router = GoRouter.of(context);
+                              try {
+                                final institutionId = await SessionManager.getInstitutionId();
+                                if (mounted && institutionId != null) {
+                                  router.go('/$institutionId/admin/exams/${exam.id}/timetable');
+                                }
+                              } finally {
+                                if (mounted) setState(() => _isNavigating = false);
+                              }
+                            },
+                          ),
+                        ],
                       ),
                     );
                   },

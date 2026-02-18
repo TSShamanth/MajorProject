@@ -44,6 +44,9 @@ import '../screens/admin_regularisation_screen.dart';
 import '../screens/approval_screen.dart';
 import '../screens/create_exam_screen.dart';
 import '../screens/exam_management_screen.dart';
+import '../screens/student_timetable_screen.dart';
+import '../screens/exam_timetable_viewer_screen.dart';
+import '../screens/faculty_timetable_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -71,6 +74,17 @@ final router = GoRouter(
         GoRoute(
           path: '/:institutionId/student/attendance',
           builder: (context, state) => const StudentAttendanceScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/timetable',
+          builder: (context, state) => const StudentTimetableScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/timetable/:examId',
+          builder: (context, state) {
+            final examId = state.pathParameters['examId']!;
+            return ExamTimetableViewerScreen(examId: examId);
+          },
         ),
       ],
     ),
@@ -133,6 +147,13 @@ final router = GoRouter(
       builder: (context, state) {
         final examId = state.pathParameters['examId']!;
         return ExamScheduleEditorScreen(examId: examId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exams/:examId/timetable',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        return ExamTimetableViewerScreen(examId: examId);
       },
     ),
      GoRoute(
@@ -245,6 +266,17 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/faculty/regularisation/status',
       builder: (context, state) => const RegularisationStatusScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/timetable',
+      builder: (context, state) => const FacultyTimetableScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/timetable/:examId',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        return ExamTimetableViewerScreen(examId: examId);
+      },
     ),
     GoRoute(
       path: '/',
