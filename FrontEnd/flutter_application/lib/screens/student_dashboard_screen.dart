@@ -85,7 +85,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       'Placements': '/$institutionId/student/placements',
       'Assignments': '/$institutionId/student/assignments',
       'Assignments & Tasks': '/$institutionId/student/assignments',
-      'Announcements': '/$institutionId/student/announcements',
+      'Announcements': '/$institutionId/announcements',
       'Messages': '/$institutionId/student/messages',
       'Library': '/$institutionId/student/library',
       'Canteen': '/$institutionId/student/canteen',

@@ -143,6 +143,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
       {'icon': Icons.notifications_none_outlined, 'label': 'Meetings', 'route': '/faculty/meetings'},
       {'icon': Icons.assignment_outlined, 'label': 'Mark Attendance', 'route': '/faculty/mark-attendance'},
       {'icon': Icons.history_outlined, 'label': 'Clock-in History', 'route': '/faculty/attendance-history'},
+      {'icon': Icons.announcement_outlined, 'label': 'Announcements', 'route': '/announcements'},
       {'icon': Icons.settings_outlined, 'label': 'Settings', 'route': '/faculty/settings'},
     ];
 

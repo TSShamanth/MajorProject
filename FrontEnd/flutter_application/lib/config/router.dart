@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application/models/user_model.dart';
+import 'package:flutter_application/models/announcement_model.dart';
 import 'package:flutter_application/screens/admin_attendance_dashboard.dart';
 import 'package:flutter_application/screens/user_list_screen.dart';
 import 'package:go_router/go_router.dart';
@@ -44,6 +45,10 @@ import '../screens/approval_screen.dart';
 import '../screens/create_exam_screen.dart';
 import '../screens/exam_management_screen.dart';
 import '../screens/student_eligibility_screen.dart';
+import '../screens/announcements_list_screen.dart';
+import '../screens/announcement_detail_screen.dart';
+import '../screens/create_edit_announcement_screen.dart';
+import '../screens/manage_announcements_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -235,6 +240,35 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/faculty/regularisation/status',
       builder: (context, state) => const RegularisationStatusScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/announcements',
+      builder: (context, state) => const AnnouncementsListScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/announcements/create',
+      builder: (context, state) => const CreateEditAnnouncementScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/announcements/manage',
+      builder: (context, state) => const ManageAnnouncementsScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/announcements/:announcementId',
+      builder: (context, state) {
+        final announcement = state.extra as AnnouncementModel?;
+        if (announcement != null) {
+          return AnnouncementDetailScreen(announcement: announcement);
+        }
+        return const AnnouncementsListScreen();
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/announcements/:announcementId/edit',
+      builder: (context, state) {
+        final announcement = state.extra as AnnouncementModel?;
+        return CreateEditAnnouncementScreen(announcement: announcement);
+      },
     ),
     GoRoute(
       path: '/',

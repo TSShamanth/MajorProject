@@ -1,11 +1,15 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:go_router/go_router.dart';
 import '../services/image_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/announcement_service.dart'; // Add AnnouncementService import
 import '../models/department_model.dart'; // Import Department model
+import '../models/announcement_model.dart'; // Add AnnouncementModel import
+import '../models/user_model.dart'; // Add UserModel import
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -47,8 +51,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   final ApiService _apiService = ApiService();
   final ImageService _imageService = ImageService();
+  final AnnouncementService _announcementService = AnnouncementService(); // Initialize AnnouncementService
   List<Department> _departments = []; // New list for departments
   bool _isLoadingDepartments = false; // New loading flag
+
+  // Announcement state variables
+  List<AnnouncementModel> _myAnnouncements = [];
+  List<AnnouncementModel> _allAnnouncements = [];
+  List<AnnouncementModel> _audienceAnnouncements = [];
+  bool _isLoadingAnnouncements = false;
+  UserModel? _currentUser;
 
   @override
   void initState() {
@@ -61,6 +73,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       if (_institutionId != null) {
         _fetchUsersAndCounts();
         _fetchDepartments(); // Fetch departments when institutionId is available
+        _fetchCurrentUserAndAnnouncements(); // Fetch user profile and then announcements
       }
     });
   }
@@ -70,6 +83,62 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     setState(() {
       _institutionId = institutionId;
     });
+  }
+
+  Future<void> _fetchCurrentUserAndAnnouncements() async {
+    if (_institutionId == null) return;
+    try {
+      debugPrint('Fetching current user profile for institution: $_institutionId');
+      final user = await _apiService.getMe(_institutionId!);
+      debugPrint('Fetched user: ${user.displayName}, role: ${user.role}');
+      setState(() {
+        _currentUser = user;
+      });
+      // Once we have user profile (role, department), fetch announcements
+      await _fetchAnnouncements();
+    } catch (e) {
+      debugPrint('Error fetching current user profile: $e');
+    }
+  }
+
+  Future<void> _fetchAnnouncements() async {
+    if (_institutionId == null) return;
+    setState(() {
+      _isLoadingAnnouncements = true;
+    });
+
+    try {
+      debugPrint('Fetching announcements for institution: $_institutionId');
+      // Fetch "My Announcements"
+      final myAnnouncements = await _announcementService.getMyAnnouncementsFromBackend(_institutionId!);
+      debugPrint('Fetched ${myAnnouncements.length} My Announcements');
+      
+      // Fetch "All Announcements"
+      final allAnnouncements = await _announcementService.getAllAnnouncements(_institutionId!);
+      debugPrint('Fetched ${allAnnouncements.length} All Announcements');
+      
+      // Fetch "Audience Announcements" using current user's role and department
+      debugPrint('Fetching audience announcements for role: ${_currentUser?.role}, dept: ${_currentUser?.departmentId}, prog: ${_currentUser?.programme}');
+      final audienceAnnouncements = await _announcementService.getAnnouncements(
+        _institutionId!,
+        role: _currentUser?.role,
+        departmentId: _currentUser?.departmentId,
+        programme: _currentUser?.programme,
+      );
+      debugPrint('Fetched ${audienceAnnouncements.length} Audience Announcements');
+
+      setState(() {
+        _myAnnouncements = myAnnouncements;
+        _allAnnouncements = allAnnouncements;
+        _audienceAnnouncements = audienceAnnouncements;
+        _isLoadingAnnouncements = false;
+      });
+    } catch (e) {
+      debugPrint('Error fetching announcements: $e');
+      setState(() {
+        _isLoadingAnnouncements = false;
+      });
+    }
   }
 
   Future<void> _fetchUsersAndCounts() async {
@@ -584,6 +653,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
       {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
       {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': null},
+      {'icon': Icons.announcement_rounded, 'label': 'Announcements', 'active': false, 'route': '/announcements/manage'},
       {'icon': Icons.bar_chart_rounded, 'label': 'Analytics & Reports', 'active': false, 'route': null},
       {'icon': Icons.article_rounded, 'label': 'Content Management', 'active': false, 'route': null},
       {'icon': Icons.settings_rounded, 'label': 'System Settings', 'active': false, 'route': null},
@@ -658,7 +728,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                     Navigator.pop(context);
                     final route = item['route'];
                     if (route != null && _institutionId != null) {
-                      context.go(route as String);
+                      context.go('/$_institutionId${route as String}');
                     }
                   },
                 );
@@ -732,6 +802,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       {'icon': Icons.approval, 'label': 'Approval', 'active': false, 'route': '/admin/approval'},
       {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
       {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': null},
+      {'icon': Icons.announcement_rounded, 'label': 'Announcements', 'active': false, 'route': '/announcements/manage'},
       {'icon': Icons.bar_chart_rounded, 'label': 'Analytics & Reports', 'active': false, 'route': null},
       {'icon': Icons.article_rounded, 'label': 'Content Management', 'active': false, 'route': null},
       {'icon': Icons.settings_rounded, 'label': 'System Settings', 'active': false, 'route': null},
@@ -1273,6 +1344,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
             // Stats Row - Fully Responsive
             _buildResponsiveStatsRow(isMobile, isTablet),
+            SizedBox(height: isMobile ? 16 : 20),
+
+            // Announcements Section
+            _buildAnnouncementsSection(isMobile, isTablet),
             SizedBox(height: isMobile ? 16 : 20),
 
             // Main Content - Fully Responsive
@@ -2083,6 +2158,221 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             );
           }),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAnnouncementsSection(bool isMobile, bool isTablet) {
+    debugPrint('Building Announcements Section. Audience: ${_audienceAnnouncements.length}, My: ${_myAnnouncements.length}, All: ${_allAnnouncements.length}');
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: DefaultTabController(
+        length: 3,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4F46E5).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.announcement_rounded, color: Color(0xFF4F46E5), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Announcements',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: _textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      if (_institutionId != null) {
+                        context.go('/$_institutionId/announcements/manage');
+                      }
+                    },
+                    icon: const Icon(Icons.settings_rounded, size: 16),
+                    label: const Text('Manage', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    style: TextButton.styleFrom(foregroundColor: const Color(0xFF4F46E5)),
+                  ),
+                ],
+              ),
+            ),
+            TabBar(
+              labelColor: const Color(0xFF4F46E5),
+              unselectedLabelColor: _textSecondary,
+              indicatorColor: const Color(0xFF4F46E5),
+              dividerColor: _borderColor,
+              labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              tabs: const [
+                Tab(text: 'My Feed'),
+                Tab(text: 'My Announcements'),
+                Tab(text: 'All Announcements'),
+              ],
+            ),
+            SizedBox(
+              height: 350,
+              child: TabBarView(
+                children: [
+                  _buildAnnouncementTabList(_audienceAnnouncements, 'No relevant announcements found.'),
+                  _buildAnnouncementTabList(_myAnnouncements, 'You haven\'t created any announcements yet.'),
+                  _buildAnnouncementTabList(_allAnnouncements, 'No announcements found.'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnnouncementTabList(List<AnnouncementModel> announcements, String emptyMessage) {
+    if (_isLoadingAnnouncements) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (announcements.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.announcement_outlined, size: 40, color: _textSecondary.withOpacity(0.5)),
+            const SizedBox(height: 12),
+            Text(
+              emptyMessage,
+              style: TextStyle(color: _textSecondary, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: announcements.length,
+      separatorBuilder: (context, index) => Divider(color: _borderColor.withOpacity(0.5)),
+      itemBuilder: (context, index) {
+        try {
+          final announcement = announcements[index];
+          return _buildAnnouncementItem(announcement);
+        } catch (e) {
+          debugPrint('Error building announcement item at index $index: $e');
+          return ListTile(title: Text('Error loading item: $e', style: const TextStyle(fontSize: 10, color: Colors.red)));
+        }
+      },
+    );
+  }
+
+  Widget _buildAnnouncementItem(AnnouncementModel announcement) {
+    final dateStr = DateFormat('MMM dd, yyyy').format(announcement.createdAt);
+    
+    return InkWell(
+      onTap: () {
+        if (_institutionId != null) {
+          context.push('/$_institutionId/announcements/${announcement.id}', extra: announcement);
+        }
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                if (announcement.isPinned)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8.0),
+                    child: Icon(Icons.push_pin_rounded, size: 14, color: Color(0xFF4F46E5)),
+                  ),
+                Expanded(
+                  child: Text(
+                    announcement.title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: _textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  dateStr,
+                  style: TextStyle(fontSize: 11, color: _textSecondary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              announcement.description,
+              style: TextStyle(fontSize: 12, color: _textSecondary),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _buildCategoryBadge(announcement.category ?? 'general'),
+                const SizedBox(width: 8),
+                Icon(Icons.visibility_outlined, size: 12, color: _textSecondary),
+                const SizedBox(width: 4),
+                Text(
+                  '${announcement.viewCount}',
+                  style: TextStyle(fontSize: 11, color: _textSecondary),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryBadge(String category) {
+    Color color;
+    switch (category.toLowerCase()) {
+      case 'urgent': color = const Color(0xFFEF4444); break;
+      case 'academic': color = const Color(0xFF3B82F6); break;
+      case 'event': color = const Color(0xFF8B5CF6); break;
+      default: color = const Color(0xFF10B981);
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        category.toUpperCase(),
+        style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color),
       ),
     );
   }

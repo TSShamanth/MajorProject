@@ -147,6 +147,7 @@ class ApiService {
     String? usn,
     String? phone,
     String? sem,
+    String? departmentId,
     String? mentorName,
     String? photoUrl,
     String? programme,
@@ -174,6 +175,7 @@ class ApiService {
       'usn': usn,
       'phone': phone,
       'sem': sem,
+      'departmentId': departmentId,
       'mentorName': mentorName,
       'photoUrl': photoUrl,
       'programme': programme,
@@ -323,7 +325,7 @@ class ApiService {
       throw Exception('No user logged in');
     }
     final token = await user.getIdToken();
-    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/users/me');
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/users/me');
 
     final response = await http.get(
       url,

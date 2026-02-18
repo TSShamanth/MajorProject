@@ -143,6 +143,7 @@ class _DepartmentManagementScreenState
                         displayName: displayNameController.text,
                         role: widget.assetType.toLowerCase().singular,
                         institutionId: institutionId,
+                        departmentId: _departmentId,
                       );
                     } else {
                       // Update user logic here
