@@ -138,6 +138,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
       {'icon': Icons.calendar_today_outlined, 'label': 'Timetable', 'route': '/faculty/timetable'},
       {'icon': Icons.group_outlined, 'label': 'Mentees', 'badge': '8', 'route': '/faculty/mentees'},
       {'icon': Icons.description_outlined, 'label': 'Leave', 'route': '/faculty/leave'},
+      {'icon': Icons.check_circle_outline, 'label': 'Approve Leaves', 'route': '/faculty/leave-approval'}, // NEW ITEM
       {'icon': Icons.attach_money, 'label': 'Payroll', 'route': '/faculty/payroll'},
       {'icon': Icons.celebration_outlined, 'label': 'Events', 'route': '/faculty/events'},
       {'icon': Icons.notifications_none_outlined, 'label': 'Meetings', 'route': '/faculty/meetings'},
@@ -1288,6 +1289,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
       {'label': 'Mark Attendance', 'color': Colors.indigo, 'route': '/faculty/mark-attendance'},
       {'label': 'View History', 'color': Colors.green, 'route': '/faculty/attendance-history'},
       {'label': 'Apply Leave', 'color': Colors.purple, 'route': '/faculty/leave'},
+      {'label': 'Approve Leaves', 'color': Colors.blueGrey, 'route': '/faculty/leave-approval'}, // NEW ITEM
       {'label': 'View Payroll', 'color': Colors.orange, 'route': '/faculty/payroll'},
     ];
 

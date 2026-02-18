@@ -16,10 +16,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _usnController = TextEditingController();
+  final TextEditingController _employeeIdController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _semController = TextEditingController();
-  final TextEditingController _mentorController = TextEditingController();
+  final TextEditingController _departmentController = TextEditingController();
 
   bool _loading = true;
   bool _saving = false;
@@ -39,10 +38,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (doc.exists) {
         final data = doc.data();
         _nameController.text = data?['name'] ?? '';
-        _usnController.text = data?['usn'] ?? '';
+        _employeeIdController.text = data?['employeeId'] ?? '';
         _phoneController.text = data?['phone'] ?? '';
-        _semController.text = (data?['sem']?.toString()) ?? '';
-        _mentorController.text = data?['mentorName'] ?? '';
+        _departmentController.text = data?['department'] ?? '';
       }
     } catch (e) {
       // ignore errors here, we'll show on save if needed
@@ -61,10 +59,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (institutionId == null) throw Exception('Institution ID not found');
       final data = {
         'name': _nameController.text.trim(),
-        'usn': _usnController.text.trim(),
+        'employeeId': _employeeIdController.text.trim(),
         'phone': _phoneController.text.trim(),
-        'sem': _semController.text.trim(),
-        'mentorName': _mentorController.text.trim(),
+        'department': _departmentController.text.trim(),
         'email': FirebaseAuth.instance.currentUser?.email ?? '',
       };
 
@@ -84,10 +81,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _usnController.dispose();
+    _employeeIdController.dispose();
     _phoneController.dispose();
-    _semController.dispose();
-    _mentorController.dispose();
+    _departmentController.dispose();
     super.dispose();
   }
 
@@ -113,8 +109,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
-                      controller: _usnController,
-                      decoration: const InputDecoration(labelText: 'USN'),
+                      controller: _employeeIdController,
+                      decoration: const InputDecoration(labelText: 'Employee ID'),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -124,13 +120,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
-                      controller: _semController,
-                      decoration: const InputDecoration(labelText: 'Semester'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _mentorController,
-                      decoration: const InputDecoration(labelText: 'Mentor Name'),
+                      controller: _departmentController,
+                      decoration: const InputDecoration(labelText: 'Department'),
                     ),
                     const SizedBox(height: 20),
                     Row(

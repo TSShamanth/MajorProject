@@ -1559,12 +1559,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
 
   Widget _buildQuickActions() {
     final actions = [
-      {
-        'label': 'Apply Leave',
-        'icon': Icons.event_busy_rounded,
-        'color': const Color(0xFFEF4444),
-        'route': 'Leave',
-      },
+
       {
         'label': 'Library',
         'icon': Icons.local_library_rounded,

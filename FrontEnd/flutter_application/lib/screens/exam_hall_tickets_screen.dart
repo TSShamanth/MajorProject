@@ -81,7 +81,7 @@ class ExamHallTicketsScreenState extends State<ExamHallTicketsScreen> {
                             final student = _students[index];
                             return ListTile(
                               title: Text(student.displayName),
-                              subtitle: Text(student.usn ?? student.email),
+                              subtitle: Text(student.usn ?? student.email ?? 'N/A'),
                               trailing: const Icon(Icons.arrow_forward_ios),
                               onTap: () async {
                                 final router = GoRouter.of(context);

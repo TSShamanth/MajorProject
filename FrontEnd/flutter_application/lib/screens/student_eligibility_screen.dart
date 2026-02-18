@@ -143,7 +143,7 @@ class _StudentEligibilityScreenState extends State<StudentEligibilityScreen> {
                                       final student = _eligibleStudents[index];
                                       return ListTile(
                                         title: Text(student.displayName),
-                                        subtitle: Text(student.email),
+                                        subtitle: Text(student.email ?? 'No email'),
                                         trailing: Switch(
                                           value: student.isDetained ?? false,
                                           onChanged: (bool value) async {
