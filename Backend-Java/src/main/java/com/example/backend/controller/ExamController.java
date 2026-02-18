@@ -2,6 +2,7 @@ package com.example.backend.controller;
 
 import com.example.backend.models.Exam;
 import com.example.backend.models.ExamScheduleEntry; // Import ExamScheduleEntry
+import com.example.backend.models.InvigilatorAssignment; // Import InvigilatorAssignment
 import com.example.backend.models.SeatingEntry; // Import SeatingEntry
 import com.example.backend.models.User;
 import com.example.backend.service.ExamService;
@@ -163,6 +164,63 @@ public class ExamController {
             }
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(404).body(null);
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    // Invigilator Assignment Endpoints
+    @PostMapping("/institutions/{institutionId}/exams/{examId}/invigilator-assignments")
+    public ResponseEntity<InvigilatorAssignment> assignInvigilator(
+            @PathVariable String institutionId,
+            @PathVariable String examId,
+            @RequestBody InvigilatorAssignment assignment) {
+        try {
+            assignment.setExamId(examId); // Ensure examId from path is set
+            InvigilatorAssignment createdAssignment = examService.assignInvigilator(institutionId, assignment);
+            return ResponseEntity.ok(createdAssignment);
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @GetMapping("/institutions/{institutionId}/exams/{examId}/invigilator-assignments")
+    public ResponseEntity<List<InvigilatorAssignment>> getInvigilatorAssignments(
+            @PathVariable String institutionId,
+            @PathVariable String examId) {
+        try {
+            List<InvigilatorAssignment> assignments = examService.getInvigilatorAssignments(institutionId, examId);
+            return ResponseEntity.ok(assignments);
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @GetMapping("/institutions/{institutionId}/exams/{examId}/invigilator-assignments/room/{roomId}")
+    public ResponseEntity<List<InvigilatorAssignment>> getInvigilatorAssignmentsByRoom(
+            @PathVariable String institutionId,
+            @PathVariable String examId,
+            @PathVariable String roomId) {
+        try {
+            List<InvigilatorAssignment> assignments = examService.getInvigilatorAssignmentsByRoom(institutionId, examId, roomId);
+            return ResponseEntity.ok(assignments);
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @DeleteMapping("/institutions/{institutionId}/exams/{examId}/invigilator-assignments/{assignmentId}")
+    public ResponseEntity<Void> deleteInvigilatorAssignment(
+            @PathVariable String institutionId,
+            @PathVariable String examId,
+            @PathVariable String assignmentId) {
+        try {
+            examService.deleteInvigilatorAssignment(institutionId, examId, assignmentId);
+            return ResponseEntity.noContent().build();
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
             return ResponseEntity.status(500).build();

@@ -2,8 +2,10 @@ package com.example.backend.service;
 
 import com.example.backend.models.Exam;
 import com.example.backend.models.ExamScheduleEntry;
+import com.example.backend.models.InvigilatorAssignment; // Import InvigilatorAssignment
 import com.example.backend.models.Room;
 import com.example.backend.models.SeatingEntry; // Import SeatingEntry
+import com.example.backend.models.User; // Import User
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteResult;
@@ -25,10 +27,12 @@ public class ExamService {
 
     private final Firestore firestore;
     private final RoomService roomService; // Inject RoomService
+    private final UserService userService; // Inject UserService
 
-    public ExamService(Firestore firestore, RoomService roomService) {
+    public ExamService(Firestore firestore, RoomService roomService, UserService userService) {
         this.firestore = firestore;
         this.roomService = roomService; // Initialize RoomService
+        this.userService = userService;
     }
 
     public Exam createExam(Exam exam, String institutionId) throws ExecutionException, InterruptedException {
@@ -137,5 +141,57 @@ public class ExamService {
             throw new IllegalArgumentException("Exam not found with ID: " + examId);
         }
         return exam.getSeatingArrangement();
+    }
+
+    // Invigilator Assignment Methods
+    public InvigilatorAssignment assignInvigilator(String institutionId, InvigilatorAssignment assignment) throws ExecutionException, InterruptedException {
+        // Validate facultyId using UserService
+        User faculty = userService.getUserById(institutionId, assignment.getFacultyId());
+        if (faculty == null || !("faculty".equalsIgnoreCase(faculty.getRole()))) {
+            throw new IllegalArgumentException("Invalid faculty ID or user is not a faculty member.");
+        }
+
+        if (assignment.getId() == null || assignment.getId().isEmpty()) {
+            assignment.setId(UUID.randomUUID().toString());
+        }
+        assignment.setInstitutionId(institutionId);
+
+        firestore.collection("Institutions").document(institutionId)
+                 .collection("exams").document(assignment.getExamId())
+                 .collection("invigilatorAssignments").document(assignment.getId())
+                 .set(assignment).get();
+        return assignment;
+    }
+
+    public List<InvigilatorAssignment> getInvigilatorAssignments(String institutionId, String examId) throws ExecutionException, InterruptedException {
+        List<InvigilatorAssignment> assignments = new ArrayList<>();
+        ApiFuture<QuerySnapshot> future = firestore.collection("Institutions").document(institutionId)
+                                                 .collection("exams").document(examId)
+                                                 .collection("invigilatorAssignments").get();
+        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+        for (QueryDocumentSnapshot document : documents) {
+            assignments.add(document.toObject(InvigilatorAssignment.class));
+        }
+        return assignments;
+    }
+
+    public List<InvigilatorAssignment> getInvigilatorAssignmentsByRoom(String institutionId, String examId, String roomId) throws ExecutionException, InterruptedException {
+        List<InvigilatorAssignment> assignments = new ArrayList<>();
+        ApiFuture<QuerySnapshot> future = firestore.collection("Institutions").document(institutionId)
+                                                 .collection("exams").document(examId)
+                                                 .collection("invigilatorAssignments")
+                                                 .whereEqualTo("roomId", roomId).get();
+        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+        for (QueryDocumentSnapshot document : documents) {
+            assignments.add(document.toObject(InvigilatorAssignment.class));
+        }
+        return assignments;
+    }
+
+    public void deleteInvigilatorAssignment(String institutionId, String examId, String assignmentId) throws ExecutionException, InterruptedException {
+        firestore.collection("Institutions").document(institutionId)
+                 .collection("exams").document(examId)
+                 .collection("invigilatorAssignments").document(assignmentId)
+                 .delete().get();
     }
 }

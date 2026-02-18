@@ -50,6 +50,7 @@ import '../screens/student_timetable_screen.dart';
 import '../screens/exam_timetable_viewer_screen.dart';
 import '../screens/faculty_timetable_screen.dart';
 import '../screens/hall_allocation_screen.dart';
+import '../screens/invigilator_assignment_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -179,6 +180,13 @@ final router = GoRouter(
       builder: (context, state) {
         final examId = state.pathParameters['examId']!;
         return HallAllocationScreen(examId: examId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exams/:examId/invigilator-assignment',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        return InvigilatorAssignmentScreen(examId: examId);
       },
     ),
      GoRoute(

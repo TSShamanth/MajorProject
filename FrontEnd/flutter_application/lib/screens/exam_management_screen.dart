@@ -162,6 +162,22 @@ class ExamManagementScreenState extends State<ExamManagementScreen> {
                               }
                             },
                           ),
+                          IconButton(
+                            icon: const Icon(Icons.assignment_ind),
+                            tooltip: 'Invigilator Assignment',
+                            onPressed: _isNavigating ? null : () async {
+                              setState(() => _isNavigating = true);
+                              final router = GoRouter.of(context);
+                              try {
+                                final institutionId = await SessionManager.getInstitutionId();
+                                if (mounted && institutionId != null) {
+                                  router.go('/$institutionId/admin/exams/${exam.id}/invigilator-assignment');
+                                }
+                              } finally {
+                                if (mounted) setState(() => _isNavigating = false);
+                              }
+                            },
+                          ),
                         ],
                       ),
                     );
