@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application/models/exam_model.dart';
-import 'package:flutter_application/models/department_model.dart'; // Added import
+import 'package:flutter_application/models/department_model.dart';
 import 'package:flutter_application/services/api_service.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:go_router/go_router.dart';
@@ -9,23 +9,22 @@ class ExamManagementScreen extends StatefulWidget {
   const ExamManagementScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
-  _ExamManagementScreenState createState() => _ExamManagementScreenState();
+  ExamManagementScreenState createState() => ExamManagementScreenState();
 }
 
-class _ExamManagementScreenState extends State<ExamManagementScreen> {
+class ExamManagementScreenState extends State<ExamManagementScreen> {
   late ApiService _apiService;
   List<Exam> _exams = [];
-  List<Department> _departments = []; // New list to store departments
-  bool _isLoadingExams = false; // Renamed for clarity
-  bool _isLoadingDepartments = false; // New loading flag
+  List<Department> _departments = [];
+  bool _isLoadingExams = false;
+  bool _isLoadingDepartments = false;
   bool _isNavigating = false;
 
   @override
   void initState() {
     super.initState();
     _apiService = ApiService();
-    _fetchData(); // Call a new method to fetch both exams and departments
+    _fetchData();
   }
 
   Future<void> _fetchData() async {
@@ -38,14 +37,12 @@ class _ExamManagementScreenState extends State<ExamManagementScreen> {
     try {
       final institutionId = await SessionManager.getInstitutionId();
       if (institutionId != null) {
-        // Fetch exams
         final exams = await _apiService.getExams(institutionId);
         if (!mounted) return;
         setState(() {
           _exams = exams;
         });
 
-        // Fetch departments
         final departments = await _apiService.getDepartments(institutionId);
         if (!mounted) return;
         setState(() {
@@ -64,7 +61,6 @@ class _ExamManagementScreenState extends State<ExamManagementScreen> {
     }
   }
 
-  // Helper method to get department name from ID
   String _getDepartmentName(String departmentId) {
     return _departments.firstWhere(
       (dept) => dept.id == departmentId,
@@ -93,12 +89,10 @@ class _ExamManagementScreenState extends State<ExamManagementScreen> {
                       title: Text(exam.name),
                       subtitle: Text('$departmentName - ${exam.semester}'),
                       onTap: () async {
-                        final currentContext = context; // Capture context before async gap
+                        final router = GoRouter.of(context);
                         final institutionId = await SessionManager.getInstitutionId();
-                        if (institutionId != null) {
-                          if (currentContext.mounted) { // Use captured context and its mounted property
-                            currentContext.go('/$institutionId/admin/exams/${exam.id}/eligibility');
-                          }
+                        if (mounted && institutionId != null) {
+                          router.go('/$institutionId/admin/exams/${exam.id}/eligibility');
                         }
                       },
                       trailing: Row(
@@ -152,6 +146,22 @@ class _ExamManagementScreenState extends State<ExamManagementScreen> {
                               }
                             },
                           ),
+                          IconButton(
+                            icon: const Icon(Icons.chair_alt),
+                            tooltip: 'Hall Allocation',
+                            onPressed: _isNavigating ? null : () async {
+                              setState(() => _isNavigating = true);
+                              final router = GoRouter.of(context);
+                              try {
+                                final institutionId = await SessionManager.getInstitutionId();
+                                if (mounted && institutionId != null) {
+                                  router.go('/$institutionId/admin/exams/${exam.id}/hall-allocation');
+                                }
+                              } finally {
+                                if (mounted) setState(() => _isNavigating = false);
+                              }
+                            },
+                          ),
                         ],
                       ),
                     );
@@ -162,13 +172,11 @@ class _ExamManagementScreenState extends State<ExamManagementScreen> {
           setState(() {
             _isNavigating = true;
           });
+          final router = GoRouter.of(context);
           try {
-            final currentContext = context; // Capture context before async gap
             final institutionId = await SessionManager.getInstitutionId();
-            if (institutionId != null) {
-              if (currentContext.mounted) { // Use captured context and its mounted property
-                currentContext.go('/$institutionId/admin/create-exam');
-              }
+            if (mounted && institutionId != null) {
+              router.go('/$institutionId/admin/create-exam');
             }
           } finally {
             if (mounted) {

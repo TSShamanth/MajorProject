@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_application/models/seating_entry.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/institution.dart';
@@ -866,6 +867,57 @@ class ApiService {
 
     if (response.statusCode != 204) {
       throw Exception('Failed to delete room');
+    }
+  }
+
+  // Hall Allocation Methods
+  Future<Map<String, SeatingEntry>> allocateHalls(String institutionId, String examId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/allocate-halls');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      Map<String, dynamic> data = json.decode(response.body);
+      return data.map((key, value) => MapEntry(key, SeatingEntry.fromJson(value)));
+    } else {
+      throw Exception('Failed to allocate halls: ${response.body}');
+    }
+  }
+
+  Future<Map<String, SeatingEntry>> getSeatingArrangement(String institutionId, String examId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/exams/$examId/seating-arrangement');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      Map<String, dynamic> data = json.decode(response.body);
+      return data.map((key, value) => MapEntry(key, SeatingEntry.fromJson(value)));
+    } else if (response.statusCode == 404) {
+      return {}; // Return empty map if no arrangement found
+    } else {
+      throw Exception('Failed to load seating arrangement: ${response.body}');
     }
   }
 }

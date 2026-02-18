@@ -49,6 +49,7 @@ import '../screens/room_editor_screen.dart';
 import '../screens/student_timetable_screen.dart';
 import '../screens/exam_timetable_viewer_screen.dart';
 import '../screens/faculty_timetable_screen.dart';
+import '../screens/hall_allocation_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -171,6 +172,13 @@ final router = GoRouter(
       builder: (context, state) {
         final examId = state.pathParameters['examId']!;
         return ExamTimetableViewerScreen(examId: examId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/exams/:examId/hall-allocation',
+      builder: (context, state) {
+        final examId = state.pathParameters['examId']!;
+        return HallAllocationScreen(examId: examId);
       },
     ),
      GoRoute(

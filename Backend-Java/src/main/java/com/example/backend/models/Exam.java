@@ -11,11 +11,12 @@ public class Exam {
     private List<String> subjects;
     private Map<String, ExamScheduleEntry> schedule; // New field for per-subject scheduling
     private List<String> frozenCandidateList; // New field for storing frozen eligible student UIDs
+    private Map<String, SeatingEntry> seatingArrangement; // New field for seating arrangement
 
     public Exam() {
     }
 
-    public Exam(String id, String name, String departmentId, String semester, List<String> subjects, Map<String, ExamScheduleEntry> schedule, List<String> frozenCandidateList) {
+    public Exam(String id, String name, String departmentId, String semester, List<String> subjects, Map<String, ExamScheduleEntry> schedule, List<String> frozenCandidateList, Map<String, SeatingEntry> seatingArrangement) {
         this.id = id;
         this.name = name;
         this.departmentId = departmentId;
@@ -23,6 +24,7 @@ public class Exam {
         this.subjects = subjects;
         this.schedule = schedule;
         this.frozenCandidateList = frozenCandidateList;
+        this.seatingArrangement = seatingArrangement;
     }
 
     public String getId() {
@@ -79,5 +81,13 @@ public class Exam {
 
     public void setFrozenCandidateList(List<String> frozenCandidateList) {
         this.frozenCandidateList = frozenCandidateList;
+    }
+
+    public Map<String, SeatingEntry> getSeatingArrangement() {
+        return seatingArrangement;
+    }
+
+    public void setSeatingArrangement(Map<String, SeatingEntry> seatingArrangement) {
+        this.seatingArrangement = seatingArrangement;
     }
 }

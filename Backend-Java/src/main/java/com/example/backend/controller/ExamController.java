@@ -2,6 +2,7 @@ package com.example.backend.controller;
 
 import com.example.backend.models.Exam;
 import com.example.backend.models.ExamScheduleEntry; // Import ExamScheduleEntry
+import com.example.backend.models.SeatingEntry; // Import SeatingEntry
 import com.example.backend.models.User;
 import com.example.backend.service.ExamService;
 import com.example.backend.service.UserService;
@@ -125,6 +126,42 @@ public class ExamController {
             return ResponseEntity.ok().build();
         } catch (IllegalArgumentException e) {
             // Exam not found
+            return ResponseEntity.status(404).body(null);
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @PostMapping("/institutions/{institutionId}/exams/{examId}/allocate-halls")
+    public ResponseEntity<Map<String, SeatingEntry>> allocateHalls(
+            @PathVariable String institutionId,
+            @PathVariable String examId) {
+        try {
+            Map<String, SeatingEntry> seatingArrangement = examService.allocateHalls(institutionId, examId);
+            return ResponseEntity.ok(seatingArrangement);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(null);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(null); // Conflict, e.g., no students or rooms
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @GetMapping("/institutions/{institutionId}/exams/{examId}/seating-arrangement")
+    public ResponseEntity<Map<String, SeatingEntry>> getSeatingArrangement(
+            @PathVariable String institutionId,
+            @PathVariable String examId) {
+        try {
+            Map<String, SeatingEntry> seatingArrangement = examService.getSeatingArrangement(institutionId, examId);
+            if (seatingArrangement != null && !seatingArrangement.isEmpty()) {
+                return ResponseEntity.ok(seatingArrangement);
+            } else {
+                return ResponseEntity.status(404).body(null);
+            }
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.status(404).body(null);
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
