@@ -278,6 +278,33 @@ class _FeeManagementDashboardScreenState
             ),
             const SizedBox(width: 12),
             ElevatedButton.icon(
+              onPressed: () async {
+                try {
+                  if (_institutionId != null) {
+                    await _feeService.downloadFeeReport(_institutionId!);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Fee report downloaded successfully!')),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error downloading fee report: $e')),
+                    );
+                  }
+                }
+              },
+              icon: const Icon(Icons.download),
+              label: const Text('Download Report (CSV)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
               onPressed: () => _navigateToEditor(),
               icon: const Icon(Icons.add),
               label: const Text('New Fee Structure'),

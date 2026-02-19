@@ -1,8 +1,7 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
-import 'package:printing/printing.dart';
+import 'download_helper_stub.dart' if (dart.library.html) 'download_helper_web.dart' as download_helper;
 import '../config/api_config.dart';
 import '../models/fee_category_model.dart';
 import '../models/fee_structure_model.dart';
@@ -39,11 +38,7 @@ class FeeService {
     );
 
     if (response.statusCode == 200) {
-      final Uint8List pdfBytes = response.bodyBytes;
-      await Printing.layoutPdf(
-        onLayout: (format) async => pdfBytes,
-        name: 'Receipt_$receiptNumber',
-      );
+      download_helper.downloadFile(response.bodyBytes, 'Receipt_$receiptNumber.pdf');
     } else {
       throw Exception('Failed to download receipt: ${response.statusCode}');
     }
@@ -260,6 +255,24 @@ class FeeService {
       return data.map((json) => Payment.fromJson(json)).toList();
     } else {
       throw Exception('Failed to load payment history');
+    }
+  }
+
+  Future<void> downloadFeeReport(String institutionId) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('No user logged in');
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/$institutionId/api/fees/report/csv'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      download_helper.downloadFile(response.bodyBytes, 'fee_report_$institutionId.csv');
+    } else {
+      throw Exception('Failed to download fee report: ${response.statusCode}');
     }
   }
 }

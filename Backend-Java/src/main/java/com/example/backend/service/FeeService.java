@@ -1,5 +1,6 @@
 package com.example.backend.service;
 
+import com.example.backend.dto.FeeReportDto;
 import com.example.backend.dto.RecordPaymentRequest;
 import com.example.backend.models.FeeCategory;
 import com.example.backend.models.FeeStructure;
@@ -18,6 +19,7 @@ import com.google.cloud.firestore.Transaction;
 import com.google.cloud.firestore.WriteBatch;
 import org.springframework.stereotype.Service;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -308,5 +310,74 @@ public class FeeService {
             return doc.toObject(Payment.class);
         }
         return null;
+    }
+
+    // New method for faculty to add remarks
+    public StudentFee updateFacultyRemarks(String institutionId, String studentFeeId, String remarks) throws ExecutionException, InterruptedException {
+        DocumentReference studentFeeRef = firestore.collection("Institutions").document(institutionId)
+                .collection("studentFees").document(studentFeeId);
+        
+        ApiFuture<DocumentSnapshot> future = studentFeeRef.get();
+        DocumentSnapshot doc = future.get();
+
+        if (doc.exists()) {
+            StudentFee studentFee = doc.toObject(StudentFee.class);
+            studentFee.setFacultyRemarks(remarks);
+            studentFeeRef.set(studentFee).get(); // Update the document
+            return studentFee;
+        } else {
+            throw new RuntimeException("Student Fee not found for ID: " + studentFeeId);
+        }
+    }
+
+    // New method to get student fees mentored by a specific faculty
+    public List<StudentFee> getStudentFeesForFaculty(String institutionId, String facultyId) throws ExecutionException, InterruptedException {
+        List<User> mentoredStudents = userService.getStudentsByMentor(institutionId, facultyId); // Assuming facultyId is the mentor name
+        List<String> mentoredStudentUids = mentoredStudents.stream()
+                                                            .map(User::getUid)
+                                                            .toList();
+        
+        if (mentoredStudentUids.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // Firestore 'in' query limit is 10. Split if necessary.
+        List<StudentFee> allFees = new ArrayList<>();
+        for (int i = 0; i < mentoredStudentUids.size(); i += 10) {
+            int endIndex = Math.min(i + 10, mentoredStudentUids.size());
+            List<String> subList = mentoredStudentUids.subList(i, endIndex);
+            
+            Query query = firestore.collection("Institutions").document(institutionId)
+                                    .collection("studentFees")
+                                    .whereIn("studentId", subList);
+            ApiFuture<QuerySnapshot> future = query.get();
+            for (QueryDocumentSnapshot document : future.get().getDocuments()) {
+                allFees.add(document.toObject(StudentFee.class));
+            }
+        }
+        return allFees;
+    }
+
+    public List<FeeReportDto> generateFeeReportData(String institutionId) throws ExecutionException, InterruptedException {
+        List<StudentFee> allStudentFees = getStudentFees(institutionId); // Get all student fees
+        List<FeeReportDto> reportData = new ArrayList<>();
+        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy");
+
+        for (StudentFee fee : allStudentFees) {
+            String dueDate = (fee.getDueDate() != null) ? sdf.format(fee.getDueDate()) : "N/A";
+            FeeReportDto dto = new FeeReportDto(
+                fee.getStudentName(),
+                fee.getUsn(),
+                fee.getFeeStructureTitle(),
+                fee.getTotalAmount(),
+                fee.getPaidAmount(),
+                fee.getBalanceAmount(),
+                fee.getStatus(),
+                dueDate,
+                fee.getFacultyRemarks()
+            );
+            reportData.add(dto);
+        }
+        return reportData;
     }
 }

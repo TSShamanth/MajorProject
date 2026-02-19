@@ -1,5 +1,6 @@
 package com.example.backend.controller;
 
+import com.example.backend.dto.FeeReportDto;
 import com.example.backend.dto.GenerateFeeRequest;
 import com.example.backend.dto.RecordPaymentRequest;
 import com.example.backend.models.FeeCategory;
@@ -13,10 +14,16 @@ import com.example.backend.service.FirestoreService;
 import com.example.backend.service.PdfService;
 import com.example.backend.service.UserService;
 import com.lowagie.text.DocumentException;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintWriter;
 
 import java.util.List;
 import java.util.Map;
@@ -123,6 +130,79 @@ public class FeeController {
         try {
             return ResponseEntity.ok(feeService.getPaymentsForStudentFee(institutionId, studentFeeId));
         } catch (ExecutionException | InterruptedException e) {
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @PutMapping("/student-fees/{studentFeeId}/remarks")
+    public ResponseEntity<StudentFee> updateStudentFeeRemarks(
+            @AuthenticationPrincipal String requesterUid,
+            @PathVariable String institutionId,
+            @PathVariable String studentFeeId,
+            @RequestBody Map<String, String> requestBody) {
+        try {
+            User requestingUser = userService.getUserById(institutionId, requesterUid);
+            if (requestingUser == null || (!"admin".equals(requestingUser.getRole()) && !"faculty".equals(requestingUser.getRole()))) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            String remarks = requestBody.get("remarks");
+            StudentFee updatedFee = feeService.updateFacultyRemarks(institutionId, studentFeeId, remarks);
+            return ResponseEntity.ok(updatedFee);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        } catch (ExecutionException | InterruptedException e) {
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @GetMapping("/faculty/student-fees")
+    public ResponseEntity<List<StudentFee>> getStudentFeesForFaculty(
+            @AuthenticationPrincipal String requesterUid,
+            @PathVariable String institutionId) {
+        try {
+            User requestingUser = userService.getUserById(institutionId, requesterUid);
+            if (requestingUser == null || (!"admin".equals(requestingUser.getRole()) && !"faculty".equals(requestingUser.getRole()))) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            List<StudentFee> fees = feeService.getStudentFeesForFaculty(institutionId, requestingUser.getDisplayName());
+            return ResponseEntity.ok(fees);
+        } catch (ExecutionException | InterruptedException e) {
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @GetMapping("/report/csv")
+    public ResponseEntity<byte[]> getFeeReportCsv(
+            @AuthenticationPrincipal String requesterUid,
+            @PathVariable String institutionId) {
+        try {
+            User requestingUser = userService.getUserById(institutionId, requesterUid);
+            if (requestingUser == null || (!"admin".equals(requestingUser.getRole()) && !"faculty".equals(requestingUser.getRole()))) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
+            List<FeeReportDto> reportData = feeService.generateFeeReportData(institutionId);
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            String[] csvHeaders = {"Student Name", "USN", "Fee Structure", "Total Amount", "Paid Amount", "Balance Amount", "Status", "Due Date", "Faculty Remarks"};
+            
+            CSVFormat format = CSVFormat.Builder.create(CSVFormat.DEFAULT).setHeader(csvHeaders).build();
+
+            try (CSVPrinter csvPrinter = new CSVPrinter(new PrintWriter(bos), format)) {
+                for (FeeReportDto data : reportData) {
+                    csvPrinter.printRecord(data.getStudentName(), data.getUsn(), data.getFeeStructureTitle(),
+                            data.getTotalAmount(), data.getPaidAmount(), data.getBalanceAmount(),
+                            data.getStatus(), data.getDueDate(), data.getFacultyRemarks());
+                }
+                csvPrinter.flush();
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("text/csv"));
+            headers.setContentDispositionFormData("attachment", "fee_report_" + institutionId + ".csv");
+            
+            return ResponseEntity.ok().headers(headers).body(bos.toByteArray());
+
+        } catch (Exception e) {
             return ResponseEntity.status(500).build();
         }
     }

@@ -1256,13 +1256,13 @@ class ApiService {
   }
 
   // New method for faculty to get their students' fee status
-  Future<List<StudentFee>> getFacultyStudentFees(String institutionId) async {
+  Future<List<StudentFee>> getStudentFeesForFaculty(String institutionId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       throw Exception('No user logged in');
     }
     final token = await user.getIdToken();
-    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/faculty/my-students-fees');
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/fees/faculty/student-fees'); // Updated endpoint
 
     final response = await http.get(
       url,
@@ -1277,6 +1277,30 @@ class ApiService {
       return data.map((json) => StudentFee.fromJson(json)).toList();
     } else {
       throw Exception('Failed to load student fees for faculty: ${response.body}');
+    }
+  }
+
+  Future<StudentFee> updateStudentFeeRemarks(String institutionId, String studentFeeId, String remarks) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/fees/student-fees/$studentFeeId/remarks');
+
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'remarks': remarks}),
+    );
+
+    if (response.statusCode == 200) {
+      return StudentFee.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to update student fee remarks: ${response.body}');
     }
   }
 }
