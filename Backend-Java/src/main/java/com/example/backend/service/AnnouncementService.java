@@ -10,6 +10,7 @@ import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Query;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -307,84 +308,86 @@ public class AnnouncementService {
         logger.info("getAnnouncementsForAudience called with institutionId: {}, userRole: {}, departmentId: {}, programme: {}",
                 institutionId, userRole, departmentId, programme);
 
-        List<Announcement> announcements = new ArrayList<>();
-        Map<String, Announcement> uniqueAnnouncements = new HashMap<>();
-
-        // Query 1: Get announcements targeting "ALL"
-        Query queryAll = firestore
+        // Fetch all announcements for the institution and filter in-memory
+        ApiFuture<QuerySnapshot> future = firestore
                 .collection("Institutions")
                 .document(institutionId)
                 .collection("announcements")
-                .whereEqualTo("status", "PUBLISHED")
-                .whereArrayContains("targetAudience", "ALL")
-                .orderBy("isPinned", Query.Direction.DESCENDING)
-                .orderBy("createdAt", Query.Direction.DESCENDING);
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .get();
 
-        ApiFuture<QuerySnapshot> futureAll = queryAll.get();
-        List<QueryDocumentSnapshot> docsAll = futureAll.get().getDocuments();
-        logger.info("Query 1 (targetAudience: ALL) returned {} documents.", docsAll.size());
-        for (QueryDocumentSnapshot document : docsAll) {
-            Announcement announcement = document.toObject(Announcement.class);
-            uniqueAnnouncements.put(announcement.getId(), announcement);
-        }
-        logger.info("After Query 1, uniqueAnnouncements size: {}", uniqueAnnouncements.size());
+        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+        logger.info("Fetched {} total announcements to filter for audience", documents.size());
 
-        // Query 2: Get announcements targeting the specific userRole
-        // Exclude "ALL" from this query if userRole is not "ALL" to avoid redundant results if already fetched
-        if (userRole != null && !"ALL".equalsIgnoreCase(userRole)) { // Added null check for userRole
-            // Map frontend role names to backend expectations if necessary
-            String searchRole = userRole.toUpperCase();
-            if ("STUDENT".equals(searchRole)) searchRole = "STUDENTS";
-            
-            logger.info("Executing Query 2 for specific userRole (normalized): {}", searchRole);
-            Query queryRole = firestore
-                    .collection("Institutions")
-                    .document(institutionId)
-                    .collection("announcements")
-                    .whereEqualTo("status", "PUBLISHED")
-                    .whereArrayContains("targetAudience", searchRole)
-                    .orderBy("isPinned", Query.Direction.DESCENDING)
-                    .orderBy("createdAt", Query.Direction.DESCENDING);
+        final String finalSearchRole = (userRole != null) ? userRole.trim() : "";
+        final String finalDeptId = (departmentId != null) ? departmentId.trim() : "";
+        final String finalProg = (programme != null) ? programme.trim() : "";
 
-            ApiFuture<QuerySnapshot> futureRole = queryRole.get();
-            List<QueryDocumentSnapshot> docsRole = futureRole.get().getDocuments();
-            logger.info("Query 2 (targetAudience: {}) returned {} documents.", searchRole, docsRole.size());
-            for (QueryDocumentSnapshot document : docsRole) {
-                Announcement announcement = document.toObject(Announcement.class);
-                uniqueAnnouncements.put(announcement.getId(), announcement); // put will replace if already exists
-            }
-            logger.info("After Query 2, uniqueAnnouncements size: {}", uniqueAnnouncements.size());
-        }
-        
-        announcements.addAll(uniqueAnnouncements.values());
-        logger.info("Combined announcements list size before department filter: {}", announcements.size());
+        List<Announcement> filteredAnnouncements = documents.stream()
+                .map(doc -> doc.toObject(Announcement.class))
+                .filter(Objects::nonNull)
+                .filter(announcement -> {
+                    // 1. Status Check
+                    if (!"PUBLISHED".equalsIgnoreCase(announcement.getStatus())) {
+                        return false;
+                    }
 
-        // Apply in-memory filtering for departmentId or programme if provided
-        if ((departmentId != null && !departmentId.isEmpty()) || (programme != null && !programme.isEmpty())) {
-            logger.info("Applying in-memory filter for departmentId: {} or programme: {}", departmentId, programme);
-            List<Announcement> filteredByDepartment = announcements.stream()
-                    .filter(announcement -> {
-                        List<String> targetDepts = announcement.getTargetDepartments();
-                        // If no departments are targeted, it's for everyone
-                        if (targetDepts == null || targetDepts.isEmpty() || targetDepts.contains("ALL")) {
-                            return true;
-                        }
+                    // 2. Audience Check (Role-based)
+                    List<String> audience = announcement.getTargetAudience();
+                    if (audience == null || audience.isEmpty()) {
+                        logger.debug("Announcement '{}' has no target audience, skipping.", announcement.getTitle());
+                        return false;
+                    }
+                    
+                    boolean roleMatch = audience.stream().anyMatch(a -> {
+                        if ("ALL".equalsIgnoreCase(a)) return true;
+                        if (finalSearchRole.isEmpty()) return false;
+                        if (a.equalsIgnoreCase(finalSearchRole)) return true;
                         
-                        boolean matchesDeptId = (departmentId != null && targetDepts.contains(departmentId));
-                        boolean matchesProgramme = (programme != null && targetDepts.contains(programme));
+                        // Handle student/students variation
+                        if (a.equalsIgnoreCase("STUDENT") && finalSearchRole.equalsIgnoreCase("STUDENTS")) return true;
+                        if (a.equalsIgnoreCase("STUDENTS") && finalSearchRole.equalsIgnoreCase("STUDENT")) return true;
                         
-                        boolean matches = matchesDeptId || matchesProgramme;
-                        
-                        logger.debug("Announcement '{}' (targetDepts: {}) matches: {}",
-                                announcement.getTitle(), targetDepts, matches);
-                        return matches;
-                    })
-                    .collect(Collectors.toList());
-            logger.info("After filter, list size: {}", filteredByDepartment.size());
-            return filteredByDepartment;
-        }
+                        return false;
+                    });
+                    
+                    if (!roleMatch) {
+                        logger.debug("Announcement '{}' audience {} does not match user role '{}'", 
+                                announcement.getTitle(), audience, finalSearchRole);
+                        return false;
+                    }
 
-        logger.info("Final announcements list size: {}", announcements.size());
-        return announcements;
+                    // 3. Department/Programme Check
+                    List<String> targetDepts = announcement.getTargetDepartments();
+                    // If no departments are targeted or "ALL" is specified, it's for everyone in that role
+                    if (targetDepts == null || targetDepts.isEmpty() || 
+                        targetDepts.stream().anyMatch(d -> "ALL".equalsIgnoreCase(d))) {
+                        return true;
+                    }
+
+                    boolean matchesDeptId = (!finalDeptId.isEmpty() && 
+                        targetDepts.stream().anyMatch(d -> d.equalsIgnoreCase(finalDeptId)));
+                    boolean matchesProgramme = (!finalProg.isEmpty() && 
+                        targetDepts.stream().anyMatch(p -> p.equalsIgnoreCase(finalProg)));
+                    
+                    boolean deptMatch = matchesDeptId || matchesProgramme;
+                    
+                    if (!deptMatch) {
+                        logger.debug("Announcement '{}' targetDepts {} does not match user DeptId '{}' or Programme '{}'", 
+                                announcement.getTitle(), targetDepts, finalDeptId, finalProg);
+                    }
+                    
+                    return deptMatch;
+                })
+                .sorted((a1, a2) -> {
+                    // Sort by pinned first, then by createdAt descending
+                    if (a1.isPinned() && !a2.isPinned()) return -1;
+                    if (!a1.isPinned() && a2.isPinned()) return 1;
+                    return Long.compare(a2.getCreatedAt(), a1.getCreatedAt());
+                })
+                .collect(Collectors.toList());
+
+        logger.info("Returning {} filtered announcements for audience", filteredAnnouncements.size());
+        return filteredAnnouncements;
     }
 }
