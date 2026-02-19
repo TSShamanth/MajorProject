@@ -506,6 +506,9 @@ class _FeeManagementDashboardScreenState
                               children: [
                                 Text('₹${fee.balanceAmount.toStringAsFixed(0)} Due', 
                                     style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                                if (fee.fineAmount > 0)
+                                  Text('Fine: ₹${fee.fineAmount.toStringAsFixed(0)}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 10)),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),

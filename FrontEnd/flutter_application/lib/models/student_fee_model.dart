@@ -17,6 +17,7 @@ class StudentFee {
   final DateTime? dueDate;
   final DateTime? createdAt;
   final String? facultyRemarks;
+  final DateTime? lastFineAppliedDate;
 
   StudentFee({
     required this.id,
@@ -35,6 +36,7 @@ class StudentFee {
     this.dueDate,
     this.createdAt,
     this.facultyRemarks,
+    this.lastFineAppliedDate,
   });
 
   factory StudentFee.fromJson(Map<String, dynamic> json) {
@@ -58,6 +60,7 @@ class StudentFee {
       dueDate: json['dueDate'] != null ? _parseDate(json['dueDate']) : null,
       createdAt: json['createdAt'] != null ? _parseDate(json['createdAt']) : null,
       facultyRemarks: json['facultyRemarks'],
+      lastFineAppliedDate: json['lastFineAppliedDate'] != null ? _parseDate(json['lastFineAppliedDate']) : null,
     );
   }
 
@@ -65,6 +68,10 @@ class StudentFee {
     if (date == null) return null;
     if (date is String) return DateTime.parse(date);
     if (date is int) return DateTime.fromMillisecondsSinceEpoch(date);
+    // Handle Firestore Timestamp
+    if (date is Map && date.containsKey('_seconds')) {
+      return DateTime.fromMillisecondsSinceEpoch(date['_seconds'] * 1000);
+    }
     return null;
   }
 
@@ -86,6 +93,7 @@ class StudentFee {
       'dueDate': dueDate?.toIso8601String(),
       'createdAt': createdAt?.toIso8601String(),
       'facultyRemarks': facultyRemarks,
+      'lastFineAppliedDate': lastFineAppliedDate?.toIso8601String(),
     };
   }
 }

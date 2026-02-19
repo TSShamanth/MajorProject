@@ -73,6 +73,7 @@ class _StudentFeeDetailScreenState extends State<StudentFeeDetailScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildStatColumn('Total Amount', '₹${NumberFormat.decimalPattern().format(widget.fee.totalAmount)}'),
+                _buildStatColumn('Fine Applied', '₹${NumberFormat.decimalPattern().format(widget.fee.fineAmount)}', color: Colors.orange),
                 _buildStatColumn('Amount Paid', '₹${NumberFormat.decimalPattern().format(widget.fee.paidAmount)}', color: Colors.green),
                 _buildStatColumn('Balance Due', '₹${NumberFormat.decimalPattern().format(widget.fee.balanceAmount)}', color: Colors.red),
               ],

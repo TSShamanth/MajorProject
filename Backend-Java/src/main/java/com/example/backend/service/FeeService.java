@@ -17,10 +17,15 @@ import com.google.cloud.firestore.QuerySnapshot;
 import com.google.cloud.firestore.SetOptions;
 import com.google.cloud.firestore.Transaction;
 import com.google.cloud.firestore.WriteBatch;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -379,5 +384,49 @@ public class FeeService {
             reportData.add(dto);
         }
         return reportData;
+    }
+
+    @Scheduled(cron = "0 0 1 * * ?") // Runs every day at 1:00 AM
+    public void applyDailyFines() throws ExecutionException, InterruptedException {
+        // This is a simplified implementation. A real-world scenario would fetch all institutions
+        // and loop through them. For now, it assumes a single institution context or would need
+        // a mechanism to get all institution IDs.
+        // This is a placeholder and should be adapted for a multi-institution setup.
+        
+        // As a simple solution, we'll fetch all StudentFee documents across all institutions.
+        // This is inefficient but works for a demonstration.
+        Query query = firestore.collectionGroup("studentFees")
+            .whereIn("status", Arrays.asList("UNPAID", "PARTIAL"));
+        
+        ApiFuture<QuerySnapshot> future = query.get();
+        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+        
+        WriteBatch batch = firestore.batch();
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        final double FINE_AMOUNT = 1000.0;
+
+        for (QueryDocumentSnapshot doc : documents) {
+            StudentFee fee = doc.toObject(StudentFee.class);
+            
+            if (fee.getDueDate() == null || fee.getDueDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isAfter(today)) {
+                continue; // Not overdue
+            }
+
+            LocalDate lastFineDate = fee.getLastFineAppliedDate() != null
+                ? fee.getLastFineAppliedDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+                : null;
+            
+            if (lastFineDate != null && !lastFineDate.isBefore(today)) {
+                continue; // Fine for today already applied
+            }
+
+            fee.setFineAmount(fee.getFineAmount() + FINE_AMOUNT);
+            fee.setBalanceAmount(fee.getBalanceAmount() + FINE_AMOUNT);
+            fee.setLastFineAppliedDate(Date.from(today.atStartOfDay(ZoneId.systemDefault()).toInstant()));
+            
+            batch.set(doc.getReference(), fee);
+        }
+
+        batch.commit().get();
     }
 }

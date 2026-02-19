@@ -20,11 +20,12 @@ public class StudentFee {
     private Date dueDate;
     private Date createdAt;
     private String facultyRemarks;
+    private Date lastFineAppliedDate;
 
     public StudentFee() {
     }
 
-    public StudentFee(String id, String studentId, String studentName, String usn, String institutionId, String feeStructureId, String feeStructureTitle, List<FeeComponent> components, double totalAmount, double paidAmount, double balanceAmount, double fineAmount, String status, Date dueDate, Date createdAt, String facultyRemarks) {
+    public StudentFee(String id, String studentId, String studentName, String usn, String institutionId, String feeStructureId, String feeStructureTitle, List<FeeComponent> components, double totalAmount, double paidAmount, double balanceAmount, double fineAmount, String status, Date dueDate, Date createdAt, String facultyRemarks, Date lastFineAppliedDate) {
         this.id = id;
         this.studentId = studentId;
         this.studentName = studentName;
@@ -41,6 +42,7 @@ public class StudentFee {
         this.dueDate = dueDate;
         this.createdAt = createdAt;
         this.facultyRemarks = facultyRemarks;
+        this.lastFineAppliedDate = lastFineAppliedDate;
     }
 
     public String getId() {
@@ -169,5 +171,13 @@ public class StudentFee {
 
     public void setFacultyRemarks(String facultyRemarks) {
         this.facultyRemarks = facultyRemarks;
+    }
+
+    public Date getLastFineAppliedDate() {
+        return lastFineAppliedDate;
+    }
+
+    public void setLastFineAppliedDate(Date lastFineAppliedDate) {
+        this.lastFineAppliedDate = lastFineAppliedDate;
     }
 }
