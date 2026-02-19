@@ -4,7 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/session_manager.dart';
+import '../services/api_service.dart';
 import 'dart:math' as math;
+import '../models/notification_model.dart';
 
 class StudentDashboardScreen extends StatefulWidget {
   const StudentDashboardScreen({super.key});
@@ -24,6 +26,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   bool _isSidebarCollapsed = false;
   // bool _isMobileSidebarOpen = false;
   final TextEditingController _searchController = TextEditingController();
+  int _notificationCount = 0;
 
   @override
   void initState() {
@@ -49,6 +52,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
     ));
     _animationController.forward();
     _cardAnimationController.forward();
+    _fetchNotificationCount();
   }
 
   @override
@@ -66,6 +70,18 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
 
   String _getInstitutionId() {
     return GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId'] ?? '';
+  }
+
+  Future<void> _fetchNotificationCount() async {
+    try {
+      final notifications = await ApiService().getNotifications();
+      if (!mounted) return;
+      setState(() {
+        _notificationCount = notifications.where((n) => !n.read).length;
+      });
+    } catch (e) {
+      // ignore errors
+    }
   }
 
   void _navigateToRoute(String label) {
@@ -87,6 +103,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       'Assignments': '/$institutionId/student/assignments',
       'Assignments & Tasks': '/$institutionId/student/assignments',
       'Announcements': '/$institutionId/announcements',
+      'Notifications': '/$institutionId/notifications',
       'Messages': '/$institutionId/student/messages',
       'Library': '/$institutionId/student/library',
       'Canteen': '/$institutionId/student/canteen',
@@ -98,6 +115,12 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       'Settings': '/$institutionId/student/settings',
     };
     if (routes.containsKey(label)) {
+      // when opening notifications, clear the badge immediately
+      if (label == 'Notifications') {
+        setState(() {
+          _notificationCount = 0;
+        });
+      }
       context.push(routes[label]!);
     }
   }
@@ -502,22 +525,30 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
                 ),
                 child: IconButton(
                   icon: Icon(Icons.notifications_outlined, color: _textPrimary, size: 18),
-                  onPressed: () => _navigateToRoute('Announcements'),
+                  onPressed: () => _navigateToRoute('Notifications'),
                   padding: EdgeInsets.zero,
                 ),
               ),
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  width: 7,
-                  height: 7,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEF4444),
-                    shape: BoxShape.circle,
+              if (_notificationCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$_notificationCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           

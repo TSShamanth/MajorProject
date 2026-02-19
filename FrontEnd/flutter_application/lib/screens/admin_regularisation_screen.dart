@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application/models/regularisation_request_model.dart';
 import 'package:flutter_application/services/api_service.dart';
+import 'package:flutter_application/services/session_manager.dart';
 import 'package:go_router/go_router.dart';
 
 class AdminRegularisationScreen extends StatefulWidget {
@@ -13,20 +14,42 @@ class AdminRegularisationScreen extends StatefulWidget {
 class _AdminRegularisationScreenState extends State<AdminRegularisationScreen> {
   final ApiService _apiService = ApiService();
   late Future<List<RegularisationRequest>> _pendingRequests;
+  String? _institutionId; // cache the institution identifier
+  bool _isProcessing = false; // disable buttons while an operation is in progress
 
   @override
   void initState() {
     super.initState();
-    _loadPendingRequests();
+    // grab the institutionId once and store it; this avoids querying the router every time
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final id = GoRouter.of(context)
+          .routerDelegate
+          .currentConfiguration
+          .pathParameters['institutionId'];
+      setState(() {
+        _institutionId = id;
+      });
+      _loadPendingRequests();
+    });
   }
 
-  void _loadPendingRequests() {
-    final institutionId = GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId'];
-    if (institutionId != null) {
+  void _loadPendingRequests() async {
+    String? institutionId = _institutionId ?? GoRouter.of(context)
+        .routerDelegate
+        .currentConfiguration
+        .pathParameters['institutionId'];
+    if ((institutionId == null || institutionId.isEmpty)) {
+      // try session manager as a last resort
+      institutionId = await SessionManager.getInstitutionId();
+    }
+    if (institutionId != null && institutionId.isNotEmpty) {
+      final String id = institutionId;
       setState(() {
-        _pendingRequests = _apiService.getPendingRegularisationRequests(institutionId);
+        _institutionId = id;
+        _pendingRequests = _apiService.getPendingRegularisationRequests(id);
       });
     } else {
+      // if for some reason we don't have an institution id, avoid throwing
       setState(() {
         _pendingRequests = Future.value([]);
       });
@@ -34,34 +57,68 @@ class _AdminRegularisationScreenState extends State<AdminRegularisationScreen> {
   }
 
   Future<void> _approveRequest(String requestId) async {
+    if (_isProcessing) return;
+    setState(() {
+      _isProcessing = true;
+    });
     try {
-      final institutionId = GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId'];
-      if (institutionId == null) {
+      final institutionId = _institutionId ?? GoRouter.of(context)
+          .routerDelegate
+          .currentConfiguration
+          .pathParameters['institutionId'];
+      if (institutionId == null || institutionId.isEmpty) {
         throw Exception("Institution ID not found");
       }
       await _apiService.approveRegularisationRequest(institutionId, requestId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Request approved successfully'), backgroundColor: Colors.green),
+      );
       _loadPendingRequests();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to approve request: $e')),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
     }
   }
 
   Future<void> _denyRequest(String requestId) async {
+    if (_isProcessing) return;
+    setState(() {
+      _isProcessing = true;
+    });
     try {
-      final institutionId = GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId'];
-      if (institutionId == null) {
+      final institutionId = _institutionId ?? GoRouter.of(context)
+          .routerDelegate
+          .currentConfiguration
+          .pathParameters['institutionId'];
+      if (institutionId == null || institutionId.isEmpty) {
         throw Exception("Institution ID not found");
       }
       await _apiService.denyRegularisationRequest(institutionId, requestId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Request denied'), backgroundColor: Colors.orange),
+      );
       _loadPendingRequests();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to deny request: $e')),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
     }
   }
 
@@ -106,12 +163,12 @@ class _AdminRegularisationScreenState extends State<AdminRegularisationScreen> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           TextButton(
-                            onPressed: () => _denyRequest(request.id),
+                            onPressed: _isProcessing ? null : () => _denyRequest(request.id),
                             child: const Text('Deny'),
                           ),
                           const SizedBox(width: 10),
                           ElevatedButton(
-                            onPressed: () => _approveRequest(request.id),
+                            onPressed: _isProcessing ? null : () => _approveRequest(request.id),
                             child: const Text('Approve'),
                           ),
                         ],

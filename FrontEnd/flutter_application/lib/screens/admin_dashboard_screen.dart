@@ -45,6 +45,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   int _studentCount = 0;
   int _facultyCount = 0;
   int _adminCount = 0;
+  int _notificationCount = 0;
   bool _sidebarExpanded = true;
   bool _isDarkMode = false;
   late AnimationController _animationController;
@@ -74,6 +75,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
         _fetchUsersAndCounts();
         _fetchDepartments(); // Fetch departments when institutionId is available
         _fetchCurrentUserAndAnnouncements(); // Fetch user profile and then announcements
+        _fetchNotificationCount(); // grab badge count
       }
     });
   }
@@ -187,6 +189,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       });
     }
   }
+  Future<void> _fetchNotificationCount() async {
+    if (_institutionId == null) return;
+    try {
+      final list = await _apiService.getNotifications();
+      setState(() {
+        _notificationCount = list.where((n) => !n.read).length;
+      });
+    } catch (e) {
+      debugPrint('Error fetching notifications: $e');
+    }
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -784,9 +798,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
               });
             },
           ),
-          IconButton(
-            icon: Icon(Icons.notifications_rounded, color: _textPrimary),
-            onPressed: () {},
+          // Notifications with badge
+          Stack(
+            children: [
+              IconButton(
+                icon: Icon(Icons.notifications_rounded, color: _textPrimary),
+                onPressed: () {
+                  if (_institutionId != null) {
+                    context.push('/$_institutionId/notifications');
+                    setState(() {
+                      _notificationCount = 0;
+                    });
+                  }
+                },
+              ),
+              if (_notificationCount > 0)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$_notificationCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -1159,21 +1205,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                 ),
                 child: IconButton(
                   icon: Icon(Icons.notifications_rounded, color: _textPrimary, size: 24),
-                  onPressed: () {},
+                  onPressed: () {
+                    if (_institutionId != null) {
+                      context.push('/$_institutionId/notifications');
+                      setState(() {
+                        _notificationCount = 0;
+                      });
+                    }
+                  },
                 ),
               ),
-              Positioned(
-                right: 12,
-                top: 12,
-                child: Container(
-                  width: 9,
-                  height: 9,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEF4444),
-                    shape: BoxShape.circle,
+              if (_notificationCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$_notificationCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(width: 20),

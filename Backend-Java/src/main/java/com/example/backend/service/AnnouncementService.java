@@ -1,6 +1,9 @@
 package com.example.backend.service;
 
 import com.example.backend.models.Announcement;
+import com.example.backend.service.UserService;
+import com.example.backend.service.NotificationService;
+import com.example.backend.models.Notification;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteResult;
@@ -25,10 +28,14 @@ import org.slf4j.LoggerFactory;
 public class AnnouncementService {
 
     private final Firestore firestore;
+    private final UserService userService;
+    private final NotificationService notificationService;
     private static final Logger logger = LoggerFactory.getLogger(AnnouncementService.class);
 
-    public AnnouncementService(Firestore firestore) {
+    public AnnouncementService(Firestore firestore, UserService userService, NotificationService notificationService) {
         this.firestore = firestore;
+        this.userService = userService;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -54,6 +61,16 @@ public class AnnouncementService {
                 .document(announcementId)
                 .set(announcement);
         future.get();
+
+        // after storing announcement send notifications if it is published
+        if (announcement.getStatus() != null && announcement.getStatus().equalsIgnoreCase("PUBLISHED")) {
+            try {
+                sendAnnouncementNotifications(announcement, institutionId);
+            } catch (Exception e) {
+                logger.error("Failed to create notifications for announcement {}: {}", announcementId, e.getMessage());
+            }
+        }
+
         return announcement;
     }
 
@@ -176,6 +193,17 @@ public class AnnouncementService {
                 .document(announcementId)
                 .set(announcement);
         future.get();
+
+        // if status changed from draft to published, send notifications
+        if (existing.getStatus() != null && existing.getStatus().equalsIgnoreCase("DRAFT")
+                && announcement.getStatus() != null && announcement.getStatus().equalsIgnoreCase("PUBLISHED")) {
+            try {
+                sendAnnouncementNotifications(announcement, institutionId);
+            } catch (Exception e) {
+                logger.error("Notification send failed on update publish: {}", e.getMessage());
+            }
+        }
+
         return announcement;
     }
 
@@ -389,5 +417,79 @@ public class AnnouncementService {
 
         logger.info("Returning {} filtered announcements for audience", filteredAnnouncements.size());
         return filteredAnnouncements;
+    }
+
+    /**
+     * Send notifications to all users who match the announcement's audience and department/programme filters.
+     */
+    private void sendAnnouncementNotifications(Announcement announcement, String institutionId)
+            throws ExecutionException, InterruptedException {
+        List<String> audience = announcement.getTargetAudience();
+        List<String> targetDepts = announcement.getTargetDepartments();
+        if (audience == null || audience.isEmpty()) {
+            // nothing to send
+            return;
+        }
+
+        // collect unique userIds
+        java.util.Set<String> userIds = new java.util.HashSet<>();
+        boolean allRoles = audience.stream().anyMatch(a -> "ALL".equalsIgnoreCase(a));
+
+        if (allRoles) {
+            // fetch all users
+            List<com.example.backend.models.User> allUsers = userService.getUsers(institutionId, null);
+            for (com.example.backend.models.User u : allUsers) {
+                if (matchesDepartmentFilter(u, targetDepts)) {
+                    userIds.add(u.getUid());
+                }
+            }
+        } else {
+            for (String role : audience) {
+                String normalized = role.trim().toLowerCase();
+                // strip plural s if present (student -> student, students -> student)
+                if (normalized.endsWith("s")) {
+                    normalized = normalized.substring(0, normalized.length() - 1);
+                }
+                List<com.example.backend.models.User> users = userService.getUsers(institutionId, normalized);
+                for (com.example.backend.models.User u : users) {
+                    if (matchesDepartmentFilter(u, targetDepts)) {
+                        userIds.add(u.getUid());
+                    }
+                }
+            }
+        }
+
+        // create notification object once and send for each user id
+        for (String uid : userIds) {
+            Notification notif = new Notification();
+            notif.setTitle("New Announcement");
+            notif.setMessage(announcement.getTitle());
+            // route pushed from client will prefix institutionId automatically
+            notif.setRoute("/announcements/" + announcement.getId());
+            try {
+                notificationService.createNotification(institutionId, uid, notif);
+            } catch (Exception e) {
+                logger.error("Error creating announcement notification for user {}: {}", uid, e.getMessage());
+            }
+        }
+    }
+
+    private boolean matchesDepartmentFilter(com.example.backend.models.User user, List<String> targetDepts) {
+        if (targetDepts == null || targetDepts.isEmpty()) {
+            return true; // no department restriction
+        }
+        // if 'ALL' present, matches everyone
+        if (targetDepts.stream().anyMatch(d -> "ALL".equalsIgnoreCase(d))) {
+            return true;
+        }
+        String userDept = user.getDepartmentId();
+        String userProg = user.getProgramme();
+        for (String t : targetDepts) {
+            if (t == null) continue;
+            if (t.equalsIgnoreCase(userDept) || t.equalsIgnoreCase(userProg)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

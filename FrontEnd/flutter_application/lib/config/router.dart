@@ -61,6 +61,7 @@ import '../screens/exam_hall_tickets_screen.dart';
 import '../screens/hall_ticket_viewer_screen.dart';
 import '../screens/student/student_leave_screen.dart';
 import '../screens/student/leave_history_screen.dart';
+import '../screens/notifications_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -333,6 +334,10 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/student/leave/history',
       builder: (context, state) => const LeaveHistoryScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/notifications',
+      builder: (context, state) => const NotificationsScreen(),
     ),
     GoRoute(
       path: '/:institutionId/faculty/timetable/:examId',

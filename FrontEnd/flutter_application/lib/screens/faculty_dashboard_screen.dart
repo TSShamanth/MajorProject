@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/auth_service.dart';
 import '../services/session_manager.dart';
+import '../models/notification_model.dart';
 
 class FacultyDashboardScreen extends StatefulWidget {
   const FacultyDashboardScreen({super.key});
@@ -20,6 +21,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
   bool _isClockingIn = false;
   final ApiService _apiService = ApiService();
   String? _institutionId;
+  int _notificationCount = 0;
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
         _currentUser = user;
         _isLoadingUser = false;
       });
+      _fetchNotificationCount();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -126,6 +129,18 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
       if(mounted) {
         setState(() { _isClockingIn = false; });
       }
+    }
+  }
+
+  Future<void> _fetchNotificationCount() async {
+    try {
+      final list = await _apiService.getNotifications();
+      if (!mounted) return;
+      setState(() {
+        _notificationCount = list.where((n) => !n.read).length;
+      });
+    } catch (e) {
+      // ignore
     }
   }
 
@@ -378,22 +393,28 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.notifications_outlined, color: Color(0xFF6B7280), size: 22),
-                            onPressed: () {},
+                            onPressed: () {
+                              if (_institutionId != null) {
+                                context.push('/$_institutionId/notifications');
+                                setState(() {
+                                  _notificationCount = 0;
+                                });
+                              }
+                            },
                           ),
-                          Positioned(
-                            top: 6,
-                            right: 6,
-                            child: Container(
-                              width: 18,
-                              height: 18,
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Center(
+                          if (_notificationCount > 0)
+                            Positioned(
+                              top: 6,
+                              right: 6,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
                                 child: Text(
-                                  '5',
-                                  style: TextStyle(
+                                  '$_notificationCount',
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 9,
                                     fontWeight: FontWeight.bold,
@@ -401,7 +422,6 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                                 ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                       const SizedBox(width: 12),

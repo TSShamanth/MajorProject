@@ -11,6 +11,7 @@ import '../models/institution.dart';
 import '../models/leave_application_model.dart';
 import '../models/user_model.dart';
 import '../models/professor_model.dart';
+import '../models/notification_model.dart';
 import '../models/section_model.dart';
 import '../models/department_model.dart';
 import '../models/attendance_log_model.dart';
@@ -309,6 +310,57 @@ class ApiService {
       return data.map((json) => LeaveApplication.fromJson(json)).toList();
     } else {
       throw Exception('Failed to load leave history: ${response.body}');
+    }
+  }
+
+  /* -------------------- Notifications -------------------- */
+
+  Future<List<NotificationModel>> getNotifications() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    final institutionId = await SessionManager.getInstitutionId();
+    if (institutionId == null) throw Exception('Institution ID not found');
+
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/notifications/me');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => NotificationModel.fromJson(json as Map<String, dynamic>)).toList();
+    } else {
+      throw Exception('Failed to load notifications: ${response.body}');
+    }
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    final institutionId = await SessionManager.getInstitutionId();
+    if (institutionId == null) throw Exception('Institution ID not found');
+
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/notifications/me/$notificationId/read');
+
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to mark notification read: ${response.body}');
     }
   }
 

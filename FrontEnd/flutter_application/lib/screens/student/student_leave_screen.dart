@@ -14,7 +14,7 @@ class StudentLeaveScreen extends StatefulWidget {
   State<StudentLeaveScreen> createState() => _StudentLeaveScreenState();
 }
 
-class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
+class _StudentLeaveScreenState extends State<StudentLeaveScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final ApiService _apiService = ApiService();
 
@@ -28,11 +28,78 @@ class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
   Future<List<String>>? _leaveTypesFuture;
   Future<List<ProfessorDto>>? _professorsFuture;
   Future<List<LeaveApplication>>? _leaveHistoryFuture;
+  late TabController _tabController;
+  String _sortOption = 'Newest';
 
   @override
   void initState() {
     super.initState();
     _fetchInitialData();
+    _tabController = TabController(length: 4, vsync: this);
+  }
+
+  Widget _buildLeaveList(List<LeaveApplication> leaves) {
+    if (leaves.isEmpty) {
+      return const Center(child: Text('No leaves in this category.'));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 0.0, vertical: 8.0),
+      itemCount: leaves.length,
+      itemBuilder: (context, index) {
+        final leave = leaves[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 8.0),
+          elevation: 2.0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      leave.leaveType,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16.0,
+                      ),
+                    ),
+                    Chip(
+                      label: Text(
+                        leave.status,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      backgroundColor: _getStatusColor(leave.status),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8.0),
+                Text(
+                  '${DateFormat.yMMMd().format(leave.startDate)} - ${DateFormat.yMMMd().format(leave.endDate)}',
+                  style: const TextStyle(
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 8.0),
+                Text(leave.reason),
+                const SizedBox(height: 8.0),
+                Row(
+                  children: [
+                    const Icon(Icons.person, size: 16.0, color: Colors.grey),
+                    const SizedBox(width: 4.0),
+                    Text('Professor: ${leave.professor}'),
+                  ],
+                )
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _fetchInitialData() {
@@ -145,6 +212,7 @@ class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     _reasonController.dispose();
     super.dispose();
   }
@@ -372,59 +440,102 @@ class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
           children: [
             Text(
               'Leave History',
-              style: Theme.of(context).textTheme.headlineMedium!.copyWith(fontWeight: FontWeight.bold), // Improved heading style
+              style: Theme.of(context).textTheme.headlineMedium!.copyWith(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 24), // Increased spacing
-            FutureBuilder<List<LeaveApplication>>(
-              future: _leaveHistoryFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('No leave history found.'));
-                }
-
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: snapshot.data!.length,
-                  itemBuilder: (context, index) {
-                    final leave = snapshot.data![index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), // Rounded corners for history cards
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0), // Increased padding
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${leave.leaveType} - ${leave.status}',
-                              style: Theme.of(context).textTheme.titleLarge!.copyWith( // Improved text style
-                                color: _getStatusColor(leave.status),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8), // Increased spacing
-                            _buildInfoRow('Applied On:', DateFormat('dd/MM/yyyy').format(leave.createdAt ?? DateTime.now())), // Added "Applied On"
-                            _buildInfoRow('Dates:', '${DateFormat('dd/MM/yyyy').format(leave.startDate)} to ${DateFormat('dd/MM/yyyy').format(leave.endDate)}'),
-                            _buildInfoRow('Reason:', leave.reason),
-                            _buildInfoRow('Professor:', leave.professor),
-                          ],
-                        ),
-                      ),
-                    );
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: TabBar(
+                    controller: _tabController,
+                    isScrollable: true,
+                    tabs: const [
+                      Tab(text: 'All'),
+                      Tab(text: 'Pending'),
+                      Tab(text: 'Approved'),
+                      Tab(text: 'Rejected'),
+                    ],
+                    labelColor: const Color(0xFF4F46E5),
+                    unselectedLabelColor: const Color(0xFF64748B),
+                    indicator: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12.0),
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                DropdownButton<String>(
+                  value: _sortOption,
+                  items: const [
+                    DropdownMenuItem(value: 'Newest', child: Text('Newest')),
+                    DropdownMenuItem(value: 'Oldest', child: Text('Oldest')),
+                    DropdownMenuItem(value: 'Leave Type', child: Text('Leave Type')),
+                  ],
+                  onChanged: (v) {
+                    if (v == null) return;
+                    setState(() {
+                      _sortOption = v;
+                    });
                   },
-                );
-              },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 400,
+              child: FutureBuilder<List<LeaveApplication>>(
+                future: _leaveHistoryFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text('No leave history found.'));
+                  }
+
+                  final all = List<LeaveApplication>.from(snapshot.data!);
+                  final pending = all.where((l) => l.status.toLowerCase() == 'pending').toList();
+                  final approved = all.where((l) => l.status.toLowerCase() == 'approved').toList();
+                  final rejected = all.where((l) => l.status.toLowerCase() == 'rejected').toList();
+                  _applySort(all);
+                  _applySort(pending);
+                  _applySort(approved);
+                  _applySort(rejected);
+
+                  return TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildLeaveList(all),
+                      _buildLeaveList(pending),
+                      _buildLeaveList(approved),
+                      _buildLeaveList(rejected),
+                    ],
+                  );
+                },
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _applySort(List<LeaveApplication> leaves) {
+    switch (_sortOption) {
+      case 'Newest':
+        leaves.sort((a, b) => (b.createdAt ?? DateTime.now()).compareTo(a.createdAt ?? DateTime.now()));
+        break;
+      case 'Oldest':
+        leaves.sort((a, b) => (a.createdAt ?? DateTime.now()).compareTo(b.createdAt ?? DateTime.now()));
+        break;
+      case 'Leave Type':
+        leaves.sort((a, b) => a.leaveType.compareTo(b.leaveType));
+        break;
+      default:
+        break;
+    }
   }
 
   Widget _buildInfoRow(String label, String value) {

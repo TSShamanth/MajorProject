@@ -3,11 +3,15 @@ package com.example.backend.service;
 import com.example.backend.dto.RegularisationRequestDTO;
 import com.example.backend.models.AttendanceLog;
 import com.example.backend.models.RegularisationRequest;
+import com.example.backend.models.Notification;
+import com.example.backend.models.User;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.text.ParseException;
 import java.util.ArrayList;
@@ -21,9 +25,14 @@ import java.util.concurrent.ExecutionException;
 public class RegularisationService {
 
     private final Firestore firestore;
+    private final NotificationService notificationService;
+    private final UserService userService;
+    private static final Logger logger = LoggerFactory.getLogger(RegularisationService.class);
 
-    public RegularisationService(Firestore firestore) {
+    public RegularisationService(Firestore firestore, NotificationService notificationService, UserService userService) {
         this.firestore = firestore;
+        this.notificationService = notificationService;
+        this.userService = userService;
     }
 
     public RegularisationRequest createRegularisationRequest(String institutionId, String facultyId, RegularisationRequestDTO requestDTO) throws ExecutionException, InterruptedException {
@@ -44,6 +53,23 @@ public class RegularisationService {
 
         firestore.collection("Institutions").document(institutionId)
                 .collection("regularisation_requests").document(requestId).set(request).get();
+
+        // Notify Admins
+        try {
+            User faculty = userService.getUserById(institutionId, facultyId);
+            String facultyName = (faculty != null) ? faculty.getDisplayName() : "A faculty member";
+            
+            List<User> admins = userService.getUsers(institutionId, "admin");
+            for (User admin : admins) {
+                Notification notif = new Notification();
+                notif.setTitle("New Regularisation Request");
+                notif.setMessage(facultyName + " has submitted a new regularisation request.");
+                notif.setRoute("/admin/regularisation");
+                notificationService.createNotification(institutionId, admin.getUid(), notif);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to send regularisation request notifications to admins: {}", e.getMessage());
+        }
 
         return request;
     }
@@ -161,6 +187,18 @@ public class RegularisationService {
         }
 
         requestRef.set(request).get();
+
+        // Notify Faculty
+        try {
+            Notification notif = new Notification();
+            notif.setTitle("Regularisation Request Approved");
+            notif.setMessage("Your regularisation request for " + request.getTargetDate() + " has been approved.");
+            notif.setRoute("/faculty/regularisation/status");
+            notificationService.createNotification(institutionId, request.getFacultyId(), notif);
+        } catch (Exception e) {
+            logger.error("Failed to send regularisation approval notification to faculty {}: {}", request.getFacultyId(), e.getMessage());
+        }
+
         return request;
     }
 
@@ -181,6 +219,18 @@ public class RegularisationService {
         request.setApprovedOn(new Date());
 
         requestRef.set(request).get();
+
+        // Notify Faculty
+        try {
+            Notification notif = new Notification();
+            notif.setTitle("Regularisation Request Denied");
+            notif.setMessage("Your regularisation request for " + request.getTargetDate() + " has been denied.");
+            notif.setRoute("/faculty/regularisation/status");
+            notificationService.createNotification(institutionId, request.getFacultyId(), notif);
+        } catch (Exception e) {
+            logger.error("Failed to send regularisation denial notification to faculty {}: {}", request.getFacultyId(), e.getMessage());
+        }
+
         return request;
     }
 
