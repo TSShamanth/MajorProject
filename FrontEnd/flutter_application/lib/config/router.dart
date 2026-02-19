@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application/models/fee_structure_model.dart';
 import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/models/announcement_model.dart';
 import 'package:flutter_application/screens/admin_attendance_dashboard.dart';
@@ -113,7 +114,10 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/:institutionId/admin/fee-structure-editor',
-      builder: (context, state) => const FeeStructureEditorScreen(),
+      builder: (context, state) {
+        final structure = state.extra as FeeStructure?;
+        return FeeStructureEditorScreen(feeStructure: structure);
+      },
     ),
     GoRoute(
       path: '/:institutionId/admin/exam-dashboard',
