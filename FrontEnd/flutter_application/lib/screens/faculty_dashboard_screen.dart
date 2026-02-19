@@ -137,6 +137,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
       {'icon': Icons.credit_card_outlined, 'label': 'Virtual ID', 'route': '/faculty/virtual-id'},
       {'icon': Icons.calendar_today_outlined, 'label': 'Timetable', 'route': '/faculty/timetable'},
       {'icon': Icons.group_outlined, 'label': 'Mentees', 'badge': '8', 'route': '/faculty/mentees'},
+      {'icon': Icons.payments_outlined, 'label': "Students' Fee Status", 'route': '/faculty/student-fees'},
       {'icon': Icons.description_outlined, 'label': 'Leave', 'route': '/faculty/leave'},
       {'icon': Icons.check_circle_outline, 'label': 'Approve Leaves', 'route': '/faculty/leave-approval'}, // NEW ITEM
       {'icon': Icons.attach_money, 'label': 'Payroll', 'route': '/faculty/payroll'},

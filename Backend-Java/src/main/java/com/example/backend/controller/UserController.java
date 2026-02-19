@@ -2,7 +2,7 @@ package com.example.backend.controller;
 
 import com.example.backend.models.User;
 import com.example.backend.service.UserService;
-import com.google.firebase.auth.FirebaseToken;
+// import com.google.firebase.auth.FirebaseToken; // Removed unnecessary import
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -28,8 +28,8 @@ public class UserController {
             return ResponseEntity.status(401).body("User not authenticated.");
         }
         
-        FirebaseToken firebaseToken = (FirebaseToken) authentication.getPrincipal();
-        String userId = firebaseToken.getUid();
+        // Principal is now the UID (String) as set by FirebaseTokenFilter
+        String userId = (String) authentication.getPrincipal(); 
         logger.info("UserController: /me endpoint called for user UID: {}", userId);
         
         try {

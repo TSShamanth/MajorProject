@@ -20,6 +20,7 @@ import '../models/exam_model.dart';
 import '../models/exam_schedule_entry.dart';
 import '../models/room_model.dart';
 import './session_manager.dart';
+import '../models/student_fee_model.dart';
 
 class ApiService {
   /* -------------------- Institutions -------------------- */
@@ -1253,5 +1254,29 @@ class ApiService {
       throw Exception('Failed to load hall ticket data: ${response.body}');
     }
   }
-}
 
+  // New method for faculty to get their students' fee status
+  Future<List<StudentFee>> getFacultyStudentFees(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/faculty/my-students-fees');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => StudentFee.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load student fees for faculty: ${response.body}');
+    }
+  }
+}

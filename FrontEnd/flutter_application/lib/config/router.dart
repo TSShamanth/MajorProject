@@ -8,10 +8,8 @@ import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/models/announcement_model.dart';
 import 'package:flutter_application/screens/admin_attendance_dashboard.dart';
 import 'package:flutter_application/screens/student_eligibility_screen.dart';
-import 'package:flutter_application/screens/student_shell.dart';
 import 'package:flutter_application/screens/user_list_screen.dart';
 import 'package:flutter_application/services/api_service.dart';
-// import 'package:flutter_application/services/session_manager.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/admin_dashboard_screen.dart';
 import '../screens/auth_wrapper.dart';
@@ -57,6 +55,7 @@ import '../screens/manage_announcements_screen.dart';
 import '../screens/faculty/virtual_id_screen.dart' as faculty_vid;
 import '../screens/faculty/profile_screen.dart' as faculty_profile;
 import '../screens/faculty/faculty_leave_approval_screen.dart';
+import '../screens/faculty/faculty_student_fee_status_screen.dart';
 import '../screens/room_management_screen.dart';
 import '../screens/room_editor_screen.dart';
 import '../screens/exam_timetable_viewer_screen.dart';
@@ -67,7 +66,8 @@ import '../screens/exam_hall_tickets_screen.dart';
 import '../screens/hall_ticket_viewer_screen.dart';
 import '../screens/student/student_leave_screen.dart';
 import '../screens/student/leave_history_screen.dart';
-import '../models/fee_structure_model.dart'; // Import FeeStructure model
+import '../screens/student_shell.dart';
+import '../models/fee_structure_model.dart';
 
 final apiService = ApiService();
 
@@ -172,7 +172,7 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/admin/exam-schedule-editor/:examId',
       builder: (context, state) {
-        final examId = state.pathParameters['examId']; // This will be null if not present
+        final examId = state.pathParameters['examId'];
         return ExamScheduleEditorScreen(examId: examId);
       },
     ),
@@ -352,6 +352,10 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/faculty/leave-approval',
       builder: (context, state) => const FacultyLeaveApprovalScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/student-fees',
+      builder: (context, state) => const FacultyStudentFeeStatusScreen(),
     ),
     GoRoute(
       path: '/:institutionId/faculty/timetable',

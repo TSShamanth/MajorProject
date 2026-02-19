@@ -9,6 +9,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -33,21 +34,18 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Enable CORS
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/admin/**").authenticated()
-                        .requestMatchers("/{institutionId}/api/attendance/**").authenticated()
-                        .requestMatchers("/{institutionId}/api/users/**").authenticated()
-                        .requestMatchers("/api/institutions/{institutionId}/exams").authenticated()
-                        .requestMatchers("POST", "/api/institutions/*/announcements").authenticated()
-                        .requestMatchers("PUT", "/api/institutions/*/announcements/**").authenticated()
-                        .requestMatchers("DELETE", "/api/institutions/*/announcements/**").authenticated()
-                        .requestMatchers("POST", "/api/institutions/*/announcements/*/view").authenticated()
-                        .requestMatchers("POST", "/api/institutions/*/announcements/*/toggle-pin").authenticated()
-                        .requestMatchers("POST", "/api/institutions/*/announcements/manage/**").authenticated()
-                        .requestMatchers("GET", "/api/institutions/*/announcements/manage/**").authenticated()
-                        .requestMatchers("GET", "/api/institutions/*/announcements/audience").authenticated()
-                        .requestMatchers("GET", "/api/institutions/*/announcements/all").authenticated()
-                        .anyRequest().permitAll())
+                .authorizeHttpRequests(authz -> authz
+                    .requestMatchers(new AntPathRequestMatcher("/**/api/admin/**")).hasAuthority("admin")
+                    // Removed the faculty rule from here to use method-level security
+                    .requestMatchers(
+                        new AntPathRequestMatcher("/**/api/attendance/**"),
+                        new AntPathRequestMatcher("/**/api/users/**"),
+                        new AntPathRequestMatcher("/**/api/fees/**"),
+                        new AntPathRequestMatcher("/api/institutions/**"),
+                        new AntPathRequestMatcher("/**/api/faculty/**") // Allow authenticated access generally
+                    ).authenticated()
+                    .anyRequest().permitAll()
+                )
                 .addFilterBefore(firebaseTokenFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

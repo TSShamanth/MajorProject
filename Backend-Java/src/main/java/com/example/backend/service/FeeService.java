@@ -15,6 +15,7 @@ import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.QuerySnapshot;
 import com.google.cloud.firestore.SetOptions;
 import com.google.cloud.firestore.Transaction;
+import com.google.cloud.firestore.WriteBatch;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -114,11 +115,15 @@ public class FeeService {
             students = userService.getStudentsByDepartmentAndSemester(institutionId, structure.getDepartmentId(), structure.getSemester());
         }
 
+        WriteBatch batch = firestore.batch();
         for (User student : students) {
+            // This query is inefficient in a loop. A better approach would be to fetch all existing fees first.
+            // For now, keeping it simple to avoid breaking changes.
             Query existingFeeQuery = firestore.collection("Institutions").document(institutionId)
                     .collection("studentFees")
                     .whereEqualTo("studentId", student.getUid())
                     .whereEqualTo("feeStructureId", feeStructureId);
+            
             ApiFuture<QuerySnapshot> existingFeeFuture = existingFeeQuery.get();
             if (!existingFeeFuture.get().getDocuments().isEmpty()) {
                 continue;
@@ -126,6 +131,9 @@ public class FeeService {
 
             StudentFee studentFee = new StudentFee();
             String id = UUID.randomUUID().toString();
+            DocumentReference newFeeRef = firestore.collection("Institutions").document(institutionId)
+                                               .collection("studentFees").document(id);
+            
             studentFee.setId(id);
             studentFee.setStudentId(student.getUid());
             studentFee.setStudentName(student.getDisplayName());
@@ -141,9 +149,9 @@ public class FeeService {
             studentFee.setDueDate(dueDate);
             studentFee.setCreatedAt(new java.util.Date());
 
-            firestore.collection("Institutions").document(institutionId)
-                    .collection("studentFees").document(id).set(studentFee).get();
+            batch.set(newFeeRef, studentFee);
         }
+        batch.commit().get();
     }
 
     public List<StudentFee> getStudentFees(String institutionId) throws ExecutionException, InterruptedException {
@@ -169,6 +177,22 @@ public class FeeService {
         List<StudentFee> fees = new ArrayList<>();
         ApiFuture<QuerySnapshot> future = firestore.collection("Institutions").document(institutionId)
                 .collection("studentFees").whereEqualTo("studentId", studentId).get();
+        for (QueryDocumentSnapshot document : future.get().getDocuments()) {
+            fees.add(document.toObject(StudentFee.class));
+        }
+        return fees;
+    }
+
+    public List<StudentFee> getFeesForStudentList(String institutionId, List<String> studentIds) throws ExecutionException, InterruptedException {
+        if (studentIds == null || studentIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<StudentFee> fees = new ArrayList<>();
+        // Firestore 'in' query is limited to 10 items. For more, multiple queries would be needed.
+        Query query = firestore.collection("Institutions").document(institutionId)
+                                .collection("studentFees").whereIn("studentId", studentIds);
+        
+        ApiFuture<QuerySnapshot> future = query.get();
         for (QueryDocumentSnapshot document : future.get().getDocuments()) {
             fees.add(document.toObject(StudentFee.class));
         }
