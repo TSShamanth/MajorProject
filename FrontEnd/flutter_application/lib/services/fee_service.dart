@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_application/models/payment_model.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/fee_category_model.dart';
@@ -191,6 +192,31 @@ class FeeService {
       return json.decode(response.body);
     } else {
       throw Exception('Failed to load fee stats');
+    }
+  }
+
+  Future<Payment> recordPayment(String institutionId, String studentFeeId, double amount, String method, {String? transactionId, String? notes}) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('No user logged in');
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/$institutionId/api/fees/student-fees/$studentFeeId/payments'),
+      headers: _getHeaders(token),
+      body: json.encode({
+        'amountPaid': amount,
+        'paymentMethod': method,
+        'transactionId': transactionId,
+        'notes': notes,
+        'paymentDate': DateTime.now().toIso8601String(),
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return Payment.fromJson(json.decode(response.body));
+    } else if (response.statusCode == 400) {
+      throw Exception('Payment failed: ${response.body}');
+    } else {
+      throw Exception('Failed to record payment: ${response.statusCode}');
     }
   }
 }

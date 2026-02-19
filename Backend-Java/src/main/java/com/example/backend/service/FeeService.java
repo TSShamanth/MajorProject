@@ -1,14 +1,20 @@
 package com.example.backend.service;
 
+import com.example.backend.dto.RecordPaymentRequest;
 import com.example.backend.models.FeeCategory;
 import com.example.backend.models.FeeStructure;
+import com.example.backend.models.Payment;
 import com.example.backend.models.StudentFee;
 import com.example.backend.models.User;
 import com.google.api.core.ApiFuture;
+import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.QuerySnapshot;
+import com.google.cloud.firestore.SetOptions;
+import com.google.cloud.firestore.Transaction;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -109,6 +115,15 @@ public class FeeService {
         }
 
         for (User student : students) {
+            Query existingFeeQuery = firestore.collection("Institutions").document(institutionId)
+                    .collection("studentFees")
+                    .whereEqualTo("studentId", student.getUid())
+                    .whereEqualTo("feeStructureId", feeStructureId);
+            ApiFuture<QuerySnapshot> existingFeeFuture = existingFeeQuery.get();
+            if (!existingFeeFuture.get().getDocuments().isEmpty()) {
+                continue;
+            }
+
             StudentFee studentFee = new StudentFee();
             String id = UUID.randomUUID().toString();
             studentFee.setId(id);
@@ -139,6 +154,15 @@ public class FeeService {
             fees.add(document.toObject(StudentFee.class));
         }
         return fees;
+    }
+
+    public StudentFee getStudentFeeById(String institutionId, String studentFeeId) throws ExecutionException, InterruptedException {
+        DocumentSnapshot doc = firestore.collection("Institutions").document(institutionId)
+                .collection("studentFees").document(studentFeeId).get().get();
+        if (doc.exists()) {
+            return doc.toObject(StudentFee.class);
+        }
+        return null;
     }
 
     public List<StudentFee> getStudentFeesByStudentId(String institutionId, String studentId) throws ExecutionException, InterruptedException {
@@ -172,5 +196,65 @@ public class FeeService {
         stats.put("overdue", overdue);
         stats.put("totalCount", allFees.size());
         return stats;
+    }
+
+    // == Payment Operations ==
+    public Payment recordPayment(String institutionId, String studentFeeId, RecordPaymentRequest request) throws ExecutionException, InterruptedException {
+        StudentFee studentFee = getStudentFeeById(institutionId, studentFeeId);
+        if (studentFee == null) throw new RuntimeException("Student Fee not found");
+
+        if (request.getAmountPaid() <= 0) {
+            throw new IllegalArgumentException("Amount paid must be greater than zero.");
+        }
+        if (request.getAmountPaid() > studentFee.getBalanceAmount()) {
+            throw new IllegalArgumentException("Amount paid cannot exceed the outstanding balance.");
+        }
+
+        final DocumentReference receiptCounterRef = firestore.collection("Institutions").document(institutionId)
+                .collection("settings").document("feeReceiptCounter");
+        final String currentYear = String.valueOf(java.time.Year.now().getValue());
+
+        long receiptSequence = firestore.runTransaction((Transaction.Function<Long>) transaction -> {
+            DocumentSnapshot snapshot = transaction.get(receiptCounterRef).get();
+            long nextReceiptNumber = 1;
+            if (snapshot.exists() && snapshot.contains(currentYear)) {
+                nextReceiptNumber = snapshot.getLong(currentYear) + 1;
+            }
+            Map<String, Object> data = new HashMap<>();
+            data.put(currentYear, nextReceiptNumber);
+            transaction.set(receiptCounterRef, data, SetOptions.merge());
+            return nextReceiptNumber;
+        }).get();
+
+        String receiptNumber = String.format("%s-%s-%06d", institutionId, currentYear, receiptSequence);
+
+        Payment payment = new Payment();
+        payment.setId(UUID.randomUUID().toString());
+        payment.setStudentFeeId(studentFeeId);
+        payment.setStudentId(studentFee.getStudentId());
+        payment.setInstitutionId(institutionId);
+        payment.setAmountPaid(request.getAmountPaid());
+        payment.setPaymentDate(request.getPaymentDate() != null ? request.getPaymentDate() : new java.util.Date());
+        payment.setPaymentMethod(request.getPaymentMethod());
+        payment.setTransactionId(request.getTransactionId());
+        payment.setNotes(request.getNotes());
+        payment.setReceiptNumber(receiptNumber);
+
+        // Update StudentFee
+        studentFee.setPaidAmount(studentFee.getPaidAmount() + request.getAmountPaid());
+        studentFee.setBalanceAmount(studentFee.getTotalAmount() - studentFee.getPaidAmount());
+        if (studentFee.getBalanceAmount() <= 0) {
+            studentFee.setStatus("PAID");
+        } else {
+            studentFee.setStatus("PARTIAL");
+        }
+
+        // Save Payment and update StudentFee
+        firestore.collection("Institutions").document(institutionId)
+                .collection("studentFees").document(studentFeeId).set(studentFee).get();
+        firestore.collection("Institutions").document(institutionId)
+                .collection("payments").document(payment.getId()).set(payment).get();
+
+        return payment;
     }
 }

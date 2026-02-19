@@ -1,8 +1,10 @@
 package com.example.backend.controller;
 
 import com.example.backend.dto.GenerateFeeRequest;
+import com.example.backend.dto.RecordPaymentRequest;
 import com.example.backend.models.FeeCategory;
 import com.example.backend.models.FeeStructure;
+import com.example.backend.models.Payment;
 import com.example.backend.models.StudentFee;
 import com.example.backend.service.FeeService;
 import org.springframework.http.ResponseEntity;
@@ -22,9 +24,7 @@ public class FeeController {
         this.feeService = feeService;
     }
 
-    // ... (existing categories and structures endpoints remain same)
-
-    // Student Fees
+    // == Student Fees Operations ==
     @PostMapping("/generate")
     public ResponseEntity<Void> generateFees(@PathVariable String institutionId, @RequestBody GenerateFeeRequest request) {
         try {
@@ -32,6 +32,8 @@ public class FeeController {
             return ResponseEntity.ok().build();
         } catch (ExecutionException | InterruptedException e) {
             return ResponseEntity.status(500).build();
+        } catch (RuntimeException e) { // Catch RuntimeException for Fee Structure not found
+            return ResponseEntity.badRequest().build();
         }
     }
 
@@ -56,8 +58,24 @@ public class FeeController {
         }
     }
 
+    @PostMapping("/student-fees/{studentFeeId}/payments")
+    public ResponseEntity<Payment> recordPayment(
+            @PathVariable String institutionId,
+            @PathVariable String studentFeeId,
+            @RequestBody RecordPaymentRequest request) {
+        try {
+            Payment payment = feeService.recordPayment(institutionId, studentFeeId, request);
+            return ResponseEntity.ok(payment);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(null); // Return 400 Bad Request for validation errors
+        } catch (ExecutionException | InterruptedException e) {
+            return ResponseEntity.status(500).build();
+        } catch (RuntimeException e) { // Catch RuntimeException for Student Fee not found
+            return ResponseEntity.notFound().build();
+        }
+    }
 
-    // Fee Categories
+    // == Fee Categories CRUD ==
     @PostMapping("/categories")
     public ResponseEntity<FeeCategory> createFeeCategory(@PathVariable String institutionId, @RequestBody FeeCategory category) {
         try {
@@ -87,7 +105,7 @@ public class FeeController {
         }
     }
 
-    // Fee Structures
+    // == Fee Structures CRUD ==
     @PostMapping("/structures")
     public ResponseEntity<FeeStructure> createFeeStructure(@PathVariable String institutionId, @RequestBody FeeStructure structure) {
         try {

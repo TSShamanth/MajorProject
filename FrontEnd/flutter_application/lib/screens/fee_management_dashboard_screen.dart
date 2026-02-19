@@ -9,6 +9,7 @@ import 'package:flutter_application/models/department_model.dart';
 import 'package:flutter_application/models/student_fee_model.dart';
 import 'package:flutter_application/widgets/admin_layout.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 
 class FeeManagementDashboardScreen extends StatefulWidget {
   const FeeManagementDashboardScreen({super.key});
@@ -465,19 +466,33 @@ class _FeeManagementDashboardScreenState
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
+                        isThreeLine: true, // Allocate more space for the trailing widget
                         title: Text(fee.studentName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('${fee.usn} • ${fee.feeStructureTitle}'),
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                        subtitle: Text('${fee.usn}\n${fee.feeStructureTitle}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('₹${fee.balanceAmount.toStringAsFixed(0)} Due', 
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                              child: Text(fee.status, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                             Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text('₹${fee.balanceAmount.toStringAsFixed(0)} Due', 
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                                  child: Text(fee.status, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
                             ),
+                            const SizedBox(width: 8),
+                            if (fee.balanceAmount > 0)
+                              IconButton(
+                                icon: const Icon(Icons.add_card),
+                                tooltip: 'Record Payment',
+                                onPressed: () => _showRecordPaymentDialog(fee),
+                                color: Theme.of(context).primaryColor,
+                              ),
                           ],
                         ),
                       ),
@@ -486,6 +501,108 @@ class _FeeManagementDashboardScreenState
                 ),
         ),
       ],
+    );
+  }
+
+  void _showRecordPaymentDialog(StudentFee fee) {
+    final amountController = TextEditingController(text: fee.balanceAmount.toStringAsFixed(0));
+    String selectedPaymentMethod = 'OFFLINE_CASH';
+    final transactionIdController = TextEditingController();
+    final notesController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Record Payment'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Student: ${fee.studentName} (${fee.usn})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('Balance Due: ₹${fee.balanceAmount.toStringAsFixed(0)}'),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: amountController,
+                  decoration: const InputDecoration(labelText: 'Amount Paid', border: OutlineInputBorder(), prefixText: '₹'),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedPaymentMethod,
+                  decoration: const InputDecoration(labelText: 'Payment Method', border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 'OFFLINE_CASH', child: Text('Offline (Cash)')),
+                    DropdownMenuItem(value: 'OFFLINE_CHEQUE', child: Text('Offline (Cheque)')),
+                    DropdownMenuItem(value: 'ONLINE', child: Text('Online')),
+                  ],
+                  onChanged: (val) => setDialogState(() => selectedPaymentMethod = val!),
+                ),
+                if (selectedPaymentMethod == 'ONLINE') ...[
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: transactionIdController,
+                    decoration: const InputDecoration(labelText: 'Transaction ID', border: OutlineInputBorder()),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                TextField(
+                  controller: notesController,
+                  decoration: const InputDecoration(labelText: 'Notes (optional)', border: OutlineInputBorder()),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                final amount = double.tryParse(amountController.text) ?? 0;
+                if (amount <= 0 || amount > fee.balanceAmount) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(content: Text('Invalid amount entered.')),
+                    );
+                  }
+                  return;
+                }
+                
+                try {
+                  if (_institutionId != null) {
+                    await _feeService.recordPayment(
+                      _institutionId!,
+                      fee.id,
+                      amount,
+                      selectedPaymentMethod,
+                      transactionId: transactionIdController.text.isNotEmpty ? transactionIdController.text : null,
+                      notes: notesController.text.isNotEmpty ? notesController.text : null,
+                    );
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
+                        const SnackBar(content: Text('Payment recorded successfully!')),
+                      );
+                    }
+                    if (mounted) {
+                      _loadData();
+                    }
+                  }
+                } catch (e) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(content: Text('Error recording payment: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Record'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
