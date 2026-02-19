@@ -6,8 +6,10 @@ import com.example.backend.models.User;
 import com.example.backend.service.ClockService;
 import com.example.backend.service.UserService;
 import com.google.firebase.auth.UserRecord;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
+// import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,9 +28,16 @@ public class AdminController {
     }
 
     @PostMapping("/institutions/{institutionId}/users")
-    @PreAuthorize("hasAuthority('admin')")
-    public ResponseEntity<?> createUser(@RequestBody CreateUserRequest createUserRequest, @PathVariable String institutionId) {
+    public ResponseEntity<?> createUser(
+            @AuthenticationPrincipal String requesterUid,
+            @RequestBody CreateUserRequest createUserRequest, 
+            @PathVariable String institutionId) {
         try {
+            User requestingUser = userService.getUserById(institutionId, requesterUid);
+            if (requestingUser == null || !"admin".equals(requestingUser.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
             // Ensure the institutionId in the request body matches the path variable
             if (!institutionId.equals(createUserRequest.getInstitutionId())) {
                 return ResponseEntity.badRequest().body("Institution ID in path and body do not match.");
@@ -41,11 +50,15 @@ public class AdminController {
     }
 
     @GetMapping("/users")
-    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<List<User>> getUsers(
+            @AuthenticationPrincipal String uid,
             @RequestParam String institutionId,
             @RequestParam(required = false) String role) {
         try {
+            User requestingUser = userService.getUserById(institutionId, uid);
+            if (requestingUser == null || !"admin".equals(requestingUser.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
             List<User> users = userService.getUsers(institutionId, role);
             return ResponseEntity.ok(users);
         } catch (Exception e) {
@@ -53,13 +66,18 @@ public class AdminController {
         }
     }
 
-    @GetMapping("/users/{uid}")
-    @PreAuthorize("hasAuthority('admin')")
+    @GetMapping("/users/{targetUid}")
     public ResponseEntity<User> getUserById(
-            @PathVariable String uid,
+            @AuthenticationPrincipal String requesterUid,
+            @PathVariable String targetUid,
             @RequestParam String institutionId) {
         try {
-            User user = userService.getUserById(institutionId, uid);
+            User requestingUser = userService.getUserById(institutionId, requesterUid);
+            if (requestingUser == null || !"admin".equals(requestingUser.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
+            User user = userService.getUserById(institutionId, targetUid);
             if (user != null) {
                 return ResponseEntity.ok(user);
             } else {
@@ -70,14 +88,19 @@ public class AdminController {
         }
     }
 
-    @PutMapping("/users/{uid}")
-    @PreAuthorize("hasAuthority('admin')")
+    @PutMapping("/users/{targetUid}")
     public ResponseEntity<?> updateUser(
-            @PathVariable String uid,
+            @AuthenticationPrincipal String requesterUid,
+            @PathVariable String targetUid,
             @RequestParam String institutionId,
             @RequestBody User updates) {
         try {
-            userService.updateUser(institutionId, uid, updates);
+            User requestingUser = userService.getUserById(institutionId, requesterUid);
+            if (requestingUser == null || !"admin".equals(requestingUser.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
+            userService.updateUser(institutionId, targetUid, updates);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.status(500).build();
@@ -85,11 +108,16 @@ public class AdminController {
     }
 
     @GetMapping("/users/{facultyId}/attendance-history")
-    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<List<AttendanceLog>> getAttendanceHistoryForFaculty(
+            @AuthenticationPrincipal String requesterUid,
             @PathVariable String facultyId,
             @RequestParam String institutionId) {
         try {
+            User requestingUser = userService.getUserById(institutionId, requesterUid);
+            if (requestingUser == null || !"admin".equals(requestingUser.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
             List<AttendanceLog> history = clockService.getAttendanceHistory(institutionId, facultyId);
             return ResponseEntity.ok(history);
         } catch (ExecutionException | InterruptedException e) {

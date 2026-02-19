@@ -35,14 +35,15 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authz -> authz
-                    .requestMatchers(new AntPathRequestMatcher("/**/api/admin/**")).hasAuthority("admin")
-                    // Removed the faculty rule from here to use method-level security
+                    // Let method-level security (@PreAuthorize) handle role checks.
+                    // This level just ensures the user is authenticated for these paths.
                     .requestMatchers(
+                        new AntPathRequestMatcher("/**/api/admin/**"),
                         new AntPathRequestMatcher("/**/api/attendance/**"),
                         new AntPathRequestMatcher("/**/api/users/**"),
                         new AntPathRequestMatcher("/**/api/fees/**"),
                         new AntPathRequestMatcher("/api/institutions/**"),
-                        new AntPathRequestMatcher("/**/api/faculty/**") // Allow authenticated access generally
+                        new AntPathRequestMatcher("/**/api/faculty/**")
                     ).authenticated()
                     .anyRequest().permitAll()
                 )
