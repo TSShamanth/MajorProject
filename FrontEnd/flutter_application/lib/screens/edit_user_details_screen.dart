@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../models/user_model.dart';
+import '../models/department_model.dart';
 import '../services/api_service.dart';
 import '../services/image_service.dart';
 import '../services/session_manager.dart';
@@ -33,6 +34,8 @@ class _EditUserDetailsScreenState extends State<EditUserDetailsScreen> {
   late TextEditingController _validUptoController;
 
   String? _selectedRole;
+  String? _selectedDepartmentId;
+  List<Department> _availableDepartments = [];
   bool _isLoading = false;
   Uint8List? _pickedImageBytes;
   String? _photoUrl;
@@ -47,6 +50,7 @@ class _EditUserDetailsScreenState extends State<EditUserDetailsScreen> {
     _fetchInstitutionId();
     _initializeControllers();
     _selectedRole = widget.user.role;
+    _selectedDepartmentId = widget.user.departmentId;
     _photoUrl = widget.user.photoUrl;
   }
 
@@ -72,6 +76,20 @@ class _EditUserDetailsScreenState extends State<EditUserDetailsScreen> {
     setState(() {
       _institutionId = institutionId;
     });
+    if (_institutionId != null) {
+      _fetchDepartments();
+    }
+  }
+
+  Future<void> _fetchDepartments() async {
+    try {
+      final departments = await _apiService.getDepartments(_institutionId!);
+      setState(() {
+        _availableDepartments = departments;
+      });
+    } catch (e) {
+      debugPrint('Error fetching departments: $e');
+    }
   }
 
   @override
@@ -147,6 +165,7 @@ class _EditUserDetailsScreenState extends State<EditUserDetailsScreen> {
           bloodGroup: _bloodGroupController.text,
           emergencyContact: _emergencyContactController.text,
           validUpto: _validUptoController.text,
+          departmentId: _selectedDepartmentId,
         );
 
         if (!mounted) return;
@@ -235,6 +254,24 @@ class _EditUserDetailsScreenState extends State<EditUserDetailsScreen> {
                 validator: (value) => value == null ? 'Please select a role' : null,
               ),
               const SizedBox(height: 16),
+              if (_availableDepartments.isNotEmpty) ...[
+                DropdownButtonFormField<String>(
+                  value: _selectedDepartmentId,
+                  decoration: _inputDecoration('Department', Icons.business_outlined),
+                  items: _availableDepartments.map((dept) {
+                    return DropdownMenuItem<String>(
+                      value: dept.id,
+                      child: Text(dept.name),
+                    );
+                  }).toList(),
+                  onChanged: (newValue) {
+                    setState(() {
+                      _selectedDepartmentId = newValue;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
               _buildTextField(_displayNameController, 'Display Name', Icons.badge_outlined),
               const SizedBox(height: 16),
               _buildTextField(_emailController, 'Email', Icons.email_outlined, readOnly: true), // Email usually not editable

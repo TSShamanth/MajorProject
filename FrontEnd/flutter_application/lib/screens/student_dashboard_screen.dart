@@ -76,6 +76,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       'My Profile': '/$institutionId/student/profile',
       'Virtual ID': '/$institutionId/student/virtual-id',
       'Timetable': '/$institutionId/student/timetable',
+      'My Hall Tickets': '/$institutionId/student/hall-tickets',
       'Academics': '/$institutionId/student/academics',
       'Academic Records': '/$institutionId/student/academics',
       'Attendance': '/$institutionId/student/attendance',
@@ -85,7 +86,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       'Placements': '/$institutionId/student/placements',
       'Assignments': '/$institutionId/student/assignments',
       'Assignments & Tasks': '/$institutionId/student/assignments',
-      'Announcements': '/$institutionId/student/announcements',
+      'Announcements': '/$institutionId/announcements',
       'Messages': '/$institutionId/student/messages',
       'Library': '/$institutionId/student/library',
       'Canteen': '/$institutionId/student/canteen',
@@ -163,6 +164,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       {'icon': Icons.person_outline_rounded, 'label': 'My Profile'},
       {'icon': Icons.credit_card_rounded, 'label': 'Virtual ID'},
       {'icon': Icons.schedule_rounded, 'label': 'Timetable'},
+      {'icon': Icons.article_outlined, 'label': 'My Hall Tickets'},
       {'icon': Icons.menu_book_rounded, 'label': 'Academic Records'},
       {'icon': Icons.assignment_rounded, 'label': 'Assignments & Tasks', 'badge': '5'},
       {'icon': Icons.event_busy_rounded, 'label': 'Leave'},
@@ -1557,12 +1559,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
 
   Widget _buildQuickActions() {
     final actions = [
-      {
-        'label': 'Apply Leave',
-        'icon': Icons.event_busy_rounded,
-        'color': const Color(0xFFEF4444),
-        'route': 'Leave',
-      },
+
       {
         'label': 'Library',
         'icon': Icons.local_library_rounded,

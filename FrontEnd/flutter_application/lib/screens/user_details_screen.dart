@@ -110,8 +110,8 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                       const SizedBox(height: 20),
                       _buildDetailRow('Display Name', _user!.displayName),
                       _buildDetailRow('Name', _user!.name ?? 'N/A'),
-                      _buildDetailRow('Email', _user!.email),
-                      _buildDetailRow('Role', _user!.role),
+                      _buildDetailRow('Email', _user!.email ?? 'N/A'),
+                      _buildDetailRow('Role', _user!.role ?? 'N/A'),
                       if (_user!.role == 'student') ...[
                         _buildDetailRow('USN', _user!.usn ?? 'N/A'),
                         _buildDetailRow('Phone', _user!.phone ?? 'N/A'),

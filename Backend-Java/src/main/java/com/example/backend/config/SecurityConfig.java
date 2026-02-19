@@ -30,16 +30,25 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Enable CORS
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/admin/**").authenticated()
-                .requestMatchers("/{institutionId}/api/attendance/**").authenticated()
-                .requestMatchers("/{institutionId}/api/users/**").authenticated()
-                .anyRequest().permitAll()
-            )
-            .addFilterBefore(firebaseTokenFilter, UsernamePasswordAuthenticationFilter.class);
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Enable CORS
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/admin/**").authenticated()
+                        .requestMatchers("/{institutionId}/api/attendance/**").authenticated()
+                        .requestMatchers("/{institutionId}/api/users/**").authenticated()
+                        .requestMatchers("/api/institutions/{institutionId}/exams").authenticated()
+                        .requestMatchers("POST", "/api/institutions/*/announcements").authenticated()
+                        .requestMatchers("PUT", "/api/institutions/*/announcements/**").authenticated()
+                        .requestMatchers("DELETE", "/api/institutions/*/announcements/**").authenticated()
+                        .requestMatchers("POST", "/api/institutions/*/announcements/*/view").authenticated()
+                        .requestMatchers("POST", "/api/institutions/*/announcements/*/toggle-pin").authenticated()
+                        .requestMatchers("POST", "/api/institutions/*/announcements/manage/**").authenticated()
+                        .requestMatchers("GET", "/api/institutions/*/announcements/manage/**").authenticated()
+                        .requestMatchers("GET", "/api/institutions/*/announcements/audience").authenticated()
+                        .requestMatchers("GET", "/api/institutions/*/announcements/all").authenticated()
+                        .anyRequest().permitAll())
+                .addFilterBefore(firebaseTokenFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 

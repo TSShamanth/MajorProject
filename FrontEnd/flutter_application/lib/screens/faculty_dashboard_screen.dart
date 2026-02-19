@@ -178,6 +178,22 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
         final isTablet =
             constraints.maxWidth >= 768 && constraints.maxWidth < 1024;
         final isDesktop = constraints.maxWidth >= 1024;
+    final menuItems = [
+      {'icon': Icons.home_outlined, 'label': 'Dashboard', 'active': true, 'route': null},
+      {'icon': Icons.person_outline, 'label': 'Profile', 'route': '/faculty/profile'},
+      {'icon': Icons.credit_card_outlined, 'label': 'Virtual ID', 'route': '/faculty/virtual-id'},
+      {'icon': Icons.calendar_today_outlined, 'label': 'Timetable', 'route': '/faculty/timetable'},
+      {'icon': Icons.group_outlined, 'label': 'Mentees', 'badge': '8', 'route': '/faculty/mentees'},
+      {'icon': Icons.description_outlined, 'label': 'Leave', 'route': '/faculty/leave'},
+      {'icon': Icons.check_circle_outline, 'label': 'Approve Leaves', 'route': '/faculty/leave-approval'}, // NEW ITEM
+      {'icon': Icons.attach_money, 'label': 'Payroll', 'route': '/faculty/payroll'},
+      {'icon': Icons.celebration_outlined, 'label': 'Events', 'route': '/faculty/events'},
+      {'icon': Icons.notifications_none_outlined, 'label': 'Meetings', 'route': '/faculty/meetings'},
+      {'icon': Icons.assignment_outlined, 'label': 'Mark Attendance', 'route': '/faculty/mark-attendance'},
+      {'icon': Icons.history_outlined, 'label': 'Clock-in History', 'route': '/faculty/attendance-history'},
+      {'icon': Icons.announcement_outlined, 'label': 'Announcements', 'route': '/announcements'},
+      {'icon': Icons.settings_outlined, 'label': 'Settings', 'route': '/faculty/settings'},
+    ];
 
         return Scaffold(
           backgroundColor: _bgColor,
@@ -2079,6 +2095,27 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
     ];
 
     return _cardContainer(
+      {'label': 'Mark Attendance', 'color': Colors.indigo, 'route': '/faculty/mark-attendance'},
+      {'label': 'View History', 'color': Colors.green, 'route': '/faculty/attendance-history'},
+      {'label': 'Apply Leave', 'color': Colors.purple, 'route': '/faculty/leave'},
+      {'label': 'Approve Leaves', 'color': Colors.blueGrey, 'route': '/faculty/leave-approval'}, // NEW ITEM
+      {'label': 'View Payroll', 'color': Colors.orange, 'route': '/faculty/payroll'},
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

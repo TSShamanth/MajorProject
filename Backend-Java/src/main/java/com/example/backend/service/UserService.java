@@ -62,6 +62,7 @@ public class UserService {
         user.put("usn", createUserRequest.getUsn());
         user.put("phone", createUserRequest.getPhone());
         user.put("sem", createUserRequest.getSem());
+        user.put("departmentId", createUserRequest.getDepartmentId()); // Save departmentId
         user.put("mentorName", createUserRequest.getMentorName());
         user.put("photoUrl", createUserRequest.getPhotoUrl()); // Save photo URL
         user.put("programme", createUserRequest.getProgramme());
@@ -98,6 +99,63 @@ public class UserService {
         return users;
     }
 
+    public List<User> getStudentsByDepartmentAndSemester(String institutionId, String departmentId, String semester) throws ExecutionException, InterruptedException {
+        CollectionReference usersCollection = firestore.collection("Institutions").document(institutionId).collection("users");
+        Query query = usersCollection
+                .whereEqualTo("role", "student")
+                .whereEqualTo("departmentId", departmentId) // Assuming User model has departmentId
+                .whereEqualTo("sem", semester) // Assuming User model has sem for semester
+                .whereEqualTo("isDetained", false); // Filter out detained students
+
+        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+        List<User> students = new ArrayList<>();
+        for (QueryDocumentSnapshot document : documents) {
+            User studentData = document.toObject(User.class);
+            studentData.setUid(document.getId());
+            students.add(studentData);
+        }
+        return students;
+    }
+
+    public List<String> getProfessorNames(String institutionId) throws ExecutionException, InterruptedException {
+        CollectionReference usersCollection = firestore.collection("Institutions").document(institutionId).collection("users");
+        Query query = usersCollection.whereEqualTo("role", "faculty");
+
+        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+        List<String> professorNames = new ArrayList<>();
+        for (QueryDocumentSnapshot document : documents) {
+            String displayName = document.getString("displayName");
+            if (displayName != null && !displayName.isEmpty()) {
+                professorNames.add(displayName);
+            }
+        }
+        return professorNames;
+    }
+
+    public List<com.example.backend.dto.ProfessorDto> getProfessorsWithIds(String institutionId) throws ExecutionException, InterruptedException {
+        logger.info("UserService: Fetching professors with IDs for institution: {}", institutionId);
+        CollectionReference usersCollection = firestore.collection("Institutions").document(institutionId).collection("users");
+        Query query = usersCollection.whereEqualTo("role", "faculty");
+
+        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+        List<com.example.backend.dto.ProfessorDto> professors = new ArrayList<>();
+        for (QueryDocumentSnapshot document : documents) {
+            String displayName = document.getString("displayName");
+            String uid = document.getId();
+            if (displayName != null && !displayName.isEmpty()) {
+                professors.add(new com.example.backend.dto.ProfessorDto(uid, displayName));
+                logger.info("Added professor: {} (UID: {})", displayName, uid);
+            }
+        }
+        return professors;
+    }
+
     public User getUserById(String institutionId, String uid) throws ExecutionException, InterruptedException {
         logger.info("UserService: Searching for user with institutionId='{}' and uid='{}'", institutionId, uid);
         DocumentReference userDocRef = firestore.collection("Institutions").document(institutionId).collection("users").document(uid);
@@ -129,5 +187,11 @@ public class UserService {
     public void updateEnrolledCourses(String institutionId, String studentId, List<String> courseCodes) throws ExecutionException, InterruptedException {
         DocumentReference userDocRef = firestore.collection("Institutions").document(institutionId).collection("users").document(studentId);
         userDocRef.update("enrolledCourseCodes", courseCodes).get();
+    }
+
+    public void updateUserDetainedStatus(String institutionId, String studentUid, boolean isDetained) throws ExecutionException, InterruptedException {
+        DocumentReference userDocRef = firestore.collection("Institutions").document(institutionId).collection("users").document(studentUid);
+        // Directly update the 'isDetained' field
+        userDocRef.update("isDetained", isDetained).get();
     }
 }

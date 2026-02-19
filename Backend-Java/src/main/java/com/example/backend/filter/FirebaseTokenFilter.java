@@ -57,20 +57,33 @@ public class FirebaseTokenFilter extends OncePerRequestFilter {
                 if (role != null && !role.isEmpty()) {
                     authorities.add(new SimpleGrantedAuthority(role));
                 } else {
-                    // Fallback to Firestore if no claim is present
                     String uid = decodedToken.getUid();
-                    String institutionId = null;
+                    String institutionId = request.getHeader("X-Institution-ID"); // Check header first
 
-                    // Strategy 1: Try to extract from URL path like /{institutionId}/api/...
-                    String requestURI = request.getRequestURI();
-                    String[] pathParts = requestURI.split("/");
-                    if (pathParts.length > 2 && "api".equals(pathParts[2])) {
-                        institutionId = pathParts[1];
-                    }
+                    if (institutionId != null && !institutionId.isEmpty()) {
+                        log.debug("InstitutionId found in X-Institution-ID header: {}", institutionId);
+                    } else {
+                        // Fallback to existing strategies if header is not present
 
-                    // Strategy 2: If not found in path, try to get from request parameter
-                    if (institutionId == null || institutionId.isEmpty()) {
-                        institutionId = request.getParameter("institutionId");
+                        // Check session for institutionId
+                        Object sessionInstitutionId = request.getSession().getAttribute("institutionId");
+                        if (sessionInstitutionId instanceof String) {
+                            institutionId = (String) sessionInstitutionId;
+                            log.debug("InstitutionId found in session: {}", institutionId);
+                        } else {
+                            String requestURI = request.getRequestURI();
+                            String[] pathParts = requestURI.split("/");
+                            for (int i = 0; i < pathParts.length; i++) {
+                                if ("institutions".equals(pathParts[i]) && (i + 1) < pathParts.length) {
+                                    institutionId = pathParts[i + 1];
+                                    log.debug("InstitutionId found in URI path: {}", institutionId);
+                                    break;
+                                }
+                            }
+                            if (institutionId == null || institutionId.isEmpty()) {
+                                institutionId = request.getParameter("institutionId");
+                            }
+                        }
                     }
                     
                     log.info("Attempting to get role from Firestore for UID: {} in Institution: {}", uid, institutionId);
