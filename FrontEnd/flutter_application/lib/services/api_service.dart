@@ -21,6 +21,7 @@ import '../models/exam_schedule_entry.dart';
 import '../models/room_model.dart';
 import './session_manager.dart';
 import '../models/student_fee_model.dart';
+import '../models/saved_payment_method_model.dart';
 
 class ApiService {
   /* -------------------- Institutions -------------------- */
@@ -1301,6 +1302,59 @@ class ApiService {
       return StudentFee.fromJson(json.decode(response.body));
     } else {
       throw Exception('Failed to update student fee remarks: ${response.body}');
+    }
+  }
+
+  // --- Saved Payment Methods ---
+
+  Future<List<SavedPaymentMethod>> getMyPaymentMethods(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/me/payment-methods');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => SavedPaymentMethod.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load saved payment methods: ${response.body}');
+    }
+  }
+
+  Future<SavedPaymentMethod> saveMyPaymentMethod(String institutionId, SavedPaymentMethod method) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/me/payment-methods');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(method.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return SavedPaymentMethod.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to save payment method: ${response.body}');
+    }
+  }
+
+  Future<void> deleteMyPaymentMethod(String institutionId, String methodId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/me/payment-methods/$methodId');
+
+    final response = await http.delete(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete payment method: ${response.statusCode}');
     }
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_application/models/payment_model.dart';
 import 'package:flutter_application/models/student_fee_model.dart';
 import 'package:flutter_application/services/fee_service.dart';
 import 'package:flutter_application/services/session_manager.dart';
+import 'package:flutter_application/widgets/payment_bottom_sheet.dart';
 import 'package:intl/intl.dart';
 
 class StudentFeeDetailScreen extends StatefulWidget {
@@ -201,9 +202,7 @@ class _StudentFeeDetailScreenState extends State<StudentFeeDetailScreen> {
         icon: const Icon(Icons.payment),
         label: Text('Pay ₹${NumberFormat.decimalPattern().format(widget.fee.balanceAmount)} Now'),
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Online Payment Gateway (Mock)')),
-          );
+          _showPaymentDialog(context, widget.fee);
         },
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -215,6 +214,24 @@ class _StudentFeeDetailScreenState extends State<StudentFeeDetailScreen> {
       ),
     );
   }
+
+  void _showPaymentDialog(BuildContext context, StudentFee fee) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => PaymentBottomSheet(
+        fee: fee,
+        onPaymentSuccess: () {
+          Navigator.of(context).pop(); // Close payment bottom sheet
+          _loadPaymentHistory(); // Refresh payment history
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Payment successful!')),
+          );
+        },
+      ),
+    );
+  }
+
 
   Widget _buildStatColumn(String label, String value, {Color? color}) {
     return Column(
