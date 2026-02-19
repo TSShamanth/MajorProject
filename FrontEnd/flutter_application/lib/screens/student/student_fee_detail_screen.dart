@@ -156,12 +156,33 @@ class _StudentFeeDetailScreenState extends State<StudentFeeDetailScreen> {
                 tileColor: index.isEven ? Colors.transparent : Theme.of(context).colorScheme.surface.withOpacity(0.03),
                 title: Text('Paid ₹${NumberFormat.decimalPattern().format(payment.amountPaid)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Text('on ${DateFormat('dd MMM, yyyy, hh:mm a').format(payment.paymentDate)} via ${payment.paymentMethod}'),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Receipt', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                    Text('#${payment.receiptNumber}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        const Text('Receipt', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                        Text('#${payment.receiptNumber}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.download, size: 20, color: Color(0xFF4F46E5)),
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        try {
+                          if (_institutionId != null) {
+                            await _feeService.downloadReceipt(_institutionId!, payment.id, payment.receiptNumber);
+                          }
+                        } catch (e) {
+                          messenger.showSnackBar(
+                            SnackBar(content: Text('Error downloading receipt: $e')),
+                          );
+                        }
+                      },
+                    ),
                   ],
                 ),
               );

@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import 'package:printing/printing.dart';
 import '../config/api_config.dart';
 import '../models/fee_category_model.dart';
 import '../models/fee_structure_model.dart';
@@ -21,6 +23,30 @@ class FeeService {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
+  }
+
+  // ... (existing methods)
+
+  Future<void> downloadReceipt(String institutionId, String paymentId, String receiptNumber) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('No user logged in');
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/$institutionId/api/fees/payments/$paymentId/receipt'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final Uint8List pdfBytes = response.bodyBytes;
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdfBytes,
+        name: 'Receipt_$receiptNumber',
+      );
+    } else {
+      throw Exception('Failed to download receipt: ${response.statusCode}');
+    }
   }
 
   // Fee Categories

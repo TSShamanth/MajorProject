@@ -4,9 +4,17 @@ import com.example.backend.dto.GenerateFeeRequest;
 import com.example.backend.dto.RecordPaymentRequest;
 import com.example.backend.models.FeeCategory;
 import com.example.backend.models.FeeStructure;
+import com.example.backend.models.Institution;
 import com.example.backend.models.Payment;
 import com.example.backend.models.StudentFee;
+import com.example.backend.models.User;
 import com.example.backend.service.FeeService;
+import com.example.backend.service.FirestoreService;
+import com.example.backend.service.PdfService;
+import com.example.backend.service.UserService;
+import com.lowagie.text.DocumentException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,9 +27,15 @@ import java.util.concurrent.ExecutionException;
 public class FeeController {
 
     private final FeeService feeService;
+    private final PdfService pdfService;
+    private final FirestoreService firestoreService;
+    private final UserService userService;
 
-    public FeeController(FeeService feeService) {
+    public FeeController(FeeService feeService, PdfService pdfService, FirestoreService firestoreService, UserService userService) {
         this.feeService = feeService;
+        this.pdfService = pdfService;
+        this.firestoreService = firestoreService;
+        this.userService = userService;
     }
 
     // == Student Fees Operations ==
@@ -34,6 +48,35 @@ public class FeeController {
             return ResponseEntity.status(500).build();
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/payments/{paymentId}/receipt")
+    public ResponseEntity<byte[]> downloadReceipt(
+            @PathVariable String institutionId,
+            @PathVariable String paymentId) {
+        try {
+            Payment payment = feeService.getPaymentById(institutionId, paymentId);
+            if (payment == null) return ResponseEntity.notFound().build();
+
+            StudentFee studentFee = feeService.getStudentFeeById(institutionId, payment.getStudentFeeId());
+            if (studentFee == null) return ResponseEntity.notFound().build();
+
+            User student = userService.getUserById(institutionId, payment.getStudentId());
+            if (student == null) return ResponseEntity.notFound().build();
+
+            Institution institution = firestoreService.getInstitutionById(institutionId);
+            if (institution == null) return ResponseEntity.notFound().build();
+
+            byte[] pdfContent = pdfService.generateFeeReceipt(institution, student, studentFee, payment);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", "Receipt_" + payment.getReceiptNumber() + ".pdf");
+            
+            return ResponseEntity.ok().headers(headers).body(pdfContent);
+        } catch (ExecutionException | InterruptedException | DocumentException e) {
+            return ResponseEntity.status(500).build();
         }
     }
 

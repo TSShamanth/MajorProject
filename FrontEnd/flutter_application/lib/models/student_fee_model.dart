@@ -12,9 +12,11 @@ class StudentFee {
   final double totalAmount;
   final double paidAmount;
   final double balanceAmount;
+  final double fineAmount;
   final String status; // UNPAID, PARTIAL, PAID
   final DateTime? dueDate;
   final DateTime? createdAt;
+  final String? facultyRemarks;
 
   StudentFee({
     required this.id,
@@ -28,9 +30,11 @@ class StudentFee {
     required this.totalAmount,
     required this.paidAmount,
     required this.balanceAmount,
+    required this.fineAmount,
     required this.status,
     this.dueDate,
     this.createdAt,
+    this.facultyRemarks,
   });
 
   factory StudentFee.fromJson(Map<String, dynamic> json) {
@@ -49,10 +53,19 @@ class StudentFee {
       totalAmount: (json['totalAmount'] as num? ?? 0.0).toDouble(),
       paidAmount: (json['paidAmount'] as num? ?? 0.0).toDouble(),
       balanceAmount: (json['balanceAmount'] as num? ?? 0.0).toDouble(),
+      fineAmount: (json['fineAmount'] as num? ?? 0.0).toDouble(),
       status: json['status'] ?? 'UNPAID',
-      dueDate: json['dueDate'] != null && json['dueDate'] is String ? DateTime.parse(json['dueDate']) : null,
-      createdAt: json['createdAt'] != null && json['createdAt'] is String ? DateTime.parse(json['createdAt']) : null,
+      dueDate: json['dueDate'] != null ? _parseDate(json['dueDate']) : null,
+      createdAt: json['createdAt'] != null ? _parseDate(json['createdAt']) : null,
+      facultyRemarks: json['facultyRemarks'],
     );
+  }
+
+  static DateTime? _parseDate(dynamic date) {
+    if (date == null) return null;
+    if (date is String) return DateTime.parse(date);
+    if (date is int) return DateTime.fromMillisecondsSinceEpoch(date);
+    return null;
   }
 
   Map<String, dynamic> toJson() {
@@ -68,9 +81,11 @@ class StudentFee {
       'totalAmount': totalAmount,
       'paidAmount': paidAmount,
       'balanceAmount': balanceAmount,
+      'fineAmount': fineAmount,
       'status': status,
       'dueDate': dueDate?.toIso8601String(),
       'createdAt': createdAt?.toIso8601String(),
+      'facultyRemarks': facultyRemarks,
     };
   }
 }

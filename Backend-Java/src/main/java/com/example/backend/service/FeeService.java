@@ -115,17 +115,20 @@ public class FeeService {
             students = userService.getStudentsByDepartmentAndSemester(institutionId, structure.getDepartmentId(), structure.getSemester());
         }
 
+        // Fetch all existing fees for this structure to avoid duplicates
+        ApiFuture<QuerySnapshot> existingFeesFuture = firestore.collection("Institutions").document(institutionId)
+                .collection("studentFees")
+                .whereEqualTo("feeStructureId", feeStructureId)
+                .get();
+        
+        List<String> studentIdsWithExistingFee = existingFeesFuture.get().getDocuments().stream()
+                .map(doc -> doc.getString("studentId"))
+                .toList();
+
         WriteBatch batch = firestore.batch();
+        boolean hasChanges = false;
         for (User student : students) {
-            // This query is inefficient in a loop. A better approach would be to fetch all existing fees first.
-            // For now, keeping it simple to avoid breaking changes.
-            Query existingFeeQuery = firestore.collection("Institutions").document(institutionId)
-                    .collection("studentFees")
-                    .whereEqualTo("studentId", student.getUid())
-                    .whereEqualTo("feeStructureId", feeStructureId);
-            
-            ApiFuture<QuerySnapshot> existingFeeFuture = existingFeeQuery.get();
-            if (!existingFeeFuture.get().getDocuments().isEmpty()) {
+            if (studentIdsWithExistingFee.contains(student.getUid())) {
                 continue;
             }
 
@@ -145,13 +148,19 @@ public class FeeService {
             studentFee.setTotalAmount(structure.getTotalAmount());
             studentFee.setPaidAmount(0);
             studentFee.setBalanceAmount(structure.getTotalAmount());
+            studentFee.setFineAmount(0);
             studentFee.setStatus("UNPAID");
             studentFee.setDueDate(dueDate);
             studentFee.setCreatedAt(new java.util.Date());
+            studentFee.setFacultyRemarks("");
 
             batch.set(newFeeRef, studentFee);
+            hasChanges = true;
         }
-        batch.commit().get();
+        
+        if (hasChanges) {
+            batch.commit().get();
+        }
     }
 
     public List<StudentFee> getStudentFees(String institutionId) throws ExecutionException, InterruptedException {
@@ -290,5 +299,14 @@ public class FeeService {
             payments.add(document.toObject(Payment.class));
         }
         return payments;
+    }
+
+    public Payment getPaymentById(String institutionId, String paymentId) throws ExecutionException, InterruptedException {
+        DocumentSnapshot doc = firestore.collection("Institutions").document(institutionId)
+                .collection("payments").document(paymentId).get().get();
+        if (doc.exists()) {
+            return doc.toObject(Payment.class);
+        }
+        return null;
     }
 }

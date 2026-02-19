@@ -15,14 +15,16 @@ public class StudentFee {
     private double totalAmount;
     private double paidAmount;
     private double balanceAmount;
+    private double fineAmount;
     private String status; // UNPAID, PARTIAL, PAID
     private Date dueDate;
     private Date createdAt;
+    private String facultyRemarks;
 
     public StudentFee() {
     }
 
-    public StudentFee(String id, String studentId, String studentName, String usn, String institutionId, String feeStructureId, String feeStructureTitle, List<FeeComponent> components, double totalAmount, double paidAmount, double balanceAmount, String status, Date dueDate, Date createdAt) {
+    public StudentFee(String id, String studentId, String studentName, String usn, String institutionId, String feeStructureId, String feeStructureTitle, List<FeeComponent> components, double totalAmount, double paidAmount, double balanceAmount, double fineAmount, String status, Date dueDate, Date createdAt, String facultyRemarks) {
         this.id = id;
         this.studentId = studentId;
         this.studentName = studentName;
@@ -34,9 +36,11 @@ public class StudentFee {
         this.totalAmount = totalAmount;
         this.paidAmount = paidAmount;
         this.balanceAmount = balanceAmount;
+        this.fineAmount = fineAmount;
         this.status = status;
         this.dueDate = dueDate;
         this.createdAt = createdAt;
+        this.facultyRemarks = facultyRemarks;
     }
 
     public String getId() {
@@ -127,6 +131,14 @@ public class StudentFee {
         this.balanceAmount = balanceAmount;
     }
 
+    public double getFineAmount() {
+        return fineAmount;
+    }
+
+    public void setFineAmount(double fineAmount) {
+        this.fineAmount = fineAmount;
+    }
+
     public String getStatus() {
         return status;
     }
@@ -149,5 +161,13 @@ public class StudentFee {
 
     public void setCreatedAt(Date createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getFacultyRemarks() {
+        return facultyRemarks;
+    }
+
+    public void setFacultyRemarks(String facultyRemarks) {
+        this.facultyRemarks = facultyRemarks;
     }
 }

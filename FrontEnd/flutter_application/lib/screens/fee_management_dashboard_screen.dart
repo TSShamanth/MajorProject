@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application/models/payment_model.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:flutter_application/services/fee_service.dart';
@@ -486,6 +487,11 @@ class _FeeManagementDashboardScreenState
                               ],
                             ),
                             const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.history, color: Colors.blue),
+                              tooltip: 'Payment History',
+                              onPressed: () => _showPaymentHistoryDialog(fee),
+                            ),
                             if (fee.balanceAmount > 0)
                               IconButton(
                                 icon: const Icon(Icons.add_card),
@@ -501,6 +507,55 @@ class _FeeManagementDashboardScreenState
                 ),
         ),
       ],
+    );
+  }
+
+  void _showPaymentHistoryDialog(StudentFee fee) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Payment History - ${fee.studentName}'),
+        content: SizedBox(
+          width: 500,
+          height: 400,
+          child: FutureBuilder<List<Payment>>(
+            future: _feeService.getPaymentHistory(_institutionId!, fee.id),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text('No payments recorded yet.'));
+              }
+              final payments = snapshot.data!;
+              return ListView.builder(
+                itemCount: payments.length,
+                itemBuilder: (context, index) {
+                  final p = payments[index];
+                  return ListTile(
+                    title: Text('₹${p.amountPaid.toStringAsFixed(2)} - ${p.paymentMethod}'),
+                    subtitle: Text(DateFormat('dd MMM yyyy, hh:mm a').format(p.paymentDate)),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.download, color: Color(0xFF4F46E5)),
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        try {
+                          await _feeService.downloadReceipt(_institutionId!, p.id, p.receiptNumber);
+                        } catch (e) {
+                          messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+                        }
+                      },
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+      ),
     );
   }
 
