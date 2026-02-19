@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_application/models/payment_model.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/fee_category_model.dart';
 import '../models/fee_structure_model.dart';
 import '../models/student_fee_model.dart';
+import '../models/payment_model.dart';
 
 class FeeService {
   final String baseUrl = ApiConfig.baseUrl;
@@ -148,7 +148,7 @@ class FeeService {
       headers: _getHeaders(token),
       body: json.encode({
         'feeStructureId': feeStructureId,
-        'dueDate': dueDate.millisecondsSinceEpoch,
+        'dueDate': dueDate.toIso8601String(), // Use ISO8601String for consistency
       }),
     );
 
@@ -217,6 +217,23 @@ class FeeService {
       throw Exception('Payment failed: ${response.body}');
     } else {
       throw Exception('Failed to record payment: ${response.statusCode}');
+    }
+  }
+
+  Future<List<Payment>> getPaymentHistory(String institutionId, String studentFeeId) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('No user logged in');
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/$institutionId/api/fees/student-fees/$studentFeeId/payments'),
+      headers: _getHeaders(token),
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => Payment.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load payment history');
     }
   }
 }

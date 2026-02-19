@@ -257,4 +257,14 @@ public class FeeService {
 
         return payment;
     }
+
+    public List<Payment> getPaymentsForStudentFee(String institutionId, String studentFeeId) throws ExecutionException, InterruptedException {
+        List<Payment> payments = new ArrayList<>();
+        ApiFuture<QuerySnapshot> future = firestore.collection("Institutions").document(institutionId)
+                .collection("payments").whereEqualTo("studentFeeId", studentFeeId).get();
+        for (QueryDocumentSnapshot document : future.get().getDocuments()) {
+            payments.add(document.toObject(Payment.class));
+        }
+        return payments;
+    }
 }

@@ -32,7 +32,7 @@ public class FeeController {
             return ResponseEntity.ok().build();
         } catch (ExecutionException | InterruptedException e) {
             return ResponseEntity.status(500).build();
-        } catch (RuntimeException e) { // Catch RuntimeException for Fee Structure not found
+        } catch (RuntimeException e) {
             return ResponseEntity.badRequest().build();
         }
     }
@@ -67,11 +67,20 @@ public class FeeController {
             Payment payment = feeService.recordPayment(institutionId, studentFeeId, request);
             return ResponseEntity.ok(payment);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(null); // Return 400 Bad Request for validation errors
+            return ResponseEntity.badRequest().body(null);
         } catch (ExecutionException | InterruptedException e) {
             return ResponseEntity.status(500).build();
-        } catch (RuntimeException e) { // Catch RuntimeException for Student Fee not found
+        } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/student-fees/{studentFeeId}/payments")
+    public ResponseEntity<List<Payment>> getPaymentHistory(@PathVariable String institutionId, @PathVariable String studentFeeId) {
+        try {
+            return ResponseEntity.ok(feeService.getPaymentsForStudentFee(institutionId, studentFeeId));
+        } catch (ExecutionException | InterruptedException e) {
+            return ResponseEntity.status(500).build();
         }
     }
 

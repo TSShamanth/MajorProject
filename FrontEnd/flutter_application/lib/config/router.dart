@@ -1,12 +1,17 @@
-import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application/models/fee_structure_model.dart';
+import 'package:flutter_application/screens/student/student_fees_screen.dart';
+import 'package:flutter_application/screens/student/student_fee_detail_screen.dart';
+import 'package:flutter_application/models/student_fee_model.dart';
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/models/announcement_model.dart';
 import 'package:flutter_application/screens/admin_attendance_dashboard.dart';
 import 'package:flutter_application/screens/student_eligibility_screen.dart';
+import 'package:flutter_application/screens/student_shell.dart';
 import 'package:flutter_application/screens/user_list_screen.dart';
+import 'package:flutter_application/services/api_service.dart';
+// import 'package:flutter_application/services/session_manager.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/admin_dashboard_screen.dart';
 import '../screens/auth_wrapper.dart';
@@ -62,6 +67,9 @@ import '../screens/exam_hall_tickets_screen.dart';
 import '../screens/hall_ticket_viewer_screen.dart';
 import '../screens/student/student_leave_screen.dart';
 import '../screens/student/leave_history_screen.dart';
+import '../models/fee_structure_model.dart'; // Import FeeStructure model
+
+final apiService = ApiService();
 
 final router = GoRouter(
   routes: [
@@ -89,6 +97,25 @@ final router = GoRouter(
         GoRoute(
           path: '/:institutionId/student/attendance',
           builder: (context, state) => const StudentAttendanceScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/fees',
+          builder: (context, state) => const StudentFeesScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/fees/:feeId',
+          builder: (context, state) {
+            final fee = state.extra as StudentFee;
+            return StudentFeeDetailScreen(fee: fee);
+          },
+        ),
+         GoRoute(
+          path: '/:institutionId/student/leave',
+          builder: (context, state) => const StudentLeaveScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/leave/history',
+          builder: (context, state) => const LeaveHistoryScreen(),
         ),
       ],
     ),
@@ -331,14 +358,6 @@ final router = GoRouter(
       builder: (context, state) => const FacultyTimetableScreen(),
     ),
     GoRoute(
-      path: '/:institutionId/student/leave',
-      builder: (context, state) => const StudentLeaveScreen(),
-    ),
-    GoRoute(
-      path: '/:institutionId/student/leave/history',
-      builder: (context, state) => const LeaveHistoryScreen(),
-    ),
-    GoRoute(
       path: '/:institutionId/faculty/timetable/:examId',
       builder: (context, state) {
         final examId = state.pathParameters['examId']!;
@@ -379,26 +398,19 @@ final router = GoRouter(
       builder: (context, state) => const AuthWrapper(),
     ),
   ],
-  refreshListenable: GoRouterRefreshStream(FirebaseAuth.instance.authStateChanges()),
+  refreshListenable: GoRouterRefreshStream(fb_auth.FirebaseAuth.instance.authStateChanges()),
   redirect: (BuildContext context, GoRouterState state) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = fb_auth.FirebaseAuth.instance.currentUser;
     final isLoggingIn = state.matchedLocation == '/login';
 
-    // 1. User is not logged in
     if (user == null) {
-      // If they are not on the login page, send them there.
       return isLoggingIn ? null : '/login';
     }
 
-    // 2. User IS logged in and is trying to access the login page
     if (isLoggingIn) {
-      // Redirect a logged-in user away from the login page.
-      // Sending them to the root is a safe choice, as it will be
-      // handled by a nested route or another redirect if necessary.
       return '/';
     }
 
-    // 3. User is logged in and not on the login page. Allow navigation.
     return null;
   },
 );
@@ -415,45 +427,5 @@ class GoRouterRefreshStream extends ChangeNotifier {
   void dispose() {
     _subscription.cancel();
     super.dispose();
-  }
-}
-
-class StudentShell extends StatelessWidget {
-  final Widget child;
-  final GoRouterState state;
-
-  const StudentShell({super.key, required this.child, required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    final location = state.uri.toString();
-    final institutionId = state.pathParameters['institutionId'];
-    final bool isDashboard = location == '/$institutionId/student/dashboard';
-
-    if (isDashboard) {
-      return child;
-    }
-
-    String title = 'Student';
-    if (location == '/$institutionId/student/profile') {
-      title = 'Profile';
-    } else if (location == '/$institutionId/student/virtual-id') {
-      title = 'Virtual ID';
-    } else if (location == '/$institutionId/student/leave') {
-      title = 'Leave Management';
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            context.pop();
-          },
-        ),
-      ),
-      body: child,
-    );
   }
 }
