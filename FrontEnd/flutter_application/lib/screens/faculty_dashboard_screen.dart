@@ -1288,10 +1288,10 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
   Widget _buildQuickActionsCard() {
     final actions = [
       {'label': 'Mark Attendance', 'color': Colors.indigo, 'route': '/faculty/mark-attendance'},
+      {'label': 'Mentees', 'color': Colors.pink, 'route': '/faculty/mentees'},
       {'label': 'View History', 'color': Colors.green, 'route': '/faculty/attendance-history'},
       {'label': 'Apply Leave', 'color': Colors.purple, 'route': '/faculty/leave'},
       {'label': 'Approve Leaves', 'color': Colors.blueGrey, 'route': '/faculty/leave-approval'}, // NEW ITEM
-      {'label': 'View Payroll', 'color': Colors.orange, 'route': '/faculty/payroll'},
     ];
 
     return Container(

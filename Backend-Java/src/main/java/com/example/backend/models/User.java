@@ -12,6 +12,7 @@ public class User {
     private String phone;
     private String sem;
     private String departmentId; // New field
+    private String mentorId; // New field for mentorship
     private String mentorName;
     private String photoUrl;
     private String programme;
@@ -26,16 +27,60 @@ public class User {
     private String attendanceStatus;
     private String activeLogId;
     private boolean isDetained; // New field for student eligibility
+    private double attendancePercentage; // For mentorship snapshot
+    private double currentGPA; // For mentorship snapshot
+    private List<Double> attendanceHistory; // Trend data
+    private List<Double> gpaHistory; // Trend data
 
     public User() {
     }
 
-    public boolean isDetained() {
+    public List<Double> getAttendanceHistory() {
+        return attendanceHistory;
+    }
+
+    public void setAttendanceHistory(List<Double> attendanceHistory) {
+        this.attendanceHistory = attendanceHistory;
+    }
+
+    public List<Double> getGpaHistory() {
+        return gpaHistory;
+    }
+
+    public void setGpaHistory(List<Double> gpaHistory) {
+        this.gpaHistory = gpaHistory;
+    }
+
+    public double getAttendancePercentage() {
+        return attendancePercentage;
+    }
+
+    public void setAttendancePercentage(double attendancePercentage) {
+        this.attendancePercentage = attendancePercentage;
+    }
+
+    public double getCurrentGPA() {
+        return currentGPA;
+    }
+
+    public void setCurrentGPA(double currentGPA) {
+        this.currentGPA = currentGPA;
+    }
+
+    public String getMentorId() {
+        return mentorId;
+    }
+
+    public void setMentorId(String mentorId) {
+        this.mentorId = mentorId;
+    }
+
+    public boolean getIsDetained() {
         return isDetained;
     }
 
-    public void setDetained(boolean detained) {
-        isDetained = detained;
+    public void setIsDetained(boolean detained) {
+        this.isDetained = detained;
     }
 
     public String getUid() {

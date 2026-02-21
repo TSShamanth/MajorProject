@@ -649,6 +649,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
       {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
+      {'icon': Icons.supervisor_account_rounded, 'label': 'Mentor Management', 'active': false, 'route': '/admin/mentor-management'},
       {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/$_institutionId/admin/institution-setup'},
       {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
       {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
@@ -797,6 +798,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
       {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
+      {'icon': Icons.supervisor_account_rounded, 'label': 'Mentor Management', 'active': false, 'route': '/admin/mentor-management'},
       {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
       {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
       {'icon': Icons.approval, 'label': 'Approval', 'active': false, 'route': '/admin/approval'},
@@ -1842,9 +1844,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   Widget _buildQuickActionsCard() {
     final actions = [
       {'label': 'Manage Users', 'color': const Color(0xFF4F46E5), 'icon': Icons.people_rounded, 'route': null},
+      {'label': 'Mentor Management', 'color': const Color(0xFFEC4899), 'icon': Icons.supervisor_account_rounded, 'route': '/admin/mentor-management'},
       {'label': 'Schedule Drive', 'color': const Color(0xFF10B981), 'icon': Icons.event_rounded, 'route': null},
       {'label': 'System Reports', 'color': const Color(0xFF8B5CF6), 'icon': Icons.bar_chart_rounded, 'route': null},
-      {'label': 'Publish Results', 'color': const Color(0xFFF59E0B), 'icon': Icons.publish_rounded, 'route': null},
     ];
 
     return Container(

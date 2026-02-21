@@ -49,7 +49,6 @@ import '../screens/announcement_detail_screen.dart';
 import '../screens/create_edit_announcement_screen.dart';
 import '../screens/manage_announcements_screen.dart';
 import '../screens/faculty/virtual_id_screen.dart' as faculty_vid;
-import '../screens/faculty/profile_screen.dart' as faculty_profile;
 import '../screens/faculty/faculty_leave_approval_screen.dart';
 import '../screens/room_management_screen.dart';
 import '../screens/room_editor_screen.dart';
@@ -61,6 +60,10 @@ import '../screens/exam_hall_tickets_screen.dart';
 import '../screens/hall_ticket_viewer_screen.dart';
 import '../screens/student/student_leave_screen.dart';
 import '../screens/student/leave_history_screen.dart';
+import '../screens/admin_mentor_management_screen.dart';
+import '../screens/faculty_mentee_dashboard_screen.dart';
+import '../screens/student_mentor_dashboard_screen.dart';
+import '../screens/mentee_detail_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -89,11 +92,19 @@ final router = GoRouter(
           path: '/:institutionId/student/attendance',
           builder: (context, state) => const StudentAttendanceScreen(),
         ),
+        GoRoute(
+          path: '/:institutionId/student/mentor',
+          builder: (context, state) => const StudentMentorDashboardScreen(),
+        ),
       ],
     ),
     GoRoute(
       path: '/:institutionId/admin/dashboard',
       builder: (context, state) => const AdminDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/mentor-management',
+      builder: (context, state) => const AdminMentorManagementScreen(),
     ),
      GoRoute(
       path: '/:institutionId/admin/attendance-dashboard',
@@ -295,12 +306,20 @@ final router = GoRouter(
       builder: (context, state) => const FacultyDashboardScreen(),
     ),
     GoRoute(
-      path: '/:institutionId/faculty/virtual-id',
-      builder: (context, state) => const faculty_vid.VirtualIdScreen(),
+      path: '/:institutionId/faculty/mentees',
+      builder: (context, state) => const FacultyMenteeDashboardScreen(),
     ),
     GoRoute(
-      path: '/:institutionId/faculty/profile',
-      builder: (context, state) => const faculty_profile.ProfileScreen(),
+      path: '/:institutionId/faculty/mentees/:menteeId',
+      builder: (context, state) {
+        final institutionId = state.pathParameters['institutionId']!;
+        final menteeId = state.pathParameters['menteeId']!;
+        return MenteeDetailScreen(menteeId: menteeId, institutionId: institutionId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/virtual-id',
+      builder: (context, state) => const faculty_vid.VirtualIdScreen(),
     ),
     GoRoute(
       path: '/:institutionId/faculty/mark-attendance',
