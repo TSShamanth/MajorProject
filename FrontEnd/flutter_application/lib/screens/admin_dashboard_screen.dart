@@ -103,44 +103,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   Future<void> _fetchAnnouncements() async {
     if (_institutionId == null) return;
-    setState(() {
-      _isLoadingAnnouncements = true;
-    });
-
-    try {
-      debugPrint('Fetching announcements for institution: $_institutionId');
-      // Fetch "My Announcements"
-      final myAnnouncements = await _announcementService.getMyAnnouncementsFromBackend(_institutionId!);
-      debugPrint('Fetched ${myAnnouncements.length} My Announcements');
-      
-      // Fetch "All Announcements"
-      final allAnnouncements = await _announcementService.getAllAnnouncements(_institutionId!);
-      debugPrint('Fetched ${allAnnouncements.length} All Announcements');
-      
-      // Fetch "Audience Announcements" using current user's role and department
-      debugPrint('Fetching audience announcements for role: ${_currentUser?.role}, dept: ${_currentUser?.departmentId}, prog: ${_currentUser?.programme}');
-      final audienceAnnouncements = await _announcementService.getAnnouncements(
-        _institutionId!,
-        role: _currentUser?.role,
-        departmentId: _currentUser?.departmentId,
-        programme: _currentUser?.programme,
-      );
-      debugPrint('Fetched ${audienceAnnouncements.length} Audience Announcements');
-
-      setState(() {
-        _myAnnouncements = myAnnouncements;
-        _allAnnouncements = allAnnouncements;
-        _audienceAnnouncements = audienceAnnouncements;
-        _isLoadingAnnouncements = false;
-      });
-    } catch (e) {
-      debugPrint('Error fetching announcements: $e');
-      setState(() {
-        _isLoadingAnnouncements = false;
-      });
-    }
-  }
-
+        setState(() {
+          _isLoadingAnnouncements = true;
+        });
+    
+        try {
+          // Fetch "My Announcements"
+          final myAnnouncements = await _announcementService.getMyAnnouncementsFromBackend(_institutionId!);
+    
+          // Fetch "All Announcements"
+          final allAnnouncements = await _announcementService.getAllAnnouncements(_institutionId!);
+    
+          // Fetch "Audience Announcements" using current user's role and department
+          final audienceAnnouncements = await _announcementService.getAnnouncements(
+            _institutionId!,
+            role: _currentUser?.role,
+            departmentId: _currentUser?.departmentId,
+            programme: _currentUser?.programme,
+          );
+    
+          setState(() {
+            _myAnnouncements = myAnnouncements;
+            _allAnnouncements = allAnnouncements;
+            _audienceAnnouncements = audienceAnnouncements;
+            _isLoadingAnnouncements = false;
+          });
+        } catch (e) {
+          debugPrint('Error fetching announcements: $e');
+          setState(() {
+            _isLoadingAnnouncements = false;
+          });
+        }
+      }
   Future<void> _fetchUsersAndCounts() async {
     if (_institutionId == null) return;
     try {
@@ -2166,7 +2160,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   }
 
   Widget _buildAnnouncementsSection(bool isMobile, bool isTablet) {
-    debugPrint('Building Announcements Section. Audience: ${_audienceAnnouncements.length}, My: ${_myAnnouncements.length}, All: ${_allAnnouncements.length}');
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(

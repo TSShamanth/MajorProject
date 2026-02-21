@@ -62,7 +62,6 @@ class _AnnouncementsListScreenState extends State<AnnouncementsListScreen> with 
       setState(() {
         _currentUser = user;
       });
-      debugPrint('Current user fetched and set: ${_currentUser?.uid}, role: ${_currentUser?.role}');
     } catch (e) {
       debugPrint('Error fetching current user: $e');
     }
@@ -73,10 +72,8 @@ class _AnnouncementsListScreenState extends State<AnnouncementsListScreen> with 
     setState(() {
       _isLoading = true;
     });
-    debugPrint('Attempting to fetch announcements. Current user role: ${_currentUser?.role}');
 
     try {
-      debugPrint('Student Fetch: Role=${_currentUser?.role}, Dept=${_currentUser?.programme}');
       final fetchedMy = await _announcementService.getMyAnnouncementsFromBackend(_institutionId!);
       final fetchedAll = await _announcementService.getAllAnnouncements(_institutionId!);
       final fetchedAudience = await _announcementService.getAnnouncements(
@@ -85,7 +82,6 @@ class _AnnouncementsListScreenState extends State<AnnouncementsListScreen> with 
         departmentId: _currentUser?.departmentId,
         programme: _currentUser?.programme, // Pass programme as well
       );
-      debugPrint('Student Fetch Results: Audience=${fetchedAudience.length}, All=${fetchedAll.length}');
 
       setState(() {
         _myAnnouncements = fetchedMy;

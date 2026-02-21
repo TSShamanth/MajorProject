@@ -16,7 +16,6 @@ class _AdminMentorManagementScreenState extends State<AdminMentorManagementScree
   final ApiService _apiService = ApiService();
   final MentorshipService _mentorshipService = MentorshipService();
 
-  final bool _isDarkMode = false;
   String? _institutionId;
   
   List<Department> _departments = [];
