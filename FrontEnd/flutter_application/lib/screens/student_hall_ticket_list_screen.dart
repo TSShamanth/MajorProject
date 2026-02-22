@@ -61,35 +61,30 @@ class StudentHallTicketListScreenState
       }
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Hall Tickets'),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(child: Text(_errorMessage!))
-              : _exams.isEmpty
-                  ? const Center(child: Text('No hall tickets available for you.'))
-                  : ListView.builder(
-                      itemCount: _exams.length,
-                      itemBuilder: (context, index) {
-                        final exam = _exams[index];
-                        return ListTile(
-                          title: Text(exam.name),
-                          subtitle: Text('Click to view'),
-                          trailing: const Icon(Icons.arrow_forward_ios),
-                          onTap: () async {
-                            final router = GoRouter.of(context);
-                            final institutionId = await SessionManager.getInstitutionId();
-                            if (!mounted) return;
-                             if (institutionId != null) {
-                                router.go('/$institutionId/student/hall-tickets/${exam.id}');
-                             }
-                          },
-                        );
-                      },
-                    ),
-    );
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _errorMessage != null
+            ? Center(child: Text(_errorMessage!))
+            : _exams.isEmpty
+                ? const Center(child: Text('No hall tickets available for you.'))
+                : ListView.builder(
+                    itemCount: _exams.length,
+                    itemBuilder: (context, index) {
+                      final exam = _exams[index];
+                      return ListTile(
+                        title: Text(exam.name),
+                        subtitle: Text('Click to view'),
+                        trailing: const Icon(Icons.arrow_forward_ios),
+                        onTap: () async {
+                          final router = GoRouter.of(context);
+                          final institutionId = await SessionManager.getInstitutionId();
+                          if (!mounted) return;
+                           if (institutionId != null) {
+                              router.go('/$institutionId/student/hall-tickets/${exam.id}');
+                           }
+                        },
+                      );
+                    },
+                  );
   }
 }

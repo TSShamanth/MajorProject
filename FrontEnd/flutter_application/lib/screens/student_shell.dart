@@ -12,9 +12,10 @@ class StudentShell extends StatelessWidget {
     final location = state.uri.toString();
     final institutionId = state.pathParameters['institutionId'];
     final bool isDashboard = location == '/$institutionId/student/dashboard';
+    final bool isHallTicketViewer = location.contains('/student/hall-tickets/') && state.pathParameters.containsKey('examId');
 
-    // The dashboard screen has its own scaffold, other screens get this default one.
-    if (isDashboard) {
+    // These screens have their own scaffold/appbar
+    if (isDashboard || isHallTicketViewer) {
       return child;
     }
 
@@ -31,6 +32,8 @@ class StudentShell extends StatelessWidget {
       title = 'My Attendance';
     } else if (location.contains('/student/timetable')) {
       title = 'My Timetable';
+    } else if (location.contains('/student/hall-tickets')) {
+      title = 'My Hall Tickets';
     }
 
     return Scaffold(

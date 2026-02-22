@@ -71,6 +71,7 @@ import '../screens/working_day_management_screen.dart';
 import '../screens/timetable_generation_screen.dart';
 import '../screens/faculty_exam_timetable_screen.dart';
 import '../screens/student_timetable_screen.dart';
+import '../screens/student_hall_ticket_list_screen.dart';
 import '../screens/student_shell.dart';
 import '../models/fee_structure_model.dart';
 
@@ -94,6 +95,18 @@ final router = GoRouter(
         GoRoute(
           path: '/:institutionId/student/timetable',
           builder: (context, state) => StudentTimetableScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/hall-tickets',
+          builder: (context, state) => const StudentHallTicketListScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/hall-tickets/:examId',
+          builder: (context, state) {
+            final examId = state.pathParameters['examId']!;
+            final studentId = fb_auth.FirebaseAuth.instance.currentUser!.uid;
+            return HallTicketViewerScreen(examId: examId, studentId: studentId);
+          },
         ),
         GoRoute(
           path: '/:institutionId/student/profile',
