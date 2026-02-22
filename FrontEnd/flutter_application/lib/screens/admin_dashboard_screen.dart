@@ -1,10 +1,16 @@
-import 'dart:typed_data'; // Import for Uint8List
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:go_router/go_router.dart';
-import '../services/image_service.dart'; // Import the new image service
+import '../services/image_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/announcement_service.dart'; // Add AnnouncementService import
+import '../models/department_model.dart'; // Import Department model
+import '../models/section_model.dart'; // Import Section model
+import '../models/announcement_model.dart'; // Add AnnouncementModel import
+import '../models/user_model.dart'; // Add UserModel import
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -13,7 +19,7 @@ class AdminDashboardScreen extends StatefulWidget {
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
-class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+class _AdminDashboardScreenState extends State<AdminDashboardScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -28,10 +34,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _addressController = TextEditingController();
   final _dobController = TextEditingController();
   final _bloodGroupController = TextEditingController();
-  final _emergencyContactController = TextEditingController();  
+  final _emergencyContactController = TextEditingController();
   final _validUptoController = TextEditingController();
 
   String? _selectedRole = 'student';
+  String? _selectedDepartmentForStudent; // New field
+  String? _selectedDepartmentForFaculty; // New field
+  String? _selectedSectionId; // New field
   bool _isLoading = false;
   Uint8List? _pickedImageBytes;
   String? _photoUrl;
@@ -39,16 +48,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _studentCount = 0;
   int _facultyCount = 0;
   int _adminCount = 0;
+  bool _sidebarExpanded = true;
+  bool _isDarkMode = false;
+  late AnimationController _animationController;
 
   final ApiService _apiService = ApiService();
   final ImageService _imageService = ImageService();
+  final AnnouncementService _announcementService = AnnouncementService(); // Initialize AnnouncementService
+  List<Department> _departments = []; // New list for departments
+  List<Section> _sections = []; // New list for sections
+  bool _isLoadingDepartments = false; // New loading flag
+
+  // Announcement state variables
+  List<AnnouncementModel> _myAnnouncements = [];
+  List<AnnouncementModel> _allAnnouncements = [];
+  List<AnnouncementModel> _audienceAnnouncements = [];
+  bool _isLoadingAnnouncements = false;
+  UserModel? _currentUser;
 
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
     _fetchInstitutionId().then((_) {
       if (_institutionId != null) {
         _fetchUsersAndCounts();
+        _fetchDepartments(); // Fetch departments when institutionId is available
+        _fetchCurrentUserAndAnnouncements(); // Fetch user profile and then announcements
       }
     });
   }
@@ -60,37 +89,117 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     });
   }
 
+  Future<void> _fetchCurrentUserAndAnnouncements() async {
+    if (_institutionId == null) return;
+    try {
+      debugPrint('Fetching current user profile for institution: $_institutionId');
+      final user = await _apiService.getMe(_institutionId!);
+      debugPrint('Fetched user: ${user.displayName}, role: ${user.role}');
+      setState(() {
+        _currentUser = user;
+      });
+      // Once we have user profile (role, department), fetch announcements
+      await _fetchAnnouncements();
+    } catch (e) {
+      debugPrint('Error fetching current user profile: $e');
+    }
+  }
+
+  Future<void> _fetchAnnouncements() async {
+    if (_institutionId == null) return;
+        setState(() {
+          _isLoadingAnnouncements = true;
+        });
+    
+        try {
+          // Fetch "My Announcements"
+          final myAnnouncements = await _announcementService.getMyAnnouncementsFromBackend(_institutionId!);
+    
+          // Fetch "All Announcements"
+          final allAnnouncements = await _announcementService.getAllAnnouncements(_institutionId!);
+    
+          // Fetch "Audience Announcements" using current user's role and department
+          final audienceAnnouncements = await _announcementService.getAnnouncements(
+            _institutionId!,
+            role: _currentUser?.role,
+            departmentId: _currentUser?.departmentId,
+            programme: _currentUser?.programme,
+          );
+    
+          setState(() {
+            _myAnnouncements = myAnnouncements;
+            _allAnnouncements = allAnnouncements;
+            _audienceAnnouncements = audienceAnnouncements;
+            _isLoadingAnnouncements = false;
+          });
+        } catch (e) {
+          debugPrint('Error fetching announcements: $e');
+          setState(() {
+            _isLoadingAnnouncements = false;
+          });
+        }
+      }
   Future<void> _fetchUsersAndCounts() async {
     if (_institutionId == null) return;
     try {
       final users = await _apiService.getUsers(_institutionId!);
-      debugPrint('Fetched users count: ${users.length}'); // Debug print
+      debugPrint('Fetched users count: ${users.length}');
       int studentCount = 0;
       int facultyCount = 0;
-      int adminCount = 0; // New admin counter
+      int adminCount = 0;
       for (var user in users) {
-        debugPrint('User role: ${user.role}'); // Debug print
+        debugPrint('User role: ${user.role}');
         if (user.role == 'student') {
           studentCount++;
         } else if (user.role == 'faculty') {
           facultyCount++;
-        } else if (user.role == 'admin') { // Count admins
+        } else if (user.role == 'admin') {
           adminCount++;
         }
       }
       setState(() {
         _studentCount = studentCount;
         _facultyCount = facultyCount;
-        _adminCount = adminCount; // Update admin count
+        _adminCount = adminCount;
       });
     } catch (e) {
-      // Handle error
-      debugPrint('Error fetching users and counts: $e'); // Debug print
+      debugPrint('Error fetching users and counts: $e');
     }
   }
 
+  Future<void> _fetchDepartments() async {
+    if (_institutionId == null) return;
+    setState(() {
+      _isLoadingDepartments = true;
+    });
+    try {
+      final departments = await _apiService.getDepartments(_institutionId!);
+      setState(() {
+        _departments = departments;
+      });
+    } catch (e) {
+      debugPrint('Error fetching departments: $e');
+    } finally {
+      setState(() {
+        _isLoadingDepartments = false;
+      });
+    }
+  }
+
+  Future<void> _fetchSections(String departmentId, Function setDialogState) async {
+    if (_institutionId == null) return;
+    try {
+      final sections = await _apiService.getSections(_institutionId!, departmentId);
+      setDialogState(() {
+        _sections = sections;
+      });
+    } catch (e) {
+      debugPrint('Error fetching sections: $e');
+    }
+  }
   @override
   void dispose() {
+    _animationController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _displayNameController.dispose();
@@ -138,132 +247,263 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              backgroundColor: const Color(0xFFF8F9FA),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: const Row(
+              backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
                 children: [
-                  Icon(Icons.person_add_alt_1_outlined, color: Color(0xFF1E293B)),
-                  SizedBox(width: 8),
-                  Text('Create New User', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4F46E5).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.person_add_alt_1_rounded, color: Color(0xFF4F46E5), size: 22),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Create New User',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
+                      color: _isDarkMode ? Colors.white : const Color(0xFF1F2937),
+                    ),
+                  ),
                 ],
               ),
-              content: Form(
-                key: _formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Center(
-                        child: Stack(
-                          children: [
-                            CircleAvatar(
-                              radius: 50,
-                              backgroundColor: Colors.grey.shade300,
-                              backgroundImage: _pickedImageBytes != null ? MemoryImage(_pickedImageBytes!) : null,
-                              child: _pickedImageBytes == null
-                                  ? const Icon(Icons.person_outline, size: 50, color: Colors.white)
-                                  : null,
-                            ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: CircleAvatar(
-                                radius: 18,
-                                backgroundColor: const Color(0xFF1E293B),
-                                child: IconButton(
-                                  icon: const Icon(Icons.camera_alt_outlined, color: Colors.white, size: 18),
-                                  onPressed: () async {
-                                    Navigator.of(context).pop();
-                                    await _pickAndUploadImage();
-                                    _showAddUserDialog();
-                                  },
+              content: SizedBox(
+                width: 500,
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 8),
+                        Center(
+                          child: Stack(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF4F46E5).withOpacity(0.2),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: CircleAvatar(
+                                  radius: 56,
+                                  backgroundColor: const Color(0xFFEEF2FF),
+                                  backgroundImage: _pickedImageBytes != null ? MemoryImage(_pickedImageBytes!) : null,
+                                  child: _pickedImageBytes == null
+                                      ? const Icon(Icons.person_outline_rounded, size: 56, color: Color(0xFF4F46E5))
+                                      : null,
                                 ),
                               ),
-                            ),
-                          ],
+                              Positioned(
+                                bottom: 2,
+                                right: 2,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.15),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: const Color(0xFF4F46E5),
+                                    child: IconButton(
+                                      icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 18),
+                                      onPressed: () async {
+                                        Navigator.of(context).pop();
+                                        await _pickAndUploadImage();
+                                        _showAddUserDialog();
+                                      },
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      DropdownButtonFormField<String>(
-                        value: selectedRole,
-                        decoration: _inputDecoration('Role', Icons.school_outlined),
-                        items: ['student', 'faculty', 'admin'].map((String role) {
-                          return DropdownMenuItem<String>(
-                            value: role,
-                            child: Text(role.substring(0, 1).toUpperCase() + role.substring(1)),
-                          );
-                        }).toList(),
-                        onChanged: (newValue) {
-                          setDialogState(() {
-                            selectedRole = newValue;
-                            _selectedRole = newValue;
-                          });
-                        },
-                        validator: (value) => value == null ? 'Please select a role' : null,
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 32),
+                        
+                        DropdownButtonFormField<String>(
+                          value: selectedRole,
+                          decoration: _inputDecoration('Role', Icons.school_rounded),
+                          dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
+                          style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
+                          items: ['student', 'faculty', 'admin'].map((String role) {
+                            return DropdownMenuItem<String>(
+                              value: role,
+                              child: Text(role.substring(0, 1).toUpperCase() + role.substring(1)),
+                            );
+                          }).toList(),
+                          onChanged: (newValue) {
+                            setDialogState(() {
+                              selectedRole = newValue;
+                              _selectedRole = newValue;
+                            });
+                          },
+                          validator: (value) => value == null ? 'Please select a role' : null,
+                        ),
+                        const SizedBox(height: 20),
 
-                      _buildTextField(_displayNameController, 'Display Name', Icons.badge_outlined),
-                      const SizedBox(height: 16),
-                      _buildTextField(_emailController, 'Email', Icons.email_outlined),
-                      const SizedBox(height: 16),
-                      _buildTextField(_passwordController, 'Password', Icons.lock_outline, obscureText: true),
-                      
-                      if (selectedRole == 'student') ...[
-                        const SizedBox(height: 16),
-                        _buildTextField(_nameController, 'Full Name', Icons.person_outline),
-                        const SizedBox(height: 16),
-                        _buildTextField(_usnController, 'USN', Icons.confirmation_number_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_phoneController, 'Phone Number', Icons.phone_outlined),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(child: _buildTextField(_semController, 'Semester', Icons.format_list_numbered_outlined)),
-                            const SizedBox(width: 16),
-                            Expanded(child: _buildTextField(_mentorController, 'Mentor Name', Icons.supervisor_account_outlined)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(_programmeController, 'Programme', Icons.class_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_schoolController, 'School', Icons.school_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_addressController, 'Address', Icons.home_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_dobController, 'Date of Birth', Icons.cake_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_bloodGroupController, 'Blood Group', Icons.bloodtype_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_emergencyContactController, 'Emergency Contact', Icons.contact_phone_outlined),
-                        const SizedBox(height: 16),
-                        _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_outlined),
+                        _buildTextField(_displayNameController, 'Display Name', Icons.badge_rounded),
+                        const SizedBox(height: 20),
+                        _buildTextField(_emailController, 'Email', Icons.email_rounded),
+                        const SizedBox(height: 20),
+                        _buildTextField(_passwordController, 'Password', Icons.lock_rounded, obscureText: true),
+                        
+                        if (selectedRole == 'faculty') ...[
+                          const SizedBox(height: 20),
+                          _isLoadingDepartments
+                              ? const Center(child: CircularProgressIndicator())
+                              : DropdownButtonFormField<String>(
+                                  value: _selectedDepartmentForFaculty,
+                                  decoration: _inputDecoration('Department', Icons.business_rounded),
+                                  dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
+                                  style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
+                                  items: _departments.map((department) {
+                                    return DropdownMenuItem<String>(
+                                      value: department.id,
+                                      child: Text(department.name),
+                                    );
+                                  }).toList(),
+                                  onChanged: (newValue) {
+                                    setDialogState(() {
+                                      _selectedDepartmentForFaculty = newValue;
+                                    });
+                                  },
+                                  validator: (value) => value == null ? 'Please select a department' : null,
+                                ),
+                        ],
+                        
+                        if (selectedRole == 'student') ...[
+                          const SizedBox(height: 20),
+                          _isLoadingDepartments
+                              ? const Center(child: CircularProgressIndicator())
+                              : DropdownButtonFormField<String>(
+                                  value: _selectedDepartmentForStudent,
+                                  decoration: _inputDecoration('Department', Icons.business_rounded),
+                                  dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
+                                  style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
+                                  items: _departments.map((department) {
+                                    return DropdownMenuItem<String>(
+                                      value: department.id,
+                                      child: Text(department.name),
+                                    );
+                                  }).toList(),
+                                  onChanged: (newValue) {
+                                    setDialogState(() {
+                                      _selectedDepartmentForStudent = newValue;
+                                      _selectedSectionId = null; // Reset section
+                                      _sections = []; // Clear sections
+                                    });
+                                    if (newValue != null) {
+                                      _fetchSections(newValue, setDialogState);
+                                    }
+                                  },
+                                  validator: (value) => value == null ? 'Please select a department' : null,
+                                ),
+                          const SizedBox(height: 20),
+                          DropdownButtonFormField<String>(
+                            value: _selectedSectionId,
+                            decoration: _inputDecoration('Section', Icons.group_work_rounded),
+                            dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
+                            style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
+                            items: _sections.where((s) => s.id != null).map((section) {
+                              return DropdownMenuItem<String>(
+                                value: section.id!,
+                                child: Text(section.name),
+                              );
+                            }).toList(),
+                            onChanged: (newValue) {
+                              setDialogState(() {
+                                _selectedSectionId = newValue;
+                              });
+                            },
+                            validator: (value) => value == null ? 'Please select a section' : null,
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_usnController, 'USN', Icons.confirmation_number_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_phoneController, 'Phone Number', Icons.phone_rounded),
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Expanded(child: _buildTextField(_semController, 'Semester', Icons.format_list_numbered_rounded)),
+                              const SizedBox(width: 20),
+                              Expanded(child: _buildTextField(_mentorController, 'Mentor Name', Icons.supervisor_account_rounded)),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(_programmeController, 'Programme', Icons.class_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_schoolController, 'School', Icons.school_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_addressController, 'Address', Icons.home_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_dobController, 'Date of Birth', Icons.cake_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_bloodGroupController, 'Blood Group', Icons.bloodtype_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_emergencyContactController, 'Emergency Contact', Icons.contact_phone_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_rounded),
+                        ],
+                        const SizedBox(height: 8),
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
               actions: [
                 TextButton(
-                  child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
                   onPressed: () {
                     Navigator.of(context).pop();
                     _clearForm();
                   },
                 ),
+                const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: _handleCreateUser,
-                  icon: _isLoading ? const SizedBox.shrink() : const Icon(Icons.check_circle_outline, color: Colors.white),
+                  icon: _isLoading ? const SizedBox.shrink() : const Icon(Icons.check_circle_rounded, size: 20),
                   label: _isLoading 
-                      ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2) 
-                      : const Text('Create User', style: TextStyle(color: Colors.white)),
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                        )
+                      : const Text('Create User', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E293B),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    backgroundColor: const Color(0xFF4F46E5),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    elevation: 0,
                   ),
                 ),
               ],
+              actionsPadding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
             );
           },
         );
@@ -276,6 +516,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       controller: controller,
       obscureText: obscureText,
       decoration: _inputDecoration(label, icon),
+      style: TextStyle(fontSize: 15, color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
       validator: (value) {
         if (value == null || value.isEmpty) {
           return 'Please enter a $label';
@@ -294,21 +535,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon, color: const Color(0xFF1E293B)),
+      labelStyle: TextStyle(fontSize: 14, color: _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+      prefixIcon: Icon(icon, color: const Color(0xFF4F46E5), size: 22),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF1E293B), width: 2),
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 2),
       ),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: _isDarkMode ? const Color(0xFF111827) : const Color(0xFFFAFAFA),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
   }
 
@@ -335,6 +578,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           usn: _usnController.text,
           phone: _phoneController.text,
           sem: _semController.text,
+          departmentId: _selectedRole == 'student' ? _selectedDepartmentForStudent : (_selectedRole == 'faculty' ? _selectedDepartmentForFaculty : null), // Pass departmentId for faculty too
+          sectionId: _selectedRole == 'student' ? _selectedSectionId : null, // Pass sectionId for student
           mentorName: _mentorController.text,
           photoUrl: _photoUrl,
           programme: _programmeController.text,
@@ -354,6 +599,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           );
           Navigator.of(context).pop();
           _clearForm();
+          _fetchUsersAndCounts();
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: ${response.body}'), backgroundColor: Colors.red),
@@ -392,469 +638,1787 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _validUptoController.clear();
     setState(() {
       _selectedRole = 'student';
+      _selectedDepartmentForStudent = null;
+      _selectedDepartmentForFaculty = null;
+      _selectedSectionId = null;
+      _sections = [];
       _pickedImageBytes = null;
       _photoUrl = null;
     });
   }
 
+  Color get _bgColor => _isDarkMode ? const Color(0xFF111827) : const Color(0xFFF8FAFC);
+  Color get _cardColor => _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+  Color get _textPrimary => _isDarkMode ? const Color(0xFFF9FAFB) : const Color(0xFF1F2937);
+  Color get _textSecondary => _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
+  Color get _borderColor => _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+  // Color get _sidebarColor => const Color(0xFF4F46E5);
+
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Determine screen breakpoints
+        final isMobile = constraints.maxWidth < 768;
+        final isTablet = constraints.maxWidth >= 768 && constraints.maxWidth < 1024;
+        final isDesktop = constraints.maxWidth >= 1024;
+
+        return Scaffold(
+          backgroundColor: _bgColor,
+          drawer: isMobile ? _buildMobileDrawer() : null,
+          body: isMobile 
+              ? _buildMobileLayout()
+              : Row(
+                  children: [
+                    if (!isMobile) _buildModernSidebar(),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          _buildModernTopBar(isMobile: isMobile),
+                          if (!isMobile) _buildBreadcrumb(),
+                          Expanded(
+                            child: _buildDashboardContent(
+                              isMobile: isMobile,
+                              isTablet: isTablet,
+                              isDesktop: isDesktop,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileLayout() {
+    return Column(
+      children: [
+        _buildMobileTopBar(),
+        Expanded(
+          child: _buildDashboardContent(
+            isMobile: true,
+            isTablet: false,
+            isDesktop: false,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileDrawer() {
     final menuItems = [
-      {'icon': Icons.business_outlined, 'label': 'Institution', 'description': 'Manage institution settings'},
-      {'icon': Icons.person_add_alt_1_outlined, 'label': 'User Management', 'description': 'Create & manage users'},
-      {'icon': Icons.bar_chart_outlined, 'label': 'Attendance Reports', 'description': 'View attendance analytics'},
-      {'icon': Icons.calendar_today_outlined, 'label': 'Academic Calendar', 'description': 'Manage timetables & holidays'},
-      {'icon': Icons.business_center_outlined, 'label': 'Placements', 'description': 'Manage placement drives'},
-      {'icon': Icons.celebration_outlined, 'label': 'Events', 'description': 'Oversee all events'},
-      {'icon': Icons.analytics_outlined, 'label': 'Analytics', 'description': 'Institution-wide reports'},
-      {'icon': Icons.settings_outlined, 'label': 'Settings', 'description': 'System configuration'}
+      {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
+      {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
+      {'icon': Icons.supervisor_account_rounded, 'label': 'Mentor Management', 'active': false, 'route': '/admin/mentor-management'},
+      {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
+      {'icon': Icons.account_balance_wallet_rounded, 'label': 'Fee Management', 'active': false, 'route': '/admin/fee-management'},
+      {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'active': false, 'route': '/admin/timetable/timeslots'},
+      {'icon': Icons.calendar_today_rounded, 'label': 'Working Days', 'active': false, 'route': '/admin/timetable/working-days'},
+      {'icon': Icons.grid_on_rounded, 'label': 'Timetable', 'active': false, 'route': '/admin/timetable/generate'},
+      {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
+      {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
+      {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': null},
+      {'icon': Icons.announcement_rounded, 'label': 'Announcements', 'active': false, 'route': '/announcements/manage'},
+      {'icon': Icons.bar_chart_rounded, 'label': 'Analytics & Reports', 'active': false, 'route': null},
+      {'icon': Icons.article_rounded, 'label': 'Content Management', 'active': false, 'route': null},
+      {'icon': Icons.settings_rounded, 'label': 'System Settings', 'active': false, 'route': null},
     ];
 
-    final stats = [
-      {'label': 'Total Students', 'value': _studentCount.toString(), 'change': '+12%', 'color': Colors.blue},
-      {'label': 'Total Faculty', 'value': _facultyCount.toString(), 'change': '+3%', 'color': Colors.purple},
-      {'label': 'Avg Attendance', 'value': '87%', 'change': '+2%', 'color': Colors.green},
-      {'label': 'Active Placements', 'value': '15', 'change': '+5', 'color': Colors.orange}
-    ];
-
-    final quickActions = [
-      {'icon': Icons.person_add_alt_1_outlined, 'label': 'Add User', 'color': Colors.blue, 'action': _showAddUserDialog},
-      {'icon': Icons.business_outlined, 'label': 'Institution Setup', 'color': Colors.purple, 'action': () {}},
-      {'icon': Icons.business_center_outlined, 'label': 'New Placement', 'color': Colors.green, 'action': () {}},
-      {'icon': Icons.calendar_today_outlined, 'label': 'Add Holiday', 'color': Colors.orange, 'action': () {}}
-    ];
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        title: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
-                child: Text('A', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+    return Drawer(
+      backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+      child: Column(
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: _isDarkMode 
+                    ? [const Color(0xFF1F2937), const Color(0xFF111827)]
+                    : [const Color(0xFF4F46E5), const Color(0xFF4338CA)],
               ),
             ),
-            const SizedBox(width: 12),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text('Acadexa', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                Text('Admin Portal', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'A',
+                      style: TextStyle(
+                        color: _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Text(
+                    'AcadWorkHub',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ],
             ),
-          ],
-        ),
-        actions: [
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: menuItems.map((item) {
+                final isActive = item['active'] == true;
+                return ListTile(
+                  leading: Icon(
+                    item['icon'] as IconData,
+                    color: isActive ? const Color(0xFF4F46E5) : _textSecondary,
+                  ),
+                  title: Text(
+                    item['label'] as String,
+                    style: TextStyle(
+                      color: isActive ? const Color(0xFF4F46E5) : _textPrimary,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                  selected: isActive,
+                  selectedTileColor: const Color(0xFF4F46E5).withOpacity(0.1),
+                  onTap: () {
+                    Navigator.pop(context);
+                    final route = item['route'];
+                    if (route != null && _institutionId != null) {
+                      context.go('/$_institutionId${route as String}');
+                    }
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileTopBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        border: Border(bottom: BorderSide(color: _borderColor)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Builder(
+            builder: (context) => IconButton(
+              icon: Icon(Icons.menu_rounded, color: _textPrimary),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'AcadWorkHub',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF4F46E5),
+              ),
+            ),
+          ),
           IconButton(
-            icon: const Icon(Icons.logout, color: Color(0xFF1E293B)),
-            onPressed: () async {
-              final router = GoRouter.of(context);
-              await SessionManager.clearSession();
-              await AuthService.logout();
-              router.go('/login');
+            icon: Icon(
+              _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              color: _isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFF4F46E5),
+            ),
+            onPressed: () {
+              setState(() {
+                _isDarkMode = !_isDarkMode;
+              });
             },
           ),
-        ],
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Color(0xFF1E293B),
-              ),
-              child: Text(
-                'Menu',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                ),
-              ),
-            ),
-            for (var item in menuItems)
-              ListTile(
-                leading: Icon(item['icon'] as IconData, color: const Color(0xFF1E293B)),
-                title: Text(item['label'] as String),
-                subtitle: Text(item['description'] as String),
-                onTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-          ],
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Welcome, Admin', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-            const Text('VIT Chennai | Administrator', style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 24),
-
-            // Stats Grid
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 2.0,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-              ),
-              itemCount: stats.length,
-              itemBuilder: (context, index) {
-                final stat = stats[index];
-                return _buildStatCard(stat['label'] as String, stat['value'] as String, stat['change'] as String, stat['color'] as Color);
-              },
-            ),
-            const SizedBox(height: 24),
-
-            // Quick Actions
-            _buildQuickActionsCard(quickActions),
-            const SizedBox(height: 24),
-
-            // User Management
-            _buildUserManagementCard(),
-            const SizedBox(height: 16),
-
-            // Attendance Analytics
-            _buildAttendanceAnalyticsCard(),
-            const SizedBox(height: 16),
-
-            // Placement Drives
-            _buildPlacementDrivesCard(),
-            const SizedBox(height: 16),
-            
-            // Academic Management
-            _buildAcademicManagementCard(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String label, String value, String change, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-          const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(change, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActionsCard(List<Map<String, Object>> actions) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Quick Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 2.5,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: actions.length,
-              itemBuilder: (context, index) {
-                final action = actions[index];
-                return ElevatedButton.icon(
-                  onPressed: action['action'] as void Function(),
-                  icon: Icon(action['icon'] as IconData, color: action['color'] as Color),
-                  label: Text(action['label'] as String, style: const TextStyle(color: Color(0xFF1E293B))),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: (action['color'] as Color).withOpacity(0.1),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUserManagementCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.group_outlined),
-                    SizedBox(width: 8),
-                    Text('User Management', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                ElevatedButton(onPressed: _showAddUserDialog, child: const Text('+ Add User')),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildUserTypeTile(
-              'Students', 
-              _studentCount.toString(), 
-              'Active accounts', 
-              Colors.blue,
-              onTap: () {
-                if (_institutionId != null) {
-                  final path = '/$_institutionId/admin/users/student';
-                  debugPrint('Navigating to: $path'); // Debug print
-                  context.go(path);
-                } else {
-                  debugPrint('Institution ID is null, cannot navigate.'); // Debug print
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            _buildUserTypeTile(
-              'Faculty', 
-              _facultyCount.toString(), 
-              'Active accounts', 
-              Colors.purple,
-              onTap: () {
-                if (_institutionId != null) {
-                  final path = '/$_institutionId/admin/users/faculty';
-                  debugPrint('Navigating to: $path'); // Debug print
-                  context.go(path);
-                } else {
-                  debugPrint('Institution ID is null, cannot navigate.'); // Debug print
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            _buildUserTypeTile(
-              'Admins', 
-              _adminCount.toString(), 
-              'System administrators', 
-              Colors.grey,
-              onTap: () {
-                if (_institutionId != null) {
-                  final path = '/$_institutionId/admin/users/admin';
-                  debugPrint('Navigating to: $path'); // Debug print
-                  context.go(path);
-                } else {
-                  debugPrint('Institution ID is null, cannot navigate.'); // Debug print
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUserTypeTile(String title, String count, String subtitle, Color color, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-                Text(subtitle, style: TextStyle(color: color.withOpacity(0.8), fontSize: 12)),
-              ],
-            ),
-            Text(count, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
-          ],
-        ),
-      ),
-    );
-  }
-  Widget _buildAttendanceAnalyticsCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.bar_chart_outlined),
-                SizedBox(width: 8),
-                Text('Attendance Overview', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildProgressRow('CSE Department', '89%', 0.89, Colors.blue),
-            _buildProgressRow('ECE Department', '85%', 0.85, Colors.purple),
-            _buildProgressRow('MECH Department', '83%', 0.83, Colors.green),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 40)),
-              child: const Text('View Detailed Reports'),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProgressRow(String label, String value, double progress, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(label),
-              Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 4),
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: color.withOpacity(0.2),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
+          IconButton(
+            icon: Icon(Icons.notifications_rounded, color: _textPrimary),
+            onPressed: () {},
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPlacementDrivesCard() {
-    final drives = [
-      {'company': 'Google India', 'applicants': '145 students registered', 'status': 'Active', 'color': Colors.green},
-      {'company': 'Microsoft', 'applicants': '89 students registered', 'status': 'Shortlisting', 'color': Colors.blue},
-      {'company': 'Amazon', 'applicants': '203 students registered', 'status': 'Active', 'color': Colors.green}
+  Widget _buildModernSidebar() {
+    final menuItems = [
+      {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
+      {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
+      {'icon': Icons.supervisor_account_rounded, 'label': 'Mentor Management', 'active': false, 'route': '/admin/mentor-management'},
+      {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
+      {'icon': Icons.account_balance_wallet_rounded, 'label': 'Fee Management', 'active': false, 'route': '/admin/fee-management'},
+      {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'active': false, 'route': '/admin/timetable/timeslots'},
+      {'icon': Icons.calendar_today_rounded, 'label': 'Working Days', 'active': false, 'route': '/admin/timetable/working-days'},
+      {'icon': Icons.grid_on_rounded, 'label': 'Timetable', 'active': false, 'route': '/admin/timetable/generate'},
+      {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
+      {'icon': Icons.approval, 'label': 'Approval', 'active': false, 'route': '/admin/approval'},
+      {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
+      {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': null},
+      {'icon': Icons.announcement_rounded, 'label': 'Announcements', 'active': false, 'route': '/announcements/manage'},
+      {'icon': Icons.bar_chart_rounded, 'label': 'Analytics & Reports', 'active': false, 'route': null},
+      {'icon': Icons.article_rounded, 'label': 'Content Management', 'active': false, 'route': null},
+      {'icon': Icons.settings_rounded, 'label': 'System Settings', 'active': false, 'route': null},
     ];
 
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.business_center_outlined),
-                    SizedBox(width: 8),
-                    Text('Placement Drives', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      width: _sidebarExpanded ? 270 : 0,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: _isDarkMode 
+              ? [const Color(0xFF1F2937), const Color(0xFF111827)]
+              : [const Color(0xFF4F46E5), const Color(0xFF4338CA)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: _sidebarExpanded ? [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.3 : 0.15),
+            blurRadius: 20,
+            offset: const Offset(4, 0),
+          ),
+        ] : [],
+      ),
+      child: _sidebarExpanded ? Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
+                  width: 1,
                 ),
-                ElevatedButton(onPressed: () {}, child: const Text('+ Create Drive')),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      'A',
+                      style: TextStyle(
+                        color: _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Text(
+                    'AcadWorkHub',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.chevron_left_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _sidebarExpanded = false;
+                      });
+                    },
+                    tooltip: 'Collapse sidebar',
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 16),
-            Column(
-              children: drives.map((drive) {
+          ),
+
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
+              children: menuItems.map((item) {
+                final isActive = item['active'] == true;
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: (drive['color'] as Color).withOpacity(0.1),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        if (item['route'] != null && _institutionId != null) {
+                          context.go('/$_institutionId${item['route']}');
+                        }
+                      },
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: (drive['color'] as Color).withOpacity(0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: isActive 
+                              ? Colors.white.withOpacity(_isDarkMode ? 0.1 : 0.15) 
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: isActive 
+                              ? Border.all(
+                                  color: Colors.white.withOpacity(_isDarkMode ? 0.2 : 0.3),
+                                  width: 1,
+                                )
+                              : null,
+                        ),
+                        child: Row(
                           children: [
-                            Text(drive['company'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            Chip(
-                              label: Text(drive['status'] as String),
-                              backgroundColor: Colors.white,
-                              labelStyle: const TextStyle(fontSize: 10),
+                            Icon(
+                              item['icon'] as IconData,
+                              color: Colors.white.withOpacity(isActive ? 1.0 : 0.7),
+                              size: 24,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                item['label'] as String,
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(isActive ? 1.0 : 0.8),
+                                  fontSize: 15,
+                                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(drive['applicants'] as String, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                      ],
+                      ),
                     ),
                   ),
                 );
               }).toList(),
-            )
-          ],
+            ),
+          ),
+
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: () {},
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.help_outline_rounded,
+                          size: 16,
+                          color: Colors.white.withOpacity(0.6),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Help & Support',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                InkWell(
+                  onTap: () {},
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.description_outlined,
+                          size: 16,
+                          color: Colors.white.withOpacity(0.6),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Documentation',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ) : const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildModernTopBar({bool isMobile = false}) {
+    if (isMobile) return const SizedBox.shrink(); // Use mobile top bar instead
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        border: Border(
+          bottom: BorderSide(color: _borderColor),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Menu Toggle Button (appears when sidebar is collapsed)
+          if (!_sidebarExpanded)
+            Container(
+              margin: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                color: _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: (_isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5)).withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _sidebarExpanded = true;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 46,
+                    height: 46,
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.menu_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          Expanded(
+            child: Container(
+              height: 46,
+              decoration: BoxDecoration(
+                color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _borderColor),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 18),
+                  Icon(Icons.search_rounded, color: _textSecondary, size: 22),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search students, courses, companies...',
+                        hintStyle: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 15,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                      style: TextStyle(color: _textPrimary, fontSize: 15),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 20),
+
+          // Dark Mode Toggle
+          Container(
+            decoration: BoxDecoration(
+              color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _borderColor),
+            ),
+            child: IconButton(
+              icon: Icon(
+                _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                color: _isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFF4F46E5),
+                size: 22,
+              ),
+              onPressed: () {
+                setState(() {
+                  _isDarkMode = !_isDarkMode;
+                });
+              },
+              tooltip: _isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+            ),
+          ),
+          const SizedBox(width: 16),
+
+          Stack(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
+                  icon: Icon(Icons.notifications_rounded, color: _textPrimary, size: 24),
+                  onPressed: () {},
+                ),
+              ),
+              Positioned(
+                right: 12,
+                top: 12,
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEF4444),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 20),
+
+          Container(
+            padding: const EdgeInsets.only(left: 20),
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(color: _borderColor),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(23),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'AD',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 17,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Admin',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: _textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Administrator',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 10),
+                PopupMenuButton(
+                  icon: Icon(Icons.arrow_drop_down_rounded, color: _textSecondary, size: 26),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  color: _cardColor,
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      child: Row(
+                        children: [
+                          Icon(Icons.settings_rounded, size: 20, color: _textPrimary),
+                          const SizedBox(width: 14),
+                          Text('Settings', style: TextStyle(fontSize: 15, color: _textPrimary)),
+                        ],
+                      ),
+                      onTap: () {},
+                    ),
+                    PopupMenuItem(
+                      child: const Row(
+                        children: [
+                          Icon(Icons.logout_rounded, size: 20, color: Color(0xFFEF4444)),
+                          SizedBox(width: 14),
+                          Text('Logout', style: TextStyle(color: Color(0xFFEF4444), fontSize: 15)),
+                        ],
+                      ),
+                      onTap: () async {
+                        final router = GoRouter.of(context);
+                        await SessionManager.clearSession();
+                        await AuthService.logout();
+                        router.go('/login');
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildAcademicManagementCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+  Widget _buildBreadcrumb() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        border: Border(
+          bottom: BorderSide(color: _borderColor),
+        ),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'Home',
+            style: TextStyle(
+              fontSize: 14,
+              color: _textSecondary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Icon(Icons.chevron_right_rounded, size: 18, color: _textSecondary),
+          const SizedBox(width: 10),
+          Text(
+            'Dashboard',
+            style: TextStyle(
+              fontSize: 14,
+              color: const Color(0xFF4F46E5),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardContent({
+    required bool isMobile,
+    required bool isTablet,
+    required bool isDesktop,
+  }) {
+    final padding = isMobile ? 16.0 : (isTablet ? 20.0 : 24.0);
+    
+    return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(padding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            // Header
+            Text(
+              'System Overview',
+              style: TextStyle(
+                fontSize: isMobile ? 22 : (isTablet ? 24 : 26),
+                fontWeight: FontWeight.w800,
+                color: _textPrimary,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Complete academic workforce and placement management',
+              style: TextStyle(
+                fontSize: isMobile ? 13 : 14,
+                color: _textSecondary,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+            ),
+            SizedBox(height: isMobile ? 16 : 24),
+
+            // Stats Row - Fully Responsive
+            _buildResponsiveStatsRow(isMobile, isTablet),
+            SizedBox(height: isMobile ? 16 : 20),
+
+            // Announcements Section
+            _buildAnnouncementsSection(isMobile, isTablet),
+            SizedBox(height: isMobile ? 16 : 20),
+
+            // Main Content - Fully Responsive
+            _buildResponsiveMainContent(isMobile, isTablet, isDesktop),
+            SizedBox(height: isMobile ? 16 : 20),
+
+            // Management Cards - Fully Responsive
+            _buildResponsiveManagementSection(isMobile, isTablet),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResponsiveStatsRow(bool isMobile, bool isTablet) {
+    if (isMobile) {
+      // Mobile - Responsive Grid (2 columns on wider phones)
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          // Calculate how many columns fit (minimum card width 150px)
+          final crossAxisCount = (constraints.maxWidth / 180).floor().clamp(1, 2);
+          
+          return GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.85,
+            children: [
+              _buildStatCard('Active Students', _studentCount.toString(), '298 Final Year', Icons.people_rounded, const Color(0xFF4F46E5)),
+              _buildStatCard('Faculty', _facultyCount.toString(), '12 Departments', Icons.school_rounded, const Color(0xFF10B981)),
+              _buildStatCard('Placement', '82%', 'Current Season', Icons.business_center_rounded, const Color(0xFF8B5CF6)),
+              _buildStatCard('Actions', '12', '8 Pending', Icons.warning_rounded, const Color(0xFFF59E0B)),
+            ],
+          );
+        },
+      );
+    } else if (isTablet) {
+      // Tablet - 2 columns
+      return GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.3,
+        children: [
+          _buildStatCard('Active Students', _studentCount.toString(), '298 Final Year', Icons.people_rounded, const Color(0xFF4F46E5)),
+          _buildStatCard('Faculty', _facultyCount.toString(), '12 Departments', Icons.school_rounded, const Color(0xFF10B981)),
+          _buildStatCard('Placement', '82%', 'Current Season', Icons.business_center_rounded, const Color(0xFF8B5CF6)),
+          _buildStatCard('Actions', '12', '8 Pending', Icons.warning_rounded, const Color(0xFFF59E0B)),
+        ],
+      );
+    } else {
+      // Desktop - 4 columns
+      return Row(
+        children: [
+          Expanded(child: _buildStatCard('Active Students', _studentCount.toString(), '298 Final Year', Icons.people_rounded, const Color(0xFF4F46E5))),
+          const SizedBox(width: 16),
+          Expanded(child: _buildStatCard('Faculty', _facultyCount.toString(), '12 Departments', Icons.school_rounded, const Color(0xFF10B981))),
+          const SizedBox(width: 16),
+          Expanded(child: _buildStatCard('Placement', '82%', 'Current Season', Icons.business_center_rounded, const Color(0xFF8B5CF6))),
+          const SizedBox(width: 16),
+          Expanded(child: _buildStatCard('Actions', '12', '8 Pending', Icons.warning_rounded, const Color(0xFFF59E0B))),
+        ],
+      );
+    }
+  }
+
+  Widget _buildResponsiveMainContent(bool isMobile, bool isTablet, bool isDesktop) {
+    if (isMobile || isTablet) {
+      // Mobile/Tablet - Single column
+      return Column(
+        children: [
+          _buildUserManagementCard(),
+          const SizedBox(height: 16),
+          _buildQuickActionsCard(),
+          const SizedBox(height: 16),
+          _buildSystemOverviewCard(),
+          const SizedBox(height: 16),
+          _buildRecentActivityCard(),
+        ],
+      );
+    } else {
+      // Desktop - Two columns
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
               children: [
-                Icon(Icons.calendar_today_outlined),
-                SizedBox(width: 8),
-                Text('Academic Calendar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                _buildUserManagementCard(),
+                const SizedBox(height: 16),
+                _buildRecentActivityCard(),
               ],
             ),
-            const SizedBox(height: 16),
-            _buildInfoTile('Upcoming Holiday', 'Republic Day', 'Jan 26', Colors.orange),
-            const SizedBox(height: 8),
-            _buildInfoTile('Semester End', 'Spring 2025', 'Apr 30', Colors.purple),
-            const SizedBox(height: 16),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: Column(
+              children: [
+                _buildQuickActionsCard(),
+                const SizedBox(height: 16),
+                _buildSystemOverviewCard(),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+  }
+
+  Widget _buildResponsiveManagementSection(bool isMobile, bool isTablet) {
+    if (isMobile) {
+      // Mobile - Single column
+      return Column(
+        children: [
+          _buildAcademicsCard(),
+          const SizedBox(height: 12),
+          _buildFinancialsCard(),
+          const SizedBox(height: 12),
+          _buildResourcesCard(),
+          const SizedBox(height: 12),
+          _buildToolsCard(),
+          const SizedBox(height: 12),
+          _buildCommunityCard(),
+        ],
+      );
+    } else {
+      // Tablet/Desktop - Two columns
+      return Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildAcademicsCard()),
+              const SizedBox(width: 16),
+              Expanded(child: _buildFinancialsCard()),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildResourcesCard()),
+              const SizedBox(width: 16),
+              Expanded(child: _buildToolsCard()),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildCommunityCard(),
+        ],
+      );
+    }
+  }
+
+  Widget _buildStatCard(String title, String value, String subtext, IconData icon, Color color) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+        
+        return Container(
+          padding: EdgeInsets.all(isMobile ? 14 : 20),
+          decoration: BoxDecoration(
+            color: _cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _borderColor),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: EdgeInsets.all(isMobile ? 8 : 10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: isMobile ? 20 : 22),
+              ),
+              SizedBox(height: isMobile ? 12 : 16),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: isMobile ? 24 : 30,
+                    fontWeight: FontWeight.w800,
+                    color: _textPrimary,
+                    letterSpacing: -1,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: isMobile ? 11 : 13,
+                  color: _textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtext,
+                style: TextStyle(
+                  fontSize: isMobile ? 10 : 12,
+                  color: _textSecondary.withOpacity(0.7),
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildUserManagementCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4F46E5).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.people_rounded, color: Color(0xFF4F46E5), size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'User Management',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: _textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                onPressed: _showAddUserDialog,
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text('Add User', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildUserTypeTile('Students', _studentCount.toString(), 'Active accounts', const Color(0xFF4F46E5), Icons.school_rounded, onTap: () {
+            if (_institutionId != null) {
+              context.go('/$_institutionId/admin/users/student');
+            }
+          }),
+          const SizedBox(height: 10),
+          _buildUserTypeTile('Faculty', _facultyCount.toString(), 'Active accounts', const Color(0xFF10B981), Icons.people_rounded, onTap: () {
+            if (_institutionId != null) {
+              context.go('/$_institutionId/admin/users/faculty');
+            }
+          }),
+          const SizedBox(height: 10),
+          _buildUserTypeTile('Admins', _adminCount.toString(), 'System administrators', const Color(0xFF8B5CF6), Icons.admin_panel_settings_rounded, onTap: () {
+            if (_institutionId != null) {
+              context.go('/$_institutionId/admin/users/admin');
+            }
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserTypeTile(String title, String count, String subtitle, Color color, IconData icon, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withOpacity(_isDarkMode ? 0.15 : 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(_isDarkMode ? 0.3 : 0.2)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(_isDarkMode ? 0.25 : 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: color,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: _textSecondary,
+                      fontSize: 12,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              flex: 1,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  count,
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                    letterSpacing: -1,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, color: color, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentActivityCard() {
+    final activities = [
+      {'title': 'New Company Registration - Wipro', 'time': '1 hour ago', 'icon': Icons.info_rounded, 'color': const Color(0xFF4F46E5)},
+      {'title': 'Semester Results Published', 'time': '3 hours ago', 'icon': Icons.check_circle_rounded, 'color': const Color(0xFF10B981)},
+      {'title': 'Faculty Leave Approval', 'time': '5 pending', 'icon': Icons.access_time_rounded, 'color': const Color(0xFFF59E0B)},
+      {'title': 'Placement Drive - Microsoft', 'time': 'Jan 18', 'icon': Icons.event_rounded, 'color': const Color(0xFF8B5CF6)},
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Recent Activity',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: _textPrimary,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: Icon(Icons.filter_list_rounded, size: 18, color: _textSecondary),
+                onPressed: () {},
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...activities.map((activity) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: activity['color'] as Color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            activity['title'] as String,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            activity['time'] as String,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      activity['icon'] as IconData,
+                      size: 16,
+                      color: activity['color'] as Color,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionsCard() {
+    final actions = [
+      {'label': 'Manage Users', 'color': const Color(0xFF4F46E5), 'icon': Icons.people_rounded, 'route': null},
+      {'label': 'Mentor Management', 'color': const Color(0xFFEC4899), 'icon': Icons.supervisor_account_rounded, 'route': '/admin/mentor-management'},
+      {'label': 'Schedule Drive', 'color': const Color(0xFF10B981), 'icon': Icons.event_rounded, 'route': null},
+      {'label': 'System Reports', 'color': const Color(0xFF8B5CF6), 'icon': Icons.bar_chart_rounded, 'route': null},
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Quick Actions',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: _textPrimary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 1.8,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            itemCount: actions.length,
+            itemBuilder: (context, index) {
+              final action = actions[index];
+              return InkWell(
+                onTap: () {
+                  if (action['label'] == 'Manage Users') {
+                    _showAddUserDialog();
+                  } else if (action['route'] != null) {
+                    final route = action['route'] as String;
+                    if (_institutionId != null) {
+                      context.go(route);
+                    }
+                  }
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: (action['color'] as Color).withOpacity(_isDarkMode ? 0.15 : 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        action['icon'] as IconData,
+                        color: action['color'] as Color,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          action['label'] as String,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: action['color'] as Color,
+                          ),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSystemOverviewCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF4F46E5), Color(0xFF8B5CF6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF4F46E5).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'System Overview',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          GridView.count(
+            shrinkWrap: true,
+            crossAxisCount: 2,
+            childAspectRatio: 1.8,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _buildOverviewItem('₹6.8L', 'Avg Package'),
+              _buildOverviewItem('45', 'Recruiters'),
+              _buildOverviewItem('1,248', 'Applications'),
+              _buildOverviewItem('342', 'Active Users'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverviewItem(String value, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.white.withOpacity(0.9),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAcademicsCard() {
+    return _buildManagementCard(
+      'Academics',
+      const Color(0xFF10B981),
+      Icons.school_rounded,
+      [
+        {'title': 'Class Management', 'route': '/$_institutionId/admin/class-management'},
+        {'title': 'Examinations', 'route': '/$_institutionId/admin/exam-management'},
+        {'title': 'Report Cards', 'route': '/$_institutionId/admin/report-card-dashboard'},
+      ],
+    );
+  }
+
+  Widget _buildFinancialsCard() {
+    return _buildManagementCard(
+      'Financials',
+      const Color(0xFFF59E0B),
+      Icons.monetization_on_rounded,
+      [
+        {'title': 'Fee Management', 'route': '/$_institutionId/admin/fee-management'},
+      ],
+    );
+  }
+
+  Widget _buildResourcesCard() {
+    return _buildManagementCard(
+      'Resources',
+      const Color(0xFF8B5CF6),
+      Icons.inventory_2_rounded,
+      [
+        {'title': 'Inventory', 'route': '/$_institutionId/admin/inventory'},
+        {'title': 'Room Management', 'route': '/$_institutionId/admin/room-management'},
+      ],
+    );
+  }
+
+  Widget _buildToolsCard() {
+    return _buildManagementCard(
+      'Tools',
+      const Color(0xFF14B8A6),
+      Icons.build_rounded,
+      [
+        {'title': 'Form Builder', 'route': '/$_institutionId/admin/form-builder'},
+      ],
+    );
+  }
+
+  Widget _buildCommunityCard() {
+    return _buildManagementCard(
+      'Community',
+      const Color(0xFF4F46E5),
+      Icons.groups_rounded,
+      [
+        {'title': 'Alumni Network', 'route': '/$_institutionId/admin/alumni-dashboard'},
+      ],
+    );
+  }
+
+  Widget _buildManagementCard(String title, Color color, IconData icon, List<Map<String, String>> items) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: _textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...items.map((item) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                onTap: () {
+                  final route = item['route'];
+                  if (route != null && _institutionId != null) {
+                    context.go(route);
+                  }
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(_isDarkMode ? 0.15 : 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: color.withOpacity(_isDarkMode ? 0.3 : 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item['title']!,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: color,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.arrow_forward_ios_rounded, color: color, size: 14),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnnouncementsSection(bool isMobile, bool isTablet) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: DefaultTabController(
+        length: 3,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4F46E5).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.announcement_rounded, color: Color(0xFF4F46E5), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Announcements',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: _textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      if (_institutionId != null) {
+                        context.go('/$_institutionId/announcements/manage');
+                      }
+                    },
+                    icon: const Icon(Icons.settings_rounded, size: 16),
+                    label: const Text('Manage', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    style: TextButton.styleFrom(foregroundColor: const Color(0xFF4F46E5)),
+                  ),
+                ],
+              ),
+            ),
+            TabBar(
+              labelColor: const Color(0xFF4F46E5),
+              unselectedLabelColor: _textSecondary,
+              indicatorColor: const Color(0xFF4F46E5),
+              dividerColor: _borderColor,
+              labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              tabs: const [
+                Tab(text: 'My Feed'),
+                Tab(text: 'My Announcements'),
+                Tab(text: 'All Announcements'),
+              ],
+            ),
+            SizedBox(
+              height: 350,
+              child: TabBarView(
+                children: [
+                  _buildAnnouncementTabList(_audienceAnnouncements, 'No relevant announcements found.'),
+                  _buildAnnouncementTabList(_myAnnouncements, 'You haven\'t created any announcements yet.'),
+                  _buildAnnouncementTabList(_allAnnouncements, 'No announcements found.'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnnouncementTabList(List<AnnouncementModel> announcements, String emptyMessage) {
+    if (_isLoadingAnnouncements) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (announcements.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.announcement_outlined, size: 40, color: _textSecondary.withOpacity(0.5)),
+            const SizedBox(height: 12),
+            Text(
+              emptyMessage,
+              style: TextStyle(color: _textSecondary, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: announcements.length,
+      separatorBuilder: (context, index) => Divider(color: _borderColor.withOpacity(0.5)),
+      itemBuilder: (context, index) {
+        try {
+          final announcement = announcements[index];
+          return _buildAnnouncementItem(announcement);
+        } catch (e) {
+          debugPrint('Error building announcement item at index $index: $e');
+          return ListTile(title: Text('Error loading item: $e', style: const TextStyle(fontSize: 10, color: Colors.red)));
+        }
+      },
+    );
+  }
+
+  Widget _buildAnnouncementItem(AnnouncementModel announcement) {
+    final dateStr = DateFormat('MMM dd, yyyy').format(announcement.createdAt);
+    
+    return InkWell(
+      onTap: () {
+        if (_institutionId != null) {
+          context.push('/$_institutionId/announcements/${announcement.id}', extra: announcement);
+        }
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
               children: [
-                Expanded(child: ElevatedButton(onPressed: () {}, child: const Text('Add Holiday'))),
+                if (announcement.isPinned)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8.0),
+                    child: Icon(Icons.push_pin_rounded, size: 14, color: Color(0xFF4F46E5)),
+                  ),
+                Expanded(
+                  child: Text(
+                    announcement.title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: _textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  dateStr,
+                  style: TextStyle(fontSize: 11, color: _textSecondary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              announcement.description,
+              style: TextStyle(fontSize: 12, color: _textSecondary),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _buildCategoryBadge(announcement.category ?? 'general'),
                 const SizedBox(width: 8),
-                Expanded(child: ElevatedButton(onPressed: () {}, child: const Text('Manage Timetable'))),
+                Icon(Icons.visibility_outlined, size: 12, color: _textSecondary),
+                const SizedBox(width: 4),
+                Text(
+                  '${announcement.viewCount}',
+                  style: TextStyle(fontSize: 11, color: _textSecondary),
+                ),
               ],
             ),
           ],
@@ -863,26 +2427,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildInfoTile(String title, String subtitle, String trailing, Color color) {
+  Widget _buildCategoryBadge(String category) {
+    Color color;
+    switch (category.toLowerCase()) {
+      case 'urgent': color = const Color(0xFFEF4444); break;
+      case 'academic': color = const Color(0xFF3B82F6); break;
+      case 'event': color = const Color(0xFF8B5CF6); break;
+      default: color = const Color(0xFF10B981);
+    }
+    
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-              Text(subtitle, style: TextStyle(fontSize: 12, color: color.withOpacity(0.8))),
-            ],
-          ),
-          Chip(backgroundColor: color.withOpacity(0.3), label: Text(trailing)),
-        ],
+      child: Text(
+        category.toUpperCase(),
+        style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color),
       ),
     );
   }

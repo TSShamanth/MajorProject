@@ -1,0 +1,492 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_application/models/student_fee_model.dart';
+import 'package:flutter_application/models/saved_payment_method_model.dart';
+import 'package:flutter_application/services/api_service.dart';
+import 'package:flutter_application/services/fee_service.dart'; // Import FeeService
+import 'package:flutter_application/services/session_manager.dart';
+import 'package:lottie/lottie.dart'; // Assuming lottie is added for animation
+
+enum PaymentMethodType { card, upi, netbanking, neft }
+
+class PaymentBottomSheet extends StatefulWidget {
+  final StudentFee fee;
+  final VoidCallback onPaymentSuccess;
+
+  const PaymentBottomSheet({
+    super.key,
+    required this.fee,
+    required this.onPaymentSuccess,
+  });
+
+  @override
+  State<PaymentBottomSheet> createState() => _PaymentBottomSheetState();
+}
+
+class _PaymentBottomSheetState extends State<PaymentBottomSheet> {
+  final ApiService _apiService = ApiService(); // Keep ApiService for saved methods
+  final FeeService _feeService = FeeService(); // Add FeeService for recording payments
+  String? _institutionId;
+  PaymentMethodType? _selectedMethod;
+  List<SavedPaymentMethod> _savedMethods = [];
+  SavedPaymentMethod? _selectedSavedMethod;
+  bool _isLoading = false;
+  bool _saveDetails = false;
+
+  final TextEditingController _cardNumberController = TextEditingController();
+  final TextEditingController _expiryController = TextEditingController();
+  final TextEditingController _cvvController = TextEditingController();
+  final TextEditingController _cardHolderNameController = TextEditingController();
+
+  final TextEditingController _upiIdController = TextEditingController();
+
+  final TextEditingController _otpController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    _institutionId = await SessionManager.getInstitutionId();
+    if (_institutionId != null) {
+      await _fetchSavedPaymentMethods();
+    }
+  }
+
+  Future<void> _fetchSavedPaymentMethods() async {
+    setState(() => _isLoading = true);
+    try {
+      _savedMethods = await _apiService.getMyPaymentMethods(_institutionId!);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading saved methods: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _processPayment() async {
+    if (_selectedMethod == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a payment method.')));
+      return;
+    }
+
+    // Mock payment processing
+    setState(() => _isLoading = true);
+    await Future.delayed(const Duration(seconds: 2)); // Simulate network delay
+
+    try {
+      Map<String, String> paymentDetails = {};
+      String methodName = '';
+
+      if (_selectedMethod == PaymentMethodType.card) {
+        methodName = 'CARD';
+        if (_selectedSavedMethod != null) {
+          paymentDetails = _selectedSavedMethod!.details;
+        } else {
+          paymentDetails = {
+            'cardNumber': _cardNumberController.text,
+            'expiry': _expiryController.text,
+            'cvv': _cvvController.text,
+            'cardHolderName': _cardHolderNameController.text,
+          };
+        }
+      } else if (_selectedMethod == PaymentMethodType.upi) {
+        methodName = 'UPI';
+        if (_selectedSavedMethod != null) {
+          paymentDetails = _selectedSavedMethod!.details;
+        } else {
+          paymentDetails = {
+            'upiId': _upiIdController.text,
+          };
+        }
+      } else if (_selectedMethod == PaymentMethodType.netbanking) {
+        methodName = 'NETBANKING';
+        paymentDetails = {'bank': 'MOCK_BANK'}; // Mock
+      } else if (_selectedMethod == PaymentMethodType.neft) {
+        methodName = 'NEFT';
+        paymentDetails = {'account': 'MOCK_ACC'}; // Mock
+      }
+
+      // Simulate payment record on backend
+      // This is a mock; in real world, this would be a payment gateway callback
+      await _feeService.recordPayment(
+        _institutionId!,
+        widget.fee.id,
+        widget.fee.balanceAmount,
+        methodName,
+        transactionId: 'MOCK_TRX_${DateTime.now().millisecondsSinceEpoch}',
+        notes: 'Payment via mock gateway',
+      );
+
+      if (_saveDetails && _selectedSavedMethod == null) {
+        String displayName = '';
+        if (_selectedMethod == PaymentMethodType.card) {
+          displayName = '**** **** **** ${_cardNumberController.text.substring(_cardNumberController.text.length - 4)}';
+        } else if (_selectedMethod == PaymentMethodType.upi) {
+          displayName = _upiIdController.text;
+        }
+        await _apiService.saveMyPaymentMethod(
+          _institutionId!,
+          SavedPaymentMethod(
+            id: '', // ID will be generated by backend
+            userId: '', // User ID will be set by backend
+            methodType: methodName,
+            displayName: displayName,
+            details: paymentDetails,
+          ),
+        );
+      }
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showOtpScreen();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Payment failed: $e')));
+      }
+    }
+  }
+
+  void _showOtpScreen() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Enter OTP'),
+        content: TextField(
+          controller: _otpController,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          maxLength: 6,
+          decoration: const InputDecoration(labelText: '6-digit OTP'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              Navigator.pop(context); // Close payment sheet
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (_otpController.text.length == 6) {
+                Navigator.pop(dialogContext); // Close OTP screen
+                _showPaymentSuccess();
+              } else {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(const SnackBar(content: Text('Please enter a 6-digit OTP.')));
+              }
+            },
+            child: const Text('Verify'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPaymentSuccess() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final composition =
+            AssetLottie('assets/animations/green_tick.json').load();
+        return AlertDialog(
+          title: const Text('Payment Successful!'),
+          content: FutureBuilder<LottieComposition>(
+            future: composition,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                // If there's an error loading the animation, display it for debugging
+                return Text('Error loading animation: ${snapshot.error}');
+              }
+              if (snapshot.hasData) {
+                // If the animation is loaded, display it
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Lottie(
+                        composition: snapshot.data,
+                        repeat: false,
+                        width: 150,
+                        height: 150),
+                    const Text('Your payment has been successfully processed.',
+                        textAlign: TextAlign.center),
+                  ],
+                );
+              }
+              // While loading, show a placeholder
+              return const SizedBox(
+                width: 150,
+                height: 150,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext); // Close success screen
+                widget.onPaymentSuccess(); // Trigger callback
+              },
+              child: const Text('Done'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _cardNumberController.dispose();
+    _expiryController.dispose();
+    _cvvController.dispose();
+    _cardHolderNameController.dispose();
+    _upiIdController.dispose();
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      height: MediaQuery.of(context).size.height * 0.8,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Text(
+              'Pay Fee: ₹${widget.fee.balanceAmount.toStringAsFixed(2)}',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
+          const Divider(height: 30),
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Saved Payment Methods', style: Theme.of(context).textTheme.titleMedium),
+                        _buildSavedMethodsList(),
+                        const Divider(height: 30),
+                        Text('Choose Payment Method', style: Theme.of(context).textTheme.titleMedium),
+                        _buildPaymentMethodOptions(),
+                        const SizedBox(height: 20),
+                        if (_selectedMethod != null) _buildPaymentForm(),
+                        if (_selectedMethod != null && _selectedSavedMethod == null)
+                          CheckboxListTile(
+                            title: const Text('Save these details for future use'),
+                            value: _saveDetails,
+                            onChanged: (bool? value) {
+                              setState(() {
+                                _saveDetails = value ?? false;
+                              });
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _processPayment,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Proceed to Pay'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSavedMethodsList() {
+    if (_savedMethods.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.0),
+        child: Text('No saved methods. Add one below.'),
+      );
+    }
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _savedMethods.length,
+      itemBuilder: (context, index) {
+        final method = _savedMethods[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          child: RadioListTile<SavedPaymentMethod>(
+            title: Text('${method.methodType}: ${method.displayName}'),
+            value: method,
+            groupValue: _selectedSavedMethod,
+            onChanged: (SavedPaymentMethod? value) {
+              setState(() {
+                _selectedSavedMethod = value;
+                _selectedMethod = _getMethodTypeEnum(value!.methodType);
+              });
+            },
+            secondary: IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () async {
+                await _apiService.deleteMyPaymentMethod(_institutionId!, method.id);
+                _fetchSavedPaymentMethods();
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  PaymentMethodType? _getMethodTypeEnum(String type) {
+    switch (type) {
+      case 'CARD': return PaymentMethodType.card;
+      case 'UPI': return PaymentMethodType.upi;
+      case 'NETBANKING': return PaymentMethodType.netbanking;
+      case 'NEFT': return PaymentMethodType.neft;
+      default: return null;
+    }
+  }
+
+  Widget _buildPaymentMethodOptions() {
+    return Column(
+      mainAxisSize: MainAxisSize.min, // Prevent vertical expansion
+      children: [
+        RadioListTile<PaymentMethodType>(
+          title: const Text('Credit/Debit Card'),
+          value: PaymentMethodType.card,
+          groupValue: _selectedMethod,
+          onChanged: (PaymentMethodType? value) {
+            setState(() {
+              _selectedMethod = value;
+              _selectedSavedMethod = null; // Clear saved selection
+            });
+          },
+        ),
+        RadioListTile<PaymentMethodType>(
+          title: const Text('UPI'),
+          value: PaymentMethodType.upi,
+          groupValue: _selectedMethod,
+          onChanged: (PaymentMethodType? value) {
+            setState(() {
+              _selectedMethod = value;
+              _selectedSavedMethod = null;
+            });
+          },
+        ),
+        RadioListTile<PaymentMethodType>(
+          title: const Text('Net Banking'),
+          value: PaymentMethodType.netbanking,
+          groupValue: _selectedMethod,
+          onChanged: (PaymentMethodType? value) {
+            setState(() {
+              _selectedMethod = value;
+              _selectedSavedMethod = null;
+            });
+          },
+        ),
+        RadioListTile<PaymentMethodType>(
+          title: const Text('NEFT'),
+          value: PaymentMethodType.neft,
+          groupValue: _selectedMethod,
+          onChanged: (PaymentMethodType? value) {
+            setState(() {
+              _selectedMethod = value;
+              _selectedSavedMethod = null;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPaymentForm() {
+    if (_selectedSavedMethod != null) {
+      return Container(); // Saved method selected, no new form needed
+    }
+
+    switch (_selectedMethod) {
+      case PaymentMethodType.card:
+        return Column(
+          mainAxisSize: MainAxisSize.min, // Prevent vertical expansion
+          children: [
+            TextField(
+              controller: _cardNumberController,
+              decoration: const InputDecoration(labelText: 'Card Number', border: OutlineInputBorder()),
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _expiryController,
+                    decoration: const InputDecoration(labelText: 'MM/YY', border: OutlineInputBorder()),
+                    keyboardType: TextInputType.datetime,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _cvvController,
+                    decoration: const InputDecoration(labelText: 'CVV', border: OutlineInputBorder()),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _cardHolderNameController,
+              decoration: const InputDecoration(labelText: 'Card Holder Name', border: OutlineInputBorder()),
+            ),
+          ],
+        );
+      case PaymentMethodType.upi:
+        return TextField(
+          controller: _upiIdController,
+          decoration: const InputDecoration(labelText: 'UPI ID', border: OutlineInputBorder()),
+        );
+      case PaymentMethodType.netbanking:
+        return DropdownButtonFormField<String>(
+          decoration: const InputDecoration(labelText: 'Select Bank', border: OutlineInputBorder()),
+          items: const [
+            DropdownMenuItem(value: 'SBI', child: Text('State Bank of India')),
+            DropdownMenuItem(value: 'HDFC', child: Text('HDFC Bank')),
+            DropdownMenuItem(value: 'ICICI', child: Text('ICICI Bank')),
+          ],
+          onChanged: (value) {},
+        );
+      case PaymentMethodType.neft:
+        return const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('NEFT Details (Mock):'),
+            Text('Account Name: Institution Name'),
+            Text('Account Number: 1234567890'),
+            Text('IFSC Code: INSTIT0001'),
+          ],
+        );
+      default:
+        return Container();
+    }
+  }
+}

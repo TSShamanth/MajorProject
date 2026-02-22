@@ -1,29 +1,34 @@
 package com.example.backend.filter;
 
-import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseToken;
-import com.google.firebase.cloud.FirestoreClient;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.filter.OncePerRequestFilter;
-
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+// import org.springframework.security.core.GrantedAuthority;
+// import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
 
+import java.io.IOException;
+import java.util.ArrayList;
+// import java.util.List;
+// import java.util.Map;
+
+@Component
 public class FirebaseTokenFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(FirebaseTokenFilter.class);
+    private final FirebaseAuth firebaseAuth;
+
+    public FirebaseTokenFilter(FirebaseAuth firebaseAuth) {
+        this.firebaseAuth = firebaseAuth;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -36,40 +41,17 @@ public class FirebaseTokenFilter extends OncePerRequestFilter {
             return;
         }
 
-        String token = header.substring(7);
+        String tokenString = header.substring(7);
         try {
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+            FirebaseToken decodedToken = firebaseAuth.verifyIdToken(tokenString);
             if (decodedToken != null) {
-                List<GrantedAuthority> authorities = new ArrayList<>();
-
-                // Check for role in custom claims first
-                String role = (String) decodedToken.getClaims().get("role");
-
-                if (role != null && !role.isEmpty()) {
-                    authorities.add(new SimpleGrantedAuthority(role));
-                } else {
-                    // Fallback to Firestore if no claim is present
-                    String uid = decodedToken.getUid();
-                    if (uid != null) {
-                        Firestore db = FirestoreClient.getFirestore();
-                        DocumentSnapshot userDoc = db.collection("Institutions").document("RVU").collection("users").document(uid).get().get();
-                        if (userDoc.exists() && userDoc.contains("role")) {
-                            String firestoreRole = userDoc.getString("role");
-                            if (firestoreRole != null) {
-                                authorities.add(new SimpleGrantedAuthority(firestoreRole));
-                            }
-                        }
-                    }
-                }
-                
-                log.info("Granting authorities: {}", authorities);
-
+                // Set a simple authentication object with the UID as the principal.
+                // Authorities will be checked manually in the controller by looking up the user's role in Firestore.
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        decodedToken, null, authorities);
+                        decodedToken.getUid(), null, new ArrayList<>()); // No authorities
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {
-            // Invalid token or Firestore error
             log.error("Error verifying Firebase token: {}", e.getMessage());
             SecurityContextHolder.clearContext();
         }
