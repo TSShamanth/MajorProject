@@ -38,12 +38,18 @@ public class SecurityConfig {
                     // Let method-level security (@PreAuthorize) handle role checks.
                     // This level just ensures the user is authenticated for these paths.
                     .requestMatchers(
-                        new AntPathRequestMatcher("/**/api/admin/**"),
-                        new AntPathRequestMatcher("/**/api/attendance/**"),
-                        new AntPathRequestMatcher("/**/api/users/**"),
-                        new AntPathRequestMatcher("/**/api/fees/**"),
+                        new AntPathRequestMatcher("/api/admin/**"),
+                        new AntPathRequestMatcher("/*/api/admin/**"),
+                        new AntPathRequestMatcher("/api/attendance/**"),
+                        new AntPathRequestMatcher("/*/api/attendance/**"),
+                        new AntPathRequestMatcher("/api/users/**"),
+                        new AntPathRequestMatcher("/*/api/users/**"),
+                        new AntPathRequestMatcher("/api/fees/**"),
+                        new AntPathRequestMatcher("/*/api/fees/**"),
                         new AntPathRequestMatcher("/api/institutions/**"),
-                        new AntPathRequestMatcher("/**/api/faculty/**")
+                        new AntPathRequestMatcher("/*/api/institutions/**"),
+                        new AntPathRequestMatcher("/api/faculty/**"),
+                        new AntPathRequestMatcher("/*/api/faculty/**")
                     ).authenticated()
                     .anyRequest().permitAll()
                 )

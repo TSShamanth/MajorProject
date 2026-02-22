@@ -29,6 +29,8 @@ class StudentShell extends StatelessWidget {
       title = 'My Fees';
     } else if (location.contains('/student/attendance')) {
       title = 'My Attendance';
+    } else if (location.contains('/student/timetable')) {
+      title = 'My Timetable';
     }
 
     return Scaffold(

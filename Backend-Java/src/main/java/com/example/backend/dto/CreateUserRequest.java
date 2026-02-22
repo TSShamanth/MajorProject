@@ -10,6 +10,7 @@ public class CreateUserRequest {
     private String phone;
     private String sem;
     private String departmentId; // New field for department ID
+    private String sectionId; // New field for section ID
     private String mentorName;
     private String photoUrl; // New field for photo URL
     private String programme;
@@ -92,6 +93,14 @@ public class CreateUserRequest {
 
     public void setDepartmentId(String departmentId) {
         this.departmentId = departmentId;
+    }
+
+    public String getSectionId() {
+        return sectionId;
+    }
+
+    public void setSectionId(String sectionId) {
+        this.sectionId = sectionId;
     }
 
     public String getMentorName() {

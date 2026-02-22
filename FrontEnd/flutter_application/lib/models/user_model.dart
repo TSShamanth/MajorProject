@@ -9,6 +9,7 @@ class UserModel {
   final String? phone;
   final String? sem;
   final String? departmentId; // Added departmentId
+  final String? sectionId; // Added sectionId
   final String? mentorName;
   final String? photoUrl;
   final String? programme;
@@ -35,6 +36,7 @@ class UserModel {
     this.phone,
     this.sem,
     this.departmentId,
+    this.sectionId,
     this.mentorName,
     this.photoUrl,
     this.programme,
@@ -69,6 +71,7 @@ class UserModel {
       phone: json['phone'] as String?,
       sem: json['sem'] as String?,
       departmentId: json['departmentId'] as String?,
+      sectionId: json['sectionId'] as String?,
       mentorName: json['mentorName'] as String?,
       photoUrl: json['photoUrl'] as String?,
       programme: json['programme'] as String?,
@@ -98,6 +101,7 @@ class UserModel {
       'phone': phone,
       'sem': sem,
       'departmentId': departmentId,
+      'sectionId': sectionId,
       'mentorName': mentorName,
       'photoUrl': photoUrl,
       'programme': programme,
@@ -125,6 +129,7 @@ class UserModel {
     String? phone,
     String? sem,
     String? departmentId,
+    String? sectionId,
     String? mentorName,
     String? photoUrl,
     String? programme,
@@ -150,6 +155,7 @@ class UserModel {
       phone: phone ?? this.phone,
       sem: sem ?? this.sem,
       departmentId: departmentId ?? this.departmentId,
+      sectionId: sectionId ?? this.sectionId,
       mentorName: mentorName ?? this.mentorName,
       photoUrl: photoUrl ?? this.photoUrl,
       programme: programme ?? this.programme,

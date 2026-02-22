@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application/models/course_model.dart';
+import 'package:flutter_application/models/time_slot_model.dart';
+import 'package:flutter_application/models/timetable_entry_model.dart';
+import 'package:flutter_application/services/api_service.dart';
+import 'package:flutter_application/services/timetable_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -25,9 +30,69 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   // bool _isMobileSidebarOpen = false;
   final TextEditingController _searchController = TextEditingController();
 
+  List<TimetableEntry> _todaySchedule = [];
+  List<TimeSlot> _allTimeSlots = [];
+  List<Course> _allCourses = [];
+  bool _isLoadingSchedule = true;
+
+  Future<void> _fetchTodaySchedule() async {
+    final institutionId = _getInstitutionId();
+    if (institutionId.isEmpty) return;
+
+    try {
+      final timetableService = TimetableService();
+      final apiService = ApiService();
+      
+      final user = await apiService.getMe(institutionId);
+      if (user.departmentId == null || user.programme == null || user.sem == null || user.sectionId == null) {
+        if (mounted) setState(() => _isLoadingSchedule = false);
+        return;
+      }
+
+      final now = DateTime.now();
+      final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      final todayName = days[now.weekday - 1];
+      debugPrint('Student Dashboard: Fetching schedule for $todayName');
+
+      final results = await Future.wait([
+        timetableService.getTimeSlots(institutionId),
+        timetableService.getTimetableForClass(institutionId, user.departmentId!, user.programme!, user.sem!, user.sectionId!),
+        apiService.getCourses(institutionId, user.departmentId!),
+      ]);
+
+      final slots = results[0] as List<TimeSlot>;
+      final allEntries = results[1] as List<TimetableEntry>;
+      final courses = results[2] as List<Course>;
+
+      final todayEntries = allEntries.where((e) => e.day == todayName).toList();
+      
+      // Robust sorting
+      todayEntries.sort((a, b) {
+        final slotA = slots.indexWhere((s) => s.id == a.timeSlotId);
+        final slotB = slots.indexWhere((s) => s.id == b.timeSlotId);
+        return slotA.compareTo(slotB);
+      });
+
+      if (mounted) {
+        setState(() {
+          _allTimeSlots = slots;
+          _todaySchedule = todayEntries;
+          _allCourses = courses;
+          _isLoadingSchedule = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching today schedule: $e');
+      if (mounted) setState(() => _isLoadingSchedule = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchTodaySchedule();
+    });
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -1370,26 +1435,13 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   }
 
   Widget _buildTodaySchedule() {
-    final schedules = [
-      {
-        'subject': 'Data Structures',
-        'time': '09:00 AM - 10:00 AM',
-        'room': 'Lab 301',
-        'type': 'Lab',
-      },
-      {
-        'subject': 'Computer Networks',
-        'time': '10:15 AM - 11:15 AM',
-        'room': 'Room 205',
-        'type': 'Lecture',
-      },
-      {
-        'subject': 'Operating Systems',
-        'time': '02:00 PM - 03:00 PM',
-        'room': 'Room 102',
-        'type': 'Lecture',
-      },
-    ];
+    if (_isLoadingSchedule) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_todaySchedule.isEmpty) {
+      return const Center(child: Text('No classes scheduled for today.'));
+    }
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1453,10 +1505,13 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
           const SizedBox(height: 14),
           Expanded(
             child: ListView.separated(
-              itemCount: schedules.length,
-              separatorBuilder: (context, index) => SizedBox(height: 10),
+              itemCount: _todaySchedule.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
-                final schedule = schedules[index];
+                final entry = _todaySchedule[index];
+                final slot = _allTimeSlots.firstWhere((s) => s.id == entry.timeSlotId);
+                final course = _allCourses.firstWhere((c) => c.courseCode == entry.courseCode, orElse: () => Course(courseCode: '', courseName: 'Unknown', facultyUid: '', institutionId: '', program: '', semester: '', studentsEnrolled: [], totalClasses: ''));
+
                 return Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -1483,7 +1538,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
                               children: [
                                 Expanded(
                                   child: Text(
-                                    schedule['subject'] as String,
+                                    course.courseName,
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -1501,7 +1556,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    schedule['type'] as String,
+                                    'Room ${entry.roomId}',
                                     style: const TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w600,
@@ -1521,21 +1576,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  schedule['time'] as String,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: _textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Icon(
-                                  Icons.room_rounded,
-                                  size: 11,
-                                  color: _textSecondary,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  schedule['room'] as String,
+                                  '${slot.startTime} - ${slot.endTime}',
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: _textSecondary,

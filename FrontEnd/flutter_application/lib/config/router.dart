@@ -66,6 +66,11 @@ import '../screens/exam_hall_tickets_screen.dart';
 import '../screens/hall_ticket_viewer_screen.dart';
 import '../screens/student/student_leave_screen.dart';
 import '../screens/student/leave_history_screen.dart';
+import '../screens/time_slot_management_screen.dart';
+import '../screens/working_day_management_screen.dart';
+import '../screens/timetable_generation_screen.dart';
+import '../screens/faculty_exam_timetable_screen.dart';
+import '../screens/student_timetable_screen.dart';
 import '../screens/student_shell.dart';
 import '../models/fee_structure_model.dart';
 
@@ -85,6 +90,10 @@ final router = GoRouter(
         GoRoute(
           path: '/:institutionId/student/dashboard',
           builder: (context, state) => const StudentDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/timetable',
+          builder: (context, state) => StudentTimetableScreen(),
         ),
         GoRoute(
           path: '/:institutionId/student/profile',
@@ -138,6 +147,18 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/admin/fee-management',
       builder: (context, state) => const FeeManagementDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/timetable/timeslots',
+      builder: (context, state) => TimeSlotManagementScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/timetable/working-days',
+      builder: (context, state) => WorkingDayManagementScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/timetable/generate',
+      builder: (context, state) => TimetableGenerationScreen(),
     ),
     GoRoute(
       path: '/:institutionId/admin/fee-structure-editor',
@@ -359,10 +380,14 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/:institutionId/faculty/timetable',
-      builder: (context, state) => const FacultyTimetableScreen(),
+      builder: (context, state) => FacultyTimetableScreen(),
     ),
     GoRoute(
-      path: '/:institutionId/faculty/timetable/:examId',
+      path: '/:institutionId/faculty/exam-timetable',
+      builder: (context, state) => FacultyExamTimetableScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/exam-timetable/:examId',
       builder: (context, state) {
         final examId = state.pathParameters['examId']!;
         return ExamTimetableViewerScreen(examId: examId);

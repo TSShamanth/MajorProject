@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/announcement_service.dart'; // Add AnnouncementService import
 import '../models/department_model.dart'; // Import Department model
+import '../models/section_model.dart'; // Import Section model
 import '../models/announcement_model.dart'; // Add AnnouncementModel import
 import '../models/user_model.dart'; // Add UserModel import
 
@@ -38,6 +39,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   String? _selectedRole = 'student';
   String? _selectedDepartmentForStudent; // New field
+  String? _selectedDepartmentForFaculty; // New field
+  String? _selectedSectionId; // New field
   bool _isLoading = false;
   Uint8List? _pickedImageBytes;
   String? _photoUrl;
@@ -53,6 +56,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   final ImageService _imageService = ImageService();
   final AnnouncementService _announcementService = AnnouncementService(); // Initialize AnnouncementService
   List<Department> _departments = []; // New list for departments
+  List<Section> _sections = []; // New list for sections
   bool _isLoadingDepartments = false; // New loading flag
 
   // Announcement state variables
@@ -185,6 +189,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       setState(() {
         _isLoadingDepartments = false;
       });
+    }
+  }
+
+  Future<void> _fetchSections(String departmentId, Function setDialogState) async {
+    if (_institutionId == null) return;
+    try {
+      final sections = await _apiService.getSections(_institutionId!, departmentId);
+      setDialogState(() {
+        _sections = sections;
+      });
+    } catch (e) {
+      debugPrint('Error fetching sections: $e');
     }
   }
   @override
@@ -353,6 +369,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                         const SizedBox(height: 20),
                         _buildTextField(_passwordController, 'Password', Icons.lock_rounded, obscureText: true),
                         
+                        if (selectedRole == 'faculty') ...[
+                          const SizedBox(height: 20),
+                          _isLoadingDepartments
+                              ? const Center(child: CircularProgressIndicator())
+                              : DropdownButtonFormField<String>(
+                                  value: _selectedDepartmentForFaculty,
+                                  decoration: _inputDecoration('Department', Icons.business_rounded),
+                                  dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
+                                  style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
+                                  items: _departments.map((department) {
+                                    return DropdownMenuItem<String>(
+                                      value: department.id,
+                                      child: Text(department.name),
+                                    );
+                                  }).toList(),
+                                  onChanged: (newValue) {
+                                    setDialogState(() {
+                                      _selectedDepartmentForFaculty = newValue;
+                                    });
+                                  },
+                                  validator: (value) => value == null ? 'Please select a department' : null,
+                                ),
+                        ],
+                        
                         if (selectedRole == 'student') ...[
                           const SizedBox(height: 20),
                           _isLoadingDepartments
@@ -371,10 +411,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                                   onChanged: (newValue) {
                                     setDialogState(() {
                                       _selectedDepartmentForStudent = newValue;
+                                      _selectedSectionId = null; // Reset section
+                                      _sections = []; // Clear sections
                                     });
+                                    if (newValue != null) {
+                                      _fetchSections(newValue, setDialogState);
+                                    }
                                   },
                                   validator: (value) => value == null ? 'Please select a department' : null,
                                 ),
+                          const SizedBox(height: 20),
+                          DropdownButtonFormField<String>(
+                            value: _selectedSectionId,
+                            decoration: _inputDecoration('Section', Icons.group_work_rounded),
+                            dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
+                            style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
+                            items: _sections.where((s) => s.id != null).map((section) {
+                              return DropdownMenuItem<String>(
+                                value: section.id!,
+                                child: Text(section.name),
+                              );
+                            }).toList(),
+                            onChanged: (newValue) {
+                              setDialogState(() {
+                                _selectedSectionId = newValue;
+                              });
+                            },
+                            validator: (value) => value == null ? 'Please select a section' : null,
+                          ),
                           const SizedBox(height: 20),
                           _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
                           const SizedBox(height: 20),
@@ -520,7 +584,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
           usn: _usnController.text,
           phone: _phoneController.text,
           sem: _semController.text,
-          departmentId: _selectedRole == 'student' ? _selectedDepartmentForStudent : null, // Pass departmentId
+          departmentId: _selectedRole == 'student' ? _selectedDepartmentForStudent : (_selectedRole == 'faculty' ? _selectedDepartmentForFaculty : null), // Pass departmentId for faculty too
+          sectionId: _selectedRole == 'student' ? _selectedSectionId : null, // Pass sectionId for student
           mentorName: _mentorController.text,
           photoUrl: _photoUrl,
           programme: _programmeController.text,
@@ -579,6 +644,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     _validUptoController.clear();
     setState(() {
       _selectedRole = 'student';
+      _selectedDepartmentForStudent = null;
+      _selectedDepartmentForFaculty = null;
+      _selectedSectionId = null;
+      _sections = [];
       _pickedImageBytes = null;
       _photoUrl = null;
     });
@@ -651,6 +720,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
       {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
       {'icon': Icons.account_balance_wallet_rounded, 'label': 'Fee Management', 'active': false, 'route': '/admin/fee-management'},
+      {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'active': false, 'route': '/admin/timetable/timeslots'},
+      {'icon': Icons.calendar_today_rounded, 'label': 'Working Days', 'active': false, 'route': '/admin/timetable/working-days'},
+      {'icon': Icons.grid_on_rounded, 'label': 'Timetable', 'active': false, 'route': '/admin/timetable/generate'},
       {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
       {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
       {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': null},
@@ -800,6 +872,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
       {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
       {'icon': Icons.account_balance_wallet_rounded, 'label': 'Fee Management', 'active': false, 'route': '/admin/fee-management'},
+      {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'active': false, 'route': '/admin/timetable/timeslots'},
+      {'icon': Icons.calendar_today_rounded, 'label': 'Working Days', 'active': false, 'route': '/admin/timetable/working-days'},
+      {'icon': Icons.grid_on_rounded, 'label': 'Timetable', 'active': false, 'route': '/admin/timetable/generate'},
       {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
       {'icon': Icons.approval, 'label': 'Approval', 'active': false, 'route': '/admin/approval'},
       {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},

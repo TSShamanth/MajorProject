@@ -12,6 +12,7 @@ public class User {
     private String phone;
     private String sem;
     private String departmentId; // New field
+    private String sectionId; // New field
     private String mentorName;
     private String photoUrl;
     private String programme;
@@ -108,6 +109,14 @@ public class User {
 
     public void setDepartmentId(String departmentId) {
         this.departmentId = departmentId;
+    }
+
+    public String getSectionId() {
+        return sectionId;
+    }
+
+    public void setSectionId(String sectionId) {
+        this.sectionId = sectionId;
     }
 
     public String getMentorName() {

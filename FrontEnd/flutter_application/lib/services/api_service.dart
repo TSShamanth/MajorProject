@@ -98,6 +98,7 @@ class ApiService {
     String? phone,
     String? sem,
     String? departmentId, // New parameter
+    String? sectionId, // New parameter
     String? mentorName,
     String? photoUrl,
     String? programme,
@@ -125,6 +126,7 @@ class ApiService {
       'phone': phone,
       'sem': sem,
       'departmentId': departmentId, // Add departmentId to the body
+      'sectionId': sectionId, // Add sectionId to the body
       'mentorName': mentorName,
       'photoUrl': photoUrl,
       'programme': programme,
@@ -157,6 +159,7 @@ class ApiService {
     String? phone,
     String? sem,
     String? departmentId,
+    String? sectionId,
     String? mentorName,
     String? photoUrl,
     String? programme,
@@ -183,6 +186,7 @@ class ApiService {
       'phone': phone,
       'sem': sem,
       'departmentId': departmentId,
+      'sectionId': sectionId,
       'mentorName': mentorName,
       'photoUrl': photoUrl,
       'programme': programme,

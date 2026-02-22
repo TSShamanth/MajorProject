@@ -63,6 +63,7 @@ public class UserService {
         user.put("phone", createUserRequest.getPhone());
         user.put("sem", createUserRequest.getSem());
         user.put("departmentId", createUserRequest.getDepartmentId()); // Save departmentId
+        user.put("sectionId", createUserRequest.getSectionId()); // Save sectionId
         user.put("mentorName", createUserRequest.getMentorName());
         user.put("photoUrl", createUserRequest.getPhotoUrl()); // Save photo URL
         user.put("programme", createUserRequest.getProgramme());
