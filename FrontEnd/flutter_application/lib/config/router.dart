@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application/screens/student/student_fees_screen.dart';
-import 'package:flutter_application/screens/student/student_fee_detail_screen.dart';
-import 'package:flutter_application/models/student_fee_model.dart';
+import 'package:flutter_application/models/fee_structure_model.dart';
+import 'package:flutter_application/screens/admin_mentor_management_screen.dart';
+import 'package:flutter_application/screens/faculty_exam_timetable_screen.dart';
+import 'package:flutter_application/screens/faculty_mentee_dashboard_screen.dart';
+import 'package:flutter_application/screens/mentee_detail_screen.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/models/announcement_model.dart';
 import 'package:flutter_application/screens/admin_attendance_dashboard.dart';
 import 'package:flutter_application/screens/student_eligibility_screen.dart';
+import 'package:flutter_application/screens/student_hall_ticket_list_screen.dart';
+import 'package:flutter_application/screens/student_shell.dart';
+import 'package:flutter_application/screens/student_timetable_screen.dart';
+import 'package:flutter_application/screens/time_slot_management_screen.dart';
+import 'package:flutter_application/screens/timetable_generation_screen.dart';
 import 'package:flutter_application/screens/user_list_screen.dart';
-import 'package:flutter_application/services/api_service.dart';
+import 'package:flutter_application/screens/working_day_management_screen.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/admin_dashboard_screen.dart';
 import '../screens/auth_wrapper.dart';
@@ -53,7 +60,6 @@ import '../screens/announcement_detail_screen.dart';
 import '../screens/create_edit_announcement_screen.dart';
 import '../screens/manage_announcements_screen.dart';
 import '../screens/faculty/virtual_id_screen.dart' as faculty_vid;
-import '../screens/faculty/profile_screen.dart' as faculty_profile;
 import '../screens/faculty/faculty_leave_approval_screen.dart';
 import '../screens/faculty/faculty_student_fee_status_screen.dart';
 import '../screens/room_management_screen.dart';
@@ -64,18 +70,6 @@ import '../screens/hall_allocation_screen.dart';
 import '../screens/invigilator_assignment_screen.dart';
 import '../screens/exam_hall_tickets_screen.dart';
 import '../screens/hall_ticket_viewer_screen.dart';
-import '../screens/student/student_leave_screen.dart';
-import '../screens/student/leave_history_screen.dart';
-import '../screens/time_slot_management_screen.dart';
-import '../screens/working_day_management_screen.dart';
-import '../screens/timetable_generation_screen.dart';
-import '../screens/faculty_exam_timetable_screen.dart';
-import '../screens/student_timetable_screen.dart';
-import '../screens/student_hall_ticket_list_screen.dart';
-import '../screens/student_shell.dart';
-import '../models/fee_structure_model.dart';
-
-final apiService = ApiService();
 
 final router = GoRouter(
   routes: [
@@ -120,30 +114,15 @@ final router = GoRouter(
           path: '/:institutionId/student/attendance',
           builder: (context, state) => const StudentAttendanceScreen(),
         ),
-        GoRoute(
-          path: '/:institutionId/student/fees',
-          builder: (context, state) => const StudentFeesScreen(),
-        ),
-        GoRoute(
-          path: '/:institutionId/student/fees/:feeId',
-          builder: (context, state) {
-            final fee = state.extra as StudentFee;
-            return StudentFeeDetailScreen(fee: fee);
-          },
-        ),
-         GoRoute(
-          path: '/:institutionId/student/leave',
-          builder: (context, state) => const StudentLeaveScreen(),
-        ),
-        GoRoute(
-          path: '/:institutionId/student/leave/history',
-          builder: (context, state) => const LeaveHistoryScreen(),
-        ),
       ],
     ),
     GoRoute(
       path: '/:institutionId/admin/dashboard',
       builder: (context, state) => const AdminDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/mentor-management',
+      builder: (context, state) => const AdminMentorManagementScreen(),
     ),
      GoRoute(
       path: '/:institutionId/admin/attendance-dashboard',
@@ -360,12 +339,20 @@ final router = GoRouter(
       builder: (context, state) => const FacultyDashboardScreen(),
     ),
     GoRoute(
-      path: '/:institutionId/faculty/virtual-id',
-      builder: (context, state) => const faculty_vid.VirtualIdScreen(),
+      path: '/:institutionId/faculty/mentees',
+      builder: (context, state) => const FacultyMenteeDashboardScreen(),
     ),
     GoRoute(
-      path: '/:institutionId/faculty/profile',
-      builder: (context, state) => const faculty_profile.ProfileScreen(),
+      path: '/:institutionId/faculty/mentees/:menteeId',
+      builder: (context, state) {
+        final institutionId = state.pathParameters['institutionId']!;
+        final menteeId = state.pathParameters['menteeId']!;
+        return MenteeDetailScreen(menteeId: menteeId, institutionId: institutionId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/virtual-id',
+      builder: (context, state) => const faculty_vid.VirtualIdScreen(),
     ),
     GoRoute(
       path: '/:institutionId/faculty/mark-attendance',

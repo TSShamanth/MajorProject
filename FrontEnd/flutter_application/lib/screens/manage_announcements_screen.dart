@@ -73,7 +73,6 @@ class _ManageAnnouncementsScreenState extends State<ManageAnnouncementsScreen> w
     });
 
     try {
-      debugPrint('Manage Screen: Fetching all announcement types...');
       final myAnnouncements = await _announcementService.getMyAnnouncementsFromBackend(_institutionId!);
       final allAnnouncements = await _announcementService.getAllAnnouncements(_institutionId!);
       final audienceAnnouncements = await _announcementService.getAnnouncements(
@@ -88,7 +87,6 @@ class _ManageAnnouncementsScreenState extends State<ManageAnnouncementsScreen> w
         _audienceAnnouncements = audienceAnnouncements;
         _isLoading = false;
       });
-      debugPrint('Manage Screen: Fetched My: ${_myAnnouncements.length}, All: ${_announcements.length}, Audience: ${_audienceAnnouncements.length}');
     } catch (e) {
       setState(() {
         _isLoading = false;

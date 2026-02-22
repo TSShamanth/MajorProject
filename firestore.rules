@@ -14,8 +14,22 @@ service cloud.firestore {
     // This is the new rule that matches your database structure.
     // It allows a logged-in user to read their own document.
     match /Institutions/{institutionId}/users/{userId} {
-      allow get: if request.auth != null && request.auth.uid == userId;
-      allow list, write, update, delete: if false; 
+      allow get: if request.auth != null && (request.auth.uid == userId || request.auth.token.role == 'admin' || request.auth.token.role == 'faculty');
+      allow list: if request.auth != null && (request.auth.token.role == 'admin' || request.auth.token.role == 'faculty');
+      allow write, update, delete: if request.auth != null && request.auth.token.role == 'admin'; 
+    }
+
+    // Mentorship Meetings: Mentors and their Mentees can access
+    match /Institutions/{institutionId}/mentor_meetings/{meetingId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (request.auth.token.role == 'faculty' || request.auth.token.role == 'admin');
+    }
+
+    // Mentee Concerns: Students can raise, Mentors can view/resolve
+    match /Institutions/{institutionId}/mentee_concerns/{concernId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.token.role == 'student';
+      allow update: if request.auth != null && (request.auth.token.role == 'faculty' || request.auth.token.role == 'admin');
     }
 
     // Add rules for other collections in your database here.

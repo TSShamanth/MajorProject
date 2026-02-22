@@ -141,6 +141,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       'My Profile': '/$institutionId/student/profile',
       'Virtual ID': '/$institutionId/student/virtual-id',
       'Timetable': '/$institutionId/student/timetable',
+      'My Mentor': '/$institutionId/student/mentor',
       'My Hall Tickets': '/$institutionId/student/hall-tickets',
       'Academics': '/$institutionId/student/academics',
       'Academic Records': '/$institutionId/student/academics',
@@ -227,6 +228,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true},
       {'icon': Icons.person_outline_rounded, 'label': 'My Profile'},
+      {'icon': Icons.supervisor_account_rounded, 'label': 'My Mentor'},
       {'icon': Icons.credit_card_rounded, 'label': 'Virtual ID'},
       {'icon': Icons.schedule_rounded, 'label': 'Timetable'},
       {'icon': Icons.article_outlined, 'label': 'My Hall Tickets'},
@@ -1600,7 +1602,12 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
 
   Widget _buildQuickActions() {
     final actions = [
-
+      {
+        'label': 'My Mentor',
+        'icon': Icons.supervisor_account_rounded,
+        'color': const Color(0xFFEC4899),
+        'route': 'My Mentor',
+      },
       {
         'label': 'Library',
         'icon': Icons.local_library_rounded,

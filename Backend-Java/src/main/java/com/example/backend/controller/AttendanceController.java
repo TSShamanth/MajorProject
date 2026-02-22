@@ -4,7 +4,6 @@ import com.example.backend.models.Attendance;
 import com.example.backend.models.Course;
 import com.example.backend.service.AttendanceService;
 import com.example.backend.service.CourseService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +18,6 @@ public class AttendanceController {
     private final AttendanceService attendanceService;
     private final CourseService courseService; // To get faculty's assigned courses and students in a course
 
-    @Autowired
     public AttendanceController(AttendanceService attendanceService, CourseService courseService) {
         this.attendanceService = attendanceService;
         this.courseService = courseService;

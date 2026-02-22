@@ -107,44 +107,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   Future<void> _fetchAnnouncements() async {
     if (_institutionId == null) return;
-    setState(() {
-      _isLoadingAnnouncements = true;
-    });
-
-    try {
-      debugPrint('Fetching announcements for institution: $_institutionId');
-      // Fetch "My Announcements"
-      final myAnnouncements = await _announcementService.getMyAnnouncementsFromBackend(_institutionId!);
-      debugPrint('Fetched ${myAnnouncements.length} My Announcements');
-      
-      // Fetch "All Announcements"
-      final allAnnouncements = await _announcementService.getAllAnnouncements(_institutionId!);
-      debugPrint('Fetched ${allAnnouncements.length} All Announcements');
-      
-      // Fetch "Audience Announcements" using current user's role and department
-      debugPrint('Fetching audience announcements for role: ${_currentUser?.role}, dept: ${_currentUser?.departmentId}, prog: ${_currentUser?.programme}');
-      final audienceAnnouncements = await _announcementService.getAnnouncements(
-        _institutionId!,
-        role: _currentUser?.role,
-        departmentId: _currentUser?.departmentId,
-        programme: _currentUser?.programme,
-      );
-      debugPrint('Fetched ${audienceAnnouncements.length} Audience Announcements');
-
-      setState(() {
-        _myAnnouncements = myAnnouncements;
-        _allAnnouncements = allAnnouncements;
-        _audienceAnnouncements = audienceAnnouncements;
-        _isLoadingAnnouncements = false;
-      });
-    } catch (e) {
-      debugPrint('Error fetching announcements: $e');
-      setState(() {
-        _isLoadingAnnouncements = false;
-      });
-    }
-  }
-
+        setState(() {
+          _isLoadingAnnouncements = true;
+        });
+    
+        try {
+          // Fetch "My Announcements"
+          final myAnnouncements = await _announcementService.getMyAnnouncementsFromBackend(_institutionId!);
+    
+          // Fetch "All Announcements"
+          final allAnnouncements = await _announcementService.getAllAnnouncements(_institutionId!);
+    
+          // Fetch "Audience Announcements" using current user's role and department
+          final audienceAnnouncements = await _announcementService.getAnnouncements(
+            _institutionId!,
+            role: _currentUser?.role,
+            departmentId: _currentUser?.departmentId,
+            programme: _currentUser?.programme,
+          );
+    
+          setState(() {
+            _myAnnouncements = myAnnouncements;
+            _allAnnouncements = allAnnouncements;
+            _audienceAnnouncements = audienceAnnouncements;
+            _isLoadingAnnouncements = false;
+          });
+        } catch (e) {
+          debugPrint('Error fetching announcements: $e');
+          setState(() {
+            _isLoadingAnnouncements = false;
+          });
+        }
+      }
   Future<void> _fetchUsersAndCounts() async {
     if (_institutionId == null) return;
     try {
@@ -718,6 +712,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
       {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
+      {'icon': Icons.supervisor_account_rounded, 'label': 'Mentor Management', 'active': false, 'route': '/admin/mentor-management'},
       {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
       {'icon': Icons.account_balance_wallet_rounded, 'label': 'Fee Management', 'active': false, 'route': '/admin/fee-management'},
       {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'active': false, 'route': '/admin/timetable/timeslots'},
@@ -870,6 +865,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
       {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
+      {'icon': Icons.supervisor_account_rounded, 'label': 'Mentor Management', 'active': false, 'route': '/admin/mentor-management'},
       {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
       {'icon': Icons.account_balance_wallet_rounded, 'label': 'Fee Management', 'active': false, 'route': '/admin/fee-management'},
       {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'active': false, 'route': '/admin/timetable/timeslots'},
@@ -1919,9 +1915,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   Widget _buildQuickActionsCard() {
     final actions = [
       {'label': 'Manage Users', 'color': const Color(0xFF4F46E5), 'icon': Icons.people_rounded, 'route': null},
+      {'label': 'Mentor Management', 'color': const Color(0xFFEC4899), 'icon': Icons.supervisor_account_rounded, 'route': '/admin/mentor-management'},
       {'label': 'Schedule Drive', 'color': const Color(0xFF10B981), 'icon': Icons.event_rounded, 'route': null},
       {'label': 'System Reports', 'color': const Color(0xFF8B5CF6), 'icon': Icons.bar_chart_rounded, 'route': null},
-      {'label': 'Publish Results', 'color': const Color(0xFFF59E0B), 'icon': Icons.publish_rounded, 'route': null},
     ];
 
     return Container(
@@ -2241,7 +2237,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   }
 
   Widget _buildAnnouncementsSection(bool isMobile, bool isTablet) {
-    debugPrint('Building Announcements Section. Audience: ${_audienceAnnouncements.length}, My: ${_myAnnouncements.length}, All: ${_allAnnouncements.length}');
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(

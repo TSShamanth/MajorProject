@@ -24,6 +24,10 @@ class UserModel {
   final String? attendanceStatus;
   final String? activeLogId;
   final bool? isDetained;
+  final double? attendancePercentage;
+  final double? currentGPA;
+  final List<double>? attendanceHistory;
+  final List<double>? gpaHistory;
 
   UserModel({
     required this.uid,
@@ -51,6 +55,10 @@ class UserModel {
     this.attendanceStatus,
     this.activeLogId,
     this.isDetained,
+    this.attendancePercentage,
+    this.currentGPA,
+    this.attendanceHistory,
+    this.gpaHistory,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -86,6 +94,10 @@ class UserModel {
       attendanceStatus: json['attendanceStatus'] as String?,
       activeLogId: json['activeLogId'] as String?,
       isDetained: json['isDetained'] as bool?,
+      attendancePercentage: (json['attendancePercentage'] as num?)?.toDouble(),
+      currentGPA: (json['currentGPA'] as num?)?.toDouble(),
+      attendanceHistory: (json['attendanceHistory'] as List<dynamic>?)?.map((e) => (e as num).toDouble()).toList(),
+      gpaHistory: (json['gpaHistory'] as List<dynamic>?)?.map((e) => (e as num).toDouble()).toList(),
     );
   }
 
@@ -115,6 +127,10 @@ class UserModel {
       'assignedCourseCodes': assignedCourseCodes,
       'attendanceStatus': attendanceStatus,
       'activeLogId': activeLogId,
+      'attendancePercentage': attendancePercentage,
+      'currentGPA': currentGPA,
+      'attendanceHistory': attendanceHistory,
+      'gpaHistory': gpaHistory,
     };
   }
 
@@ -143,6 +159,10 @@ class UserModel {
     List<String>? assignedCourseCodes,
     String? attendanceStatus,
     String? activeLogId,
+    double? attendancePercentage,
+    double? currentGPA,
+    List<double>? attendanceHistory,
+    List<double>? gpaHistory,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -169,6 +189,10 @@ class UserModel {
       assignedCourseCodes: assignedCourseCodes ?? this.assignedCourseCodes,
       attendanceStatus: attendanceStatus ?? this.attendanceStatus,
       activeLogId: activeLogId ?? this.activeLogId,
+      attendancePercentage: attendancePercentage ?? this.attendancePercentage,
+      currentGPA: currentGPA ?? this.currentGPA,
+      attendanceHistory: attendanceHistory ?? this.attendanceHistory,
+      gpaHistory: gpaHistory ?? this.gpaHistory,
     );
   }
 }
