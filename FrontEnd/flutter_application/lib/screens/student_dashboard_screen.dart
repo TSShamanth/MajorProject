@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application/models/course_model.dart';
 import 'package:flutter_application/models/time_slot_model.dart';
 import 'package:flutter_application/models/timetable_entry_model.dart';
+import 'package:flutter_application/models/room_model.dart';
+import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/services/api_service.dart';
 import 'package:flutter_application/services/timetable_service.dart';
 import 'package:go_router/go_router.dart';
@@ -33,6 +35,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   List<TimetableEntry> _todaySchedule = [];
   List<TimeSlot> _allTimeSlots = [];
   List<Course> _allCourses = [];
+  List<Room> _allRooms = [];
+  UserModel? _user;
   bool _isLoadingSchedule = true;
 
   Future<void> _fetchTodaySchedule() async {
@@ -58,11 +62,13 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
         timetableService.getTimeSlots(institutionId),
         timetableService.getTimetableForClass(institutionId, user.departmentId!, user.programme!, user.sem!, user.sectionId!),
         apiService.getCourses(institutionId, user.departmentId!),
+        apiService.getRooms(institutionId),
       ]);
 
       final slots = results[0] as List<TimeSlot>;
       final allEntries = results[1] as List<TimetableEntry>;
       final courses = results[2] as List<Course>;
+      final rooms = results[3] as List<Room>;
 
       final todayEntries = allEntries.where((e) => e.day == todayName).toList();
       
@@ -78,6 +84,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
           _allTimeSlots = slots;
           _todaySchedule = todayEntries;
           _allCourses = courses;
+          _allRooms = rooms;
+          _user = user;
           _isLoadingSchedule = false;
         });
       }
@@ -938,14 +946,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
         final cards = [
           {
             'title': 'Current Semester',
-            'value': 'VI',
+            'value': _user?.sem ?? 'N/A',
             'icon': Icons.menu_book_rounded,
             'color': const Color(0xFF4F46E5),
-            'subtext': branch.isNotEmpty ? branch : 'B.Tech CSE',
+            'subtext': _user?.programme ?? (branch.isNotEmpty ? branch : 'B.Tech CSE'),
           },
           {
             'title': 'CGPA',
-            'value': '8.6',
+            'value': _user?.currentGPA?.toStringAsFixed(1) ?? '8.6',
             'icon': Icons.trending_up_rounded,
             'color': const Color(0xFF10B981),
             'subtext': 'Current Standing',
@@ -1189,14 +1197,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
         final cards = [
           {
             'title': 'Current Semester',
-            'value': 'VI',
+            'value': _user?.sem ?? 'N/A',
             'icon': Icons.menu_book_rounded,
             'color': const Color(0xFF4F46E5),
-            'subtext': branch.isNotEmpty ? branch : 'B.Tech CSE',
+            'subtext': _user?.programme ?? (branch.isNotEmpty ? branch : 'B.Tech CSE'),
           },
           {
             'title': 'CGPA',
-            'value': '8.6',
+            'value': _user?.currentGPA?.toStringAsFixed(1) ?? '8.6',
             'icon': Icons.trending_up_rounded,
             'color': const Color(0xFF10B981),
             'subtext': 'Current Standing',
@@ -1513,6 +1521,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
                 final entry = _todaySchedule[index];
                 final slot = _allTimeSlots.firstWhere((s) => s.id == entry.timeSlotId);
                 final course = _allCourses.firstWhere((c) => c.courseCode == entry.courseCode, orElse: () => Course(courseCode: '', courseName: 'Unknown', facultyUid: '', institutionId: '', program: '', semester: '', studentsEnrolled: [], totalClasses: ''));
+                final room = _allRooms.firstWhere(
+                  (r) => r.id == entry.roomId, 
+                  orElse: () => Room(id: '', name: entry.roomId, capacity: 0, institutionId: '')
+                );
 
                 return Container(
                   padding: const EdgeInsets.all(12),
@@ -1558,7 +1570,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    'Room ${entry.roomId}',
+                                    'Room ${room.name}',
                                     style: const TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w600,

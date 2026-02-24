@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application/models/course_model.dart';
 import 'package:flutter_application/models/time_slot_model.dart';
 import 'package:flutter_application/models/timetable_entry_model.dart';
+import 'package:flutter_application/models/room_model.dart';
 import 'package:flutter_application/services/timetable_service.dart';
 import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/services/api_service.dart';
@@ -28,6 +29,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
   List<TimetableEntry> _todaySchedule = [];
   List<TimeSlot> _allTimeSlots = [];
   List<Course> _allCourses = [];
+  List<Room> _allRooms = [];
   bool _isLoadingSchedule = true;
 
   @override
@@ -53,11 +55,13 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
         timetableService.getTimeSlots(_institutionId!),
         timetableService.getTimetableForFaculty(_institutionId!, _currentUser!.uid),
         _apiService.getCourses(_institutionId!, _currentUser!.departmentId ?? ''),
+        _apiService.getRooms(_institutionId!),
       ]);
 
       final slots = results[0] as List<TimeSlot>;
       final allEntries = results[1] as List<TimetableEntry>;
       final courses = results[2] as List<Course>;
+      final rooms = results[3] as List<Room>;
 
       final todayEntries = allEntries.where((e) => e.day == todayName).toList();
       todayEntries.sort((a, b) {
@@ -71,6 +75,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
           _allTimeSlots = slots;
           _todaySchedule = todayEntries;
           _allCourses = courses;
+          _allRooms = rooms;
           _isLoadingSchedule = false;
         });
       }
@@ -852,6 +857,10 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                 final entry = _todaySchedule[index];
                 final slot = _allTimeSlots.firstWhere((s) => s.id == entry.timeSlotId);
                 final course = _allCourses.firstWhere((c) => c.courseCode == entry.courseCode, orElse: () => Course(courseCode: '', courseName: 'Unknown', facultyUid: '', institutionId: '', program: '', semester: '', studentsEnrolled: [], totalClasses: ''));
+                final room = _allRooms.firstWhere(
+                  (r) => r.id == entry.roomId, 
+                  orElse: () => Room(id: '', name: entry.roomId, capacity: 0, institutionId: '')
+                );
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 5),
@@ -887,7 +896,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(course.courseName, style: const TextStyle(color: Color(0xFF111827), fontSize: 10, fontWeight: FontWeight.w600)),
-                        Text('Room: ${entry.roomId}', style: const TextStyle(color: Color(0xFF6B7280), fontSize: 9)),
+                        Text('Room: ${room.name}', style: const TextStyle(color: Color(0xFF6B7280), fontSize: 9)),
                       ],
                     ),
                   ),
