@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
-import 'package:go_router/go_router.dart';
-import '../services/auth_service.dart';
 import 'package:intl/intl.dart';
+import '../services/auth_service.dart';
+import '../models/user_model.dart';
+import '../services/api_service.dart';
 
 class PlacementDashboardScreen extends StatefulWidget {
   const PlacementDashboardScreen({super.key});
@@ -15,7 +15,17 @@ class PlacementDashboardScreen extends StatefulWidget {
 class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   bool _isDarkMode = false;
+  bool _sidebarExpanded = true;
+  UserModel? _currentUser;
+  final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
+
+  // Theme Colors
+  final Color _accentColor = const Color(0xFF4F46E5);
+  Color get _textPrimary => _isDarkMode ? Colors.white : const Color(0xFF1E293B);
+  Color get _textSecondary => _isDarkMode ? Colors.white60 : const Color(0xFF64748B);
+  Color get _bgColor => _isDarkMode ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+  Color get _cardColor => _isDarkMode ? const Color(0xFF1E293B) : Colors.white;
 
   final List<Map<String, dynamic>> _menuItems = [
     {'icon': Icons.dashboard_rounded, 'label': 'Overview'},
@@ -26,16 +36,47 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
+
+  Future<void> _fetchUserData() async {
+    try {
+      final institutionId = GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId'];
+      if (institutionId != null) {
+        final user = await _apiService.getMe(institutionId);
+        setState(() => _currentUser = user);
+      }
+    } catch (e) {
+      debugPrint('Error fetching user data: $e');
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    await AuthService.logout();
+    if (mounted) context.go('/login');
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    
     return Scaffold(
-      backgroundColor: _isDarkMode ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: _bgColor,
+      drawer: isMobile ? Drawer(child: _buildSidebarContent()) : null,
       body: Row(
         children: [
-          _buildSidebar(),
+          if (!isMobile) 
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: _sidebarExpanded ? 260 : 80,
+              child: _buildSidebarContent(),
+            ),
           Expanded(
             child: Column(
               children: [
-                _buildTopBar(),
+                _buildTopBar(isMobile),
                 Expanded(
                   child: _buildBody(),
                 ),
@@ -47,13 +88,9 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     );
   }
 
-  Widget _buildSidebar() {
+  Widget _buildSidebarContent() {
     return Container(
-      width: 260,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
-      ),
+      color: const Color(0xFF1E293B),
       child: Column(
         children: [
           _buildSidebarHeader(),
@@ -73,30 +110,21 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.blueAccent,
+              color: _accentColor,
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 20),
           ),
-          const SizedBox(width: 12),
-          const Text(
-            'Placement Cell',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          if (_sidebarExpanded) ...[
+            const SizedBox(width: 12),
+            const Text(
+              'Placement Cell',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ]
         ],
       ),
     );
-  }
-
-  Future<void> _handleLogout() async {
-    try {
-      await AuthService.logout();
-      if (mounted) {
-        context.go('/login');
-      }
-    } catch (e) {
-      debugPrint('Error logging out: $e');
-    }
   }
 
   Widget _buildSidebarMenu() {
@@ -108,49 +136,23 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
         final isSelected = _selectedIndex == index;
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: ListTile(
-            onTap: () => setState(() => _selectedIndex = index),
-            leading: Icon(item['icon'], color: isSelected ? Colors.white : Colors.white60, size: 22),
-            title: Text(
-              item['label'],
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white60,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 14,
-              ),
-            ),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            tileColor: isSelected ? Colors.blueAccent.withOpacity(0.2) : Colors.transparent,
-        final item = items[index];
-        bool active = item['active'] == true;
-
-        return InkWell(
-          onTap: () {},
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: active ? _accentColor.withOpacity(0.15) : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  item['icon'] as IconData, 
-                  color: active ? _accentColor : Colors.white60, 
-                  size: 22
-                ),
-                if (_sidebarExpanded) ...[
-                  const SizedBox(width: 16),
-                  Text(
-                    item['label'] as String,
+          child: Tooltip(
+            message: !_sidebarExpanded ? item['label'] : '',
+            child: ListTile(
+              onTap: () => setState(() => _selectedIndex = index),
+              leading: Icon(item['icon'], color: isSelected ? Colors.white : Colors.white60, size: 22),
+              title: _sidebarExpanded 
+                ? Text(
+                    item['label'],
                     style: TextStyle(
-                      color: active ? Colors.white : Colors.white60,
-                      fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                      color: isSelected ? Colors.white : Colors.white60,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 14,
                     ),
-                  ),
-                ]
-              ],
+                  )
+                : null,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              tileColor: isSelected ? _accentColor.withOpacity(0.2) : Colors.transparent,
             ),
           ),
         );
@@ -161,68 +163,78 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
   Widget _buildUserCard() {
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(_sidebarExpanded ? 16 : 8),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 18,
-            backgroundColor: Colors.blueAccent,
-            child: Icon(Icons.person, color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Placement Head',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text('Admin Access', style: TextStyle(color: Colors.white60, fontSize: 11)),
-              ],
+            backgroundColor: _accentColor,
+            child: Text(
+              _currentUser?.displayName.isNotEmpty == true ? _currentUser!.displayName[0].toUpperCase() : 'P',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white60, size: 18),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if (mounted) context.go('/login');
-            },
-          ),
+          if (_sidebarExpanded) ...[
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _currentUser?.displayName ?? 'Placement Head',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Text('Officer', style: TextStyle(color: Colors.white60, fontSize: 11)),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white60, size: 18),
+              onPressed: _handleLogout,
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(bool isMobile) {
     return Container(
       height: 70,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        color: _cardColor,
         border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.1))),
       ),
       child: Row(
         children: [
+          if (isMobile)
+            IconButton(
+              icon: Icon(Icons.menu, color: _textPrimary),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            )
+          else
+            IconButton(
+              icon: Icon(_sidebarExpanded ? Icons.menu_open : Icons.menu, color: _textPrimary),
+              onPressed: () => setState(() => _sidebarExpanded = !_sidebarExpanded),
+            ),
+          const SizedBox(width: 16),
           Text(
             _menuItems[_selectedIndex]['label'],
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: _isDarkMode ? Colors.white : const Color(0xFF1E293B),
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _textPrimary),
           ),
           const Spacer(),
-          _buildSearchBar(),
+          if (!isMobile) _buildSearchBar(),
           const SizedBox(width: 16),
           IconButton(
-            icon: Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            icon: Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode, color: _textSecondary),
             onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
           ),
           const SizedBox(width: 16),
@@ -242,12 +254,12 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
       ),
       child: TextField(
         controller: _searchController,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           hintText: 'Search...',
-          hintStyle: TextStyle(fontSize: 14),
-          prefixIcon: Icon(Icons.search, size: 20),
+          hintStyle: const TextStyle(fontSize: 14),
+          prefixIcon: Icon(Icons.search, size: 20, color: _textSecondary),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.only(top: 8),
+          contentPadding: const EdgeInsets.only(top: 8),
         ),
       ),
     );
@@ -257,12 +269,12 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.blueAccent.withOpacity(0.1),
+        color: _accentColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         DateFormat('MMM dd, yyyy').format(DateTime.now()),
-        style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.w600, fontSize: 13),
+        style: TextStyle(color: _accentColor, fontWeight: FontWeight.w600, fontSize: 13),
       ),
     );
   }
@@ -278,82 +290,9 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     }
   }
 
-  // --- 0. OVERVIEW TAB ---
-  Widget _buildOverview() {
-  Widget _buildTopBarActions() {
-    return Row(
-      children: [
-        IconButton(
-          icon: Icon(_isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded, color: _textSecondary),
-          onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
-        ),
-        const SizedBox(width: 12),
-        if (MediaQuery.of(context).size.width > 1024)
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_currentUser?.displayName ?? 'Placement Officer', style: TextStyle(fontWeight: FontWeight.w700, color: _textPrimary, fontSize: 14)),
-              Text('Placement Cell', style: TextStyle(color: _textSecondary, fontSize: 12)),
-            ],
-          ),
-        const SizedBox(width: 12),
-        PopupMenuButton<String>(
-          offset: const Offset(0, 50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          onSelected: (value) {
-            if (value == 'logout') {
-              _handleLogout();
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'profile',
-              child: Row(
-                children: [
-                  Icon(Icons.person_outline_rounded, size: 20),
-                  SizedBox(width: 12),
-                  Text('My Profile'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'settings',
-              child: Row(
-                children: [
-                  Icon(Icons.settings_outlined, size: 20),
-                  SizedBox(width: 12),
-                  Text('Settings'),
-                ],
-              ),
-            ),
-            const PopupMenuDivider(),
-            PopupMenuItem(
-              value: 'logout',
-              child: Row(
-                children: [
-                  Icon(Icons.logout_rounded, color: Colors.redAccent.shade200, size: 20),
-                  const SizedBox(width: 12),
-                  const Text('Logout', style: TextStyle(color: Colors.redAccent)),
-                ],
-              ),
-            ),
-          ],
-          child: Container(
-            height: 40,
-            width: 40,
-            decoration: BoxDecoration(
-              color: _accentColor.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.person_rounded, color: _accentColor),
-          ),
-        ),
-      ],
-    );
-  }
+  // --- TAB METHODS ---
 
-  Widget _buildMainContent(bool isMobile) {
+  Widget _buildOverview() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -368,11 +307,12 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
             ],
           ),
           const SizedBox(height: 32),
-          const Text('Live Recruitment Pipeline', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('Live Recruitment Pipeline', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _textPrimary)),
           const SizedBox(height: 16),
           _buildRecruitmentPipelineChart(),
           const SizedBox(height: 32),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(flex: 2, child: _buildRecentDrivesTable()),
               const SizedBox(width: 24),
@@ -390,7 +330,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
         margin: const EdgeInsets.only(right: 16),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+          color: _cardColor,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
         ),
@@ -405,8 +345,8 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
               ],
             ),
             const SizedBox(height: 16),
-            Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-            Text(title, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+            Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: _textPrimary)),
+            Text(title, style: TextStyle(color: _textSecondary, fontSize: 14)),
           ],
         ),
       ),
@@ -418,7 +358,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
       height: 200,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        color: _cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.withOpacity(0.1)),
       ),
@@ -456,7 +396,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
           ),
         ),
         const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _textPrimary)),
       ],
     );
   }
@@ -465,14 +405,14 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        color: _cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.withOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Recent Active Drives', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text('Recent Active Drives', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textPrimary)),
           const SizedBox(height: 16),
           Table(
             children: [
@@ -489,10 +429,10 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
   TableRow _buildTableRow(String company, String role, String status, String meta) {
     return TableRow(
       children: [
-        Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(company, style: const TextStyle(fontWeight: FontWeight.bold))),
-        Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(role)),
+        Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(company, style: TextStyle(fontWeight: FontWeight.bold, color: _textPrimary))),
+        Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(role, style: TextStyle(color: _textSecondary))),
         Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(status, style: const TextStyle(color: Colors.blueAccent))),
-        Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(meta, style: const TextStyle(color: Colors.grey))),
+        Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(meta, style: TextStyle(color: _textSecondary))),
       ],
     );
   }
@@ -501,14 +441,14 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.blueAccent.withOpacity(0.05),
+        color: _accentColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.blueAccent.withOpacity(0.1)),
+        border: Border.all(color: _accentColor.withOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Upcoming Events', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+          Text('Upcoming Events', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _accentColor)),
           const SizedBox(height: 16),
           _buildEventItem('Pre-Placement Talk', 'Google', '10:00 AM'),
           _buildEventItem('Mock Interview', 'Dept CS', '02:00 PM'),
@@ -523,14 +463,14 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Container(width: 4, height: 30, color: Colors.blueAccent),
+          Container(width: 4, height: 30, color: _accentColor),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                Text('$location • $time', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _textPrimary)),
+                Text('$location • $time', style: TextStyle(color: _textSecondary, fontSize: 11)),
               ],
             ),
           ),
@@ -539,7 +479,6 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     );
   }
 
-  // --- 1. COMPANIES TAB ---
   Widget _buildCompanyManagement() {
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -548,13 +487,13 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Company Repository', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('Company Repository', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _textPrimary)),
               ElevatedButton.icon(
                 onPressed: _showAddCompanyDialog,
                 icon: const Icon(Icons.add, size: 20),
                 label: const Text('Add Company Profile'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
+                  backgroundColor: _accentColor,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -584,7 +523,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        color: _cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.withOpacity(0.1)),
       ),
@@ -600,12 +539,12 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
                 child: const Icon(Icons.business, color: Colors.blueGrey),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Google India', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    Text('Technology • Tier 1', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text('Google India', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: _textPrimary)),
+                    Text('Technology • Tier 1', style: TextStyle(color: _textSecondary, fontSize: 12)),
                   ],
                 ),
               ),
@@ -613,21 +552,21 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
             ],
           ),
           const Spacer(),
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Active Drives', style: TextStyle(color: Colors.grey, fontSize: 11)),
-                  Text('02', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text('Active Drives', style: TextStyle(color: _textSecondary, fontSize: 11)),
+                  Text('02', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: _textPrimary)),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Avg Package', style: TextStyle(color: Colors.grey, fontSize: 11)),
-                  Text('18.5 LPA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text('Avg Package', style: TextStyle(color: _textSecondary, fontSize: 11)),
+                  Text('18.5 LPA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: _textPrimary)),
                 ],
               ),
             ],
@@ -641,7 +580,8 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add New Company'),
+        backgroundColor: _cardColor,
+        title: Text('Add New Company', style: TextStyle(color: _textPrimary)),
         content: SizedBox(
           width: 500,
           child: SingleChildScrollView(
@@ -658,11 +598,13 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
                 const SizedBox(height: 16),
                 _buildFormTextField('Base Salary (LPA)', Icons.payments),
                 const SizedBox(height: 16),
-                const TextField(
+                TextField(
                   maxLines: 3,
+                  style: TextStyle(color: _textPrimary),
                   decoration: InputDecoration(
                     labelText: 'Company Description',
-                    border: OutlineInputBorder(),
+                    labelStyle: TextStyle(color: _textSecondary),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ],
@@ -679,16 +621,17 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
 
   Widget _buildFormTextField(String label, IconData icon) {
     return TextField(
+      style: TextStyle(color: _textPrimary),
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, size: 20),
+        labelStyle: TextStyle(color: _textSecondary),
+        prefixIcon: Icon(icon, size: 20, color: _textSecondary),
         border: const OutlineInputBorder(),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     );
   }
 
-  // --- 2. DRIVE MANAGEMENT TAB ---
   Widget _buildDriveManagement() {
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -697,7 +640,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Recruitment Lifecycle', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('Recruitment Lifecycle', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _textPrimary)),
               ElevatedButton.icon(
                 onPressed: _showCreateDriveStepper,
                 icon: const Icon(Icons.rocket_launch, size: 20),
@@ -720,12 +663,12 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     );
   }
 
-  Widget _buildDriveCard(String role, String company, String date, String status, Color statusColor, String eligibility) {
+  Widget _buildDriveCard(String role, String company, String date, String status, Color color, String eligibility) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        color: _cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.withOpacity(0.1)),
       ),
@@ -733,30 +676,30 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(Icons.work_outline, color: statusColor),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+            child: Icon(Icons.work_outline, color: color),
           ),
           const SizedBox(width: 20),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(role, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(role, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textPrimary)),
                 Text(company, style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 4),
-                Text(eligibility, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(eligibility, style: TextStyle(color: _textSecondary, fontSize: 12)),
               ],
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(date, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(date, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _textPrimary)),
               const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                child: Text(status, style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold)),
+                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                child: Text(status, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -769,7 +712,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
 
   Widget _buildDriveActionMenu() {
     return PopupMenuButton(
-      icon: const Icon(Icons.more_vert, color: Colors.grey),
+      icon: Icon(Icons.more_vert, color: _textSecondary),
       itemBuilder: (context) => [
         const PopupMenuItem(child: ListTile(leading: Icon(Icons.edit), title: Text('Edit Drive'))),
         const PopupMenuItem(child: ListTile(leading: Icon(Icons.people), title: Text('View Applicants'))),
@@ -785,7 +728,6 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     );
   }
 
-  // --- 3. STUDENT TRACKING TAB ---
   Widget _buildStudentTracking() {
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -795,7 +737,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Recruitment Progress Tracking', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('Recruitment Progress Tracking', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _textPrimary)),
               Row(
                 children: [
                   _buildFilterChip('All Students', true),
@@ -812,7 +754,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
             child: Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                color: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+                color: _cardColor,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.grey.withOpacity(0.1)),
               ),
@@ -820,7 +762,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
                 borderRadius: BorderRadius.circular(16),
                 child: SingleChildScrollView(
                   child: DataTable(
-                    headingRowColor: MaterialStateProperty.all(Colors.blueAccent.withOpacity(0.05)),
+                    headingRowColor: MaterialStateProperty.all(_accentColor.withOpacity(0.05)),
                     columns: const [
                       DataColumn(label: Text('Student Name', style: TextStyle(fontWeight: FontWeight.bold))),
                       DataColumn(label: Text('Company', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -849,16 +791,16 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     return ChoiceChip(
       label: Text(label, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.blueGrey)),
       selected: isSelected,
-      selectedColor: Colors.blueAccent,
+      selectedColor: _accentColor,
       onSelected: (val) {},
     );
   }
 
   DataRow _buildDataRow(String name, String company, String round, String status, Color color) {
     return DataRow(cells: [
-      DataCell(Text(name, style: const TextStyle(fontWeight: FontWeight.w600))),
-      DataCell(Text(company)),
-      DataCell(Text(round)),
+      DataCell(Text(name, style: TextStyle(fontWeight: FontWeight.w600, color: _textPrimary))),
+      DataCell(Text(company, style: TextStyle(color: _textSecondary))),
+      DataCell(Text(round, style: TextStyle(color: _textSecondary))),
       DataCell(
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -879,11 +821,14 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Update Progress: $studentName'),
+        backgroundColor: _cardColor,
+        title: Text('Update Progress: $studentName', style: TextStyle(color: _textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<String>(
+              dropdownColor: _cardColor,
+              style: TextStyle(color: _textPrimary),
               decoration: const InputDecoration(labelText: 'Move to Round'),
               items: ['Aptitude', 'Technical 1', 'Technical 2', 'HR Round', 'Offer Made']
                   .map((e) => DropdownMenuItem(value: e, child: Text(e)))
@@ -892,6 +837,8 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
+              dropdownColor: _cardColor,
+              style: TextStyle(color: _textPrimary),
               decoration: const InputDecoration(labelText: 'Result'),
               items: ['Pass', 'Fail', 'Hold'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
               onChanged: (val) {},
@@ -906,14 +853,13 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     );
   }
 
-  // --- 4. REPORTS TAB ---
   Widget _buildReports() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Institutional Placement Analytics', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text('Institutional Placement Analytics', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _textPrimary)),
           const SizedBox(height: 24),
           Row(
             children: [
@@ -934,25 +880,24 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
       height: 300,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        color: _cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.withOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _textPrimary)),
           const Spacer(),
           const Center(child: Icon(Icons.bar_chart, size: 100, color: Colors.blueAccent)),
           const Spacer(),
-          const Center(child: Text('Analytics Data Visualization Module', style: TextStyle(color: Colors.grey, fontSize: 12))),
+          Center(child: Text('Analytics Data Visualization Module', style: TextStyle(color: _textSecondary, fontSize: 12))),
         ],
       ),
     );
   }
 }
 
-// --- SUB-WIDGET: DRIVE CREATION STEPPER ---
 class _CreateDriveStepperDialog extends StatefulWidget {
   const _CreateDriveStepperDialog();
 
