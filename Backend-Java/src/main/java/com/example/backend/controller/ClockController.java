@@ -3,7 +3,6 @@ package com.example.backend.controller;
 import com.example.backend.dto.ClockRequest;
 import com.example.backend.models.User;
 import com.example.backend.service.ClockService;
-import com.google.firebase.auth.FirebaseToken;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -26,8 +25,7 @@ public class ClockController {
             return ResponseEntity.status(401).body("User not authenticated.");
         }
         try {
-            FirebaseToken firebaseToken = (FirebaseToken) authentication.getPrincipal();
-            String facultyId = firebaseToken.getUid();
+            String facultyId = (String) authentication.getPrincipal();
             User updatedUser = clockService.clockIn(institutionId, facultyId, clockRequest);
             return ResponseEntity.ok(updatedUser);
         } catch (ExecutionException | InterruptedException e) {
@@ -44,8 +42,7 @@ public class ClockController {
             return ResponseEntity.status(401).body("User not authenticated.");
         }
         try {
-            FirebaseToken firebaseToken = (FirebaseToken) authentication.getPrincipal();
-            String facultyId = firebaseToken.getUid();
+            String facultyId = (String) authentication.getPrincipal();
             User updatedUser = clockService.clockOut(institutionId, facultyId, clockRequest);
             return ResponseEntity.ok(updatedUser);
         } catch (ExecutionException | InterruptedException e) {
@@ -62,8 +59,7 @@ public class ClockController {
             return ResponseEntity.status(401).body("User not authenticated.");
         }
         try {
-            FirebaseToken firebaseToken = (FirebaseToken) authentication.getPrincipal();
-            String facultyId = firebaseToken.getUid();
+            String facultyId = (String) authentication.getPrincipal();
             java.util.List<com.example.backend.models.AttendanceLog> history = clockService.getAttendanceHistory(institutionId, facultyId);
             return ResponseEntity.ok(history);
         } catch (ExecutionException | InterruptedException e) {

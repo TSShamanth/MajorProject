@@ -412,6 +412,10 @@ final router = GoRouter(
       builder: (context, state) => FacultyExamTimetableScreen(),
     ),
     GoRoute(
+      path: '/:institutionId/student/leave',
+      builder: (context, state) => const StudentLeaveScreen(),
+    ),
+    GoRoute(
       path: '/:institutionId/student/leave/history',
       builder: (context, state) => const LeaveHistoryScreen(),
     ),
