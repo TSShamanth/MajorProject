@@ -11,7 +11,6 @@ import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/auth_service.dart';
 import '../services/session_manager.dart';
-import '../models/notification_model.dart';
 
 class FacultyDashboardScreen extends StatefulWidget {
   const FacultyDashboardScreen({super.key});

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../models/notification_model.dart';
@@ -109,7 +108,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   if (!n.read) {
                     await _markRead(n.id);
                   }
-                  if (!mounted) return;
+                  if (!context.mounted) return;
                   if (n.route != null && n.route!.isNotEmpty) {
                     final inst = _getInstitutionId();
                     context.push('/$inst${n.route}');
