@@ -22,6 +22,7 @@ import '../models/room_model.dart';
 import './session_manager.dart';
 import '../models/student_fee_model.dart';
 import '../models/saved_payment_method_model.dart';
+import '../models/marks_model.dart';
 
 class ApiService {
   /* -------------------- Institutions -------------------- */
@@ -84,6 +85,28 @@ class ApiService {
       return data.map((json) => UserModel.fromJson(json)).toList();
     } else {
       throw Exception('Failed to load users');
+    }
+  }
+
+  Future<UserModel> getUserDetails(String institutionId, String uid) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    final token = await user.getIdToken();
+    final url = Uri.parse(
+        '${ApiConfig.baseUrl}/api/admin/users/$uid?institutionId=$institutionId');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return UserModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to load user details: ${response.body}');
     }
   }
 
@@ -1359,6 +1382,61 @@ class ApiService {
 
     if (response.statusCode != 204) {
       throw Exception('Failed to delete payment method: ${response.statusCode}');
+    }
+  }
+
+  /* -------------------- Marks & Academic Progress -------------------- */
+
+  Future<MarksModel> saveMarks(String institutionId, MarksModel marks) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/marks');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(marks.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return MarksModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to save marks: ${response.body}');
+    }
+  }
+
+  Future<List<MarksModel>> getMarksByStudent(String institutionId, String studentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/marks/student/$studentId');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => MarksModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load marks: ${response.body}');
+    }
+  }
+
+  Future<Map<String, dynamic>> getAcademicSummary(String institutionId, String studentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/marks/student/$studentId/summary');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to load academic summary: ${response.body}');
     }
   }
 }

@@ -49,6 +49,7 @@ import '../screens/alumni_dashboard_screen.dart';
 import '../screens/alumni_directory_screen.dart';
 import '../screens/alumni_job_board_screen.dart';
 import '../screens/student_attendance_screen.dart';
+import '../screens/student/student_academics_screen.dart';
 import '../screens/regularisation_request_screen.dart';
 import '../screens/regularisation_status_screen.dart';
 import '../screens/admin_regularisation_screen.dart';
@@ -64,6 +65,7 @@ import '../screens/events_list_screen.dart';
 import '../screens/event_detail_screen.dart';
 import '../screens/create_edit_event_screen.dart';
 import '../screens/event_participants_screen.dart';
+import '../screens/faculty/faculty_marks_entry_screen.dart';
 import '../screens/faculty/virtual_id_screen.dart' as faculty_vid;
 import '../screens/faculty/faculty_leave_approval_screen.dart';
 import '../screens/faculty/faculty_student_fee_status_screen.dart';
@@ -118,6 +120,10 @@ final router = GoRouter(
         GoRoute(
           path: '/:institutionId/student/attendance',
           builder: (context, state) => const StudentAttendanceScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/academics',
+          builder: (context, state) => const StudentAcademicsScreen(),
         ),
       ],
     ),
@@ -397,6 +403,10 @@ final router = GoRouter(
         final examId = state.pathParameters['examId']!;
         return ExamTimetableViewerScreen(examId: examId);
       },
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/marks-entry',
+      builder: (context, state) => const FacultyMarksEntryScreen(),
     ),
     GoRoute(
       path: '/:institutionId/announcements',

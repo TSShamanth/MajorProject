@@ -172,6 +172,7 @@ class _DepartmentManagementScreenState
     final programController = TextEditingController(text: course?.program);
     final semesterController = TextEditingController(text: course?.semester);
     final totalClassesController = TextEditingController(text: course?.totalClasses);
+    final creditsController = TextEditingController(text: course?.credits.toString() ?? '4');
     String? selectedFacultyId = course?.facultyUid;
     List<String> selectedStudentIds = course?.studentsEnrolled ?? [];
 
@@ -199,6 +200,11 @@ class _DepartmentManagementScreenState
                     TextField(controller: programController, decoration: const InputDecoration(labelText: 'Program (e.g., BTech)')),
                     TextField(controller: semesterController, decoration: const InputDecoration(labelText: 'Semester')),
                     TextField(controller: totalClassesController, decoration: const InputDecoration(labelText: 'Total Classes')),
+                    TextField(
+                      controller: creditsController,
+                      decoration: const InputDecoration(labelText: 'Credits (e.g., 4)'),
+                      keyboardType: TextInputType.number,
+                    ),
                       MultiSelectDialogField(
                       items: _students.map((s) => MultiSelectItem(s.uid, s.displayName)).toList(),
                       title: const Text("Students"),
@@ -248,7 +254,8 @@ class _DepartmentManagementScreenState
                         semester: semesterController.text,
                         studentsEnrolled: selectedStudentIds,
                         totalClasses: totalClassesController.text,
-                        departmentId: _departmentId!, // Added departmentId
+                        departmentId: _departmentId!,
+                        credits: int.tryParse(creditsController.text) ?? 4,
                       );
 
                       final url = course == null

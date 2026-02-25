@@ -4,6 +4,7 @@ import 'package:flutter_application/models/time_slot_model.dart';
 import 'package:flutter_application/models/timetable_entry_model.dart';
 import 'package:flutter_application/models/room_model.dart';
 import 'package:flutter_application/services/timetable_service.dart';
+import 'package:flutter_application/services/attendance_service.dart';
 import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/services/api_service.dart';
 import 'package:go_router/go_router.dart';
@@ -54,7 +55,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
       final results = await Future.wait([
         timetableService.getTimeSlots(_institutionId!),
         timetableService.getTimetableForFaculty(_institutionId!, _currentUser!.uid),
-        _apiService.getCourses(_institutionId!, _currentUser!.departmentId ?? ''),
+        AttendanceService.getSubjects(),
         _apiService.getRooms(_institutionId!),
       ]);
 
@@ -194,7 +195,8 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
       {'icon': Icons.group_outlined, 'label': 'Mentees', 'badge': '8', 'route': '/faculty/mentees'},
       {'icon': Icons.payments_outlined, 'label': "Students' Fee Status", 'route': '/faculty/student-fees'},
       {'icon': Icons.description_outlined, 'label': 'Leave', 'route': '/faculty/leave'},
-      {'icon': Icons.check_circle_outline, 'label': 'Approve Leaves', 'route': '/faculty/leave-approval'}, // NEW ITEM
+      {'icon': Icons.check_circle_outline, 'label': 'Approve Leaves', 'route': '/faculty/leave-approval'},
+      {'icon': Icons.grade_outlined, 'label': 'Marks Entry', 'route': '/faculty/marks-entry'},
       {'icon': Icons.attach_money, 'label': 'Payroll', 'route': '/faculty/payroll'},
       {'icon': Icons.celebration_outlined, 'label': 'Events', 'route': '/events'},
       {'icon': Icons.notifications_none_outlined, 'label': 'Meetings', 'route': '/faculty/meetings'},
@@ -1352,10 +1354,11 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
   Widget _buildQuickActionsCard() {
     final actions = [
       {'label': 'Mark Attendance', 'color': Colors.indigo, 'route': '/faculty/mark-attendance'},
+      {'label': 'Marks Entry', 'color': Colors.orange, 'route': '/faculty/marks-entry'},
       {'label': 'Mentees', 'color': Colors.pink, 'route': '/faculty/mentees'},
       {'label': 'View History', 'color': Colors.green, 'route': '/faculty/attendance-history'},
       {'label': 'Apply Leave', 'color': Colors.purple, 'route': '/faculty/leave'},
-      {'label': 'Approve Leaves', 'color': Colors.blueGrey, 'route': '/faculty/leave-approval'}, // NEW ITEM
+      {'label': 'Approve Leaves', 'color': Colors.blueGrey, 'route': '/faculty/leave-approval'},
     ];
 
     return Container(

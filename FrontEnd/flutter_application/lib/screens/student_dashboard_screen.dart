@@ -37,7 +37,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   List<Course> _allCourses = [];
   List<Room> _allRooms = [];
   UserModel? _user;
+  Map<String, dynamic>? _academicSummary;
   bool _isLoadingSchedule = true;
+  bool _isLoadingSummary = true;
+  double _attendancePercentage = 0.0;
 
   Future<void> _fetchTodaySchedule() async {
     final institutionId = _getInstitutionId();
@@ -48,10 +51,23 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       final apiService = ApiService();
       
       final user = await apiService.getMe(institutionId);
+      if (mounted) {
+        setState(() {
+          _user = user;
+          _attendancePercentage = user.attendancePercentage ?? 0.0;
+        });
+      }
       if (user.departmentId == null || user.programme == null || user.sem == null || user.sectionId == null) {
-        if (mounted) setState(() => _isLoadingSchedule = false);
+        if (mounted) {
+          setState(() {
+            _isLoadingSchedule = false;
+            _isLoadingSummary = false;
+          });
+        }
         return;
       }
+
+      _fetchAcademicSummary(institutionId, user.uid);
 
       final now = DateTime.now();
       final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -91,7 +107,30 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       }
     } catch (e) {
       debugPrint('Error fetching today schedule: $e');
-      if (mounted) setState(() => _isLoadingSchedule = false);
+      if (mounted) {
+        setState(() {
+          _isLoadingSchedule = false;
+          _isLoadingSummary = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchAcademicSummary(String institutionId, String studentId) async {
+    try {
+      final apiService = ApiService();
+      final summary = await apiService.getAcademicSummary(institutionId, studentId);
+      if (mounted) {
+        setState(() {
+          _academicSummary = summary;
+          _isLoadingSummary = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching academic summary: $e');
+      if (mounted) {
+        setState(() => _isLoadingSummary = false);
+      }
     }
   }
 
@@ -158,8 +197,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       'Events': '/$institutionId/events',
       'Events & Calendar': '/$institutionId/events',
       'Placements': '/$institutionId/student/placements',
-      'Assignments': '/$institutionId/student/assignments',
-      'Assignments & Tasks': '/$institutionId/student/assignments',
+      'Assignments': '/$institutionId/student/academics',
+      'Assignments & Tasks': '/$institutionId/student/academics',
+      'Credits': '/$institutionId/student/academics',
       'Announcements': '/$institutionId/announcements',
       'Messages': '/$institutionId/student/messages',
       'Library': '/$institutionId/student/library',
@@ -1125,11 +1165,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
             ),
           ),
           const Spacer(),
-          _buildProgressRing('Attendance', 90, const Color(0xFF10B981)),
+          _buildProgressRing('Attendance', _attendancePercentage, const Color(0xFF10B981)),
           const SizedBox(width: 30),
-          _buildProgressRing('Assignments', 75, const Color(0xFF4F46E5)),
+          _buildProgressRing('Assignments', (_academicSummary?['assignmentsPercentage'] as num?)?.toDouble() ?? 0.0, const Color(0xFF4F46E5)),
           const SizedBox(width: 30),
-          _buildProgressRing('Credits', 85, const Color(0xFFF59E0B)),
+          _buildProgressRing('Credits', (_academicSummary?['creditsPercentage'] as num?)?.toDouble() ?? 0.0, const Color(0xFFF59E0B)),
         ],
       ),
     );
@@ -1753,24 +1793,34 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   }
 
   Widget _buildProgressStats() {
+    if (_isLoadingSummary) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final stats = [
       {
         'label': 'Assignments Completed',
-        'value': '24/30',
-        'percentage': 80.0,
+        'value': '${_academicSummary?['assignmentsCompleted'] ?? 0}/${_academicSummary?['assignmentsTotal'] ?? 5}',
+        'percentage': (_academicSummary?['assignmentsPercentage'] as num?)?.toDouble() ?? 0.0,
         'color': const Color(0xFF10B981),
       },
       {
         'label': 'Tests Attempted',
-        'value': '15/18',
-        'percentage': 83.0,
+        'value': '${_academicSummary?['testsAttempted'] ?? 0}/${_academicSummary?['testsTotal'] ?? 3}',
+        'percentage': (_academicSummary?['testsPercentage'] as num?)?.toDouble() ?? 0.0,
         'color': const Color(0xFF4F46E5),
       },
       {
         'label': 'Projects Submitted',
-        'value': '3/4',
-        'percentage': 75.0,
+        'value': '${_academicSummary?['projectsSubmitted'] ?? 0}/${_academicSummary?['projectsTotal'] ?? 1}',
+        'percentage': (_academicSummary?['projectsPercentage'] as num?)?.toDouble() ?? 0.0,
         'color': const Color(0xFFF59E0B),
+      },
+      {
+        'label': 'Exam Performance',
+        'value': '${(_academicSummary?['averageExamScore'] ?? 0.0).toStringAsFixed(1)}%',
+        'percentage': (_academicSummary?['examsPercentage'] as num?)?.toDouble() ?? 0.0,
+        'color': const Color(0xFF8B5CF6),
       },
     ];
 
