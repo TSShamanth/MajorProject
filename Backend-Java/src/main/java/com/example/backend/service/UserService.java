@@ -63,6 +63,7 @@ public class UserService {
         user.put("phone", createUserRequest.getPhone());
         user.put("sem", createUserRequest.getSem());
         user.put("departmentId", createUserRequest.getDepartmentId()); // Save departmentId
+        user.put("sectionId", createUserRequest.getSectionId()); // Save sectionId
         user.put("mentorName", createUserRequest.getMentorName());
         user.put("photoUrl", createUserRequest.getPhotoUrl()); // Save photo URL
         user.put("programme", createUserRequest.getProgramme());
@@ -97,6 +98,20 @@ public class UserService {
             users.add(userData);
         }
         return users;
+    }
+
+    public List<User> getStudentsByMentor(String institutionId, String mentorName) throws ExecutionException, InterruptedException {
+        CollectionReference usersCollection = firestore.collection("Institutions").document(institutionId).collection("users");
+        Query query = usersCollection.whereEqualTo("role", "student").whereEqualTo("mentorName", mentorName);
+        
+        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+        List<User> students = new ArrayList<>();
+        for (QueryDocumentSnapshot document : querySnapshot.get().getDocuments()) {
+            User student = document.toObject(User.class);
+            student.setUid(document.getId());
+            students.add(student);
+        }
+        return students;
     }
 
     public List<User> getStudentsByDepartmentAndSemester(String institutionId, String departmentId, String semester) throws ExecutionException, InterruptedException {

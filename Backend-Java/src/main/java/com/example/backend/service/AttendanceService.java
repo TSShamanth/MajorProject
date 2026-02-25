@@ -11,8 +11,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 @Service
 public class AttendanceService {
@@ -70,6 +70,26 @@ public class AttendanceService {
      */
     public List<Attendance> getAttendanceForCourse(String institutionId, String departmentId, String courseCode)
             throws ExecutionException, InterruptedException {
+        if (departmentId == null || departmentId.isEmpty()) {
+            // Search across all departments to find the right one
+            ApiFuture<QuerySnapshot> departmentsFuture = firestore.collection("Institutions").document(institutionId).collection("departments").get();
+            List<QueryDocumentSnapshot> departmentDocuments = departmentsFuture.get().getDocuments();
+
+            for (QueryDocumentSnapshot deptDoc : departmentDocuments) {
+                CollectionReference attendanceRef = getAttendanceCollection(institutionId, deptDoc.getId(), courseCode);
+                ApiFuture<QuerySnapshot> future = attendanceRef.get();
+                List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+                if (!documents.isEmpty()) {
+                    List<Attendance> attendanceList = new ArrayList<>();
+                    for (QueryDocumentSnapshot document : documents) {
+                        attendanceList.add(document.toObject(Attendance.class));
+                    }
+                    return attendanceList;
+                }
+            }
+            return new ArrayList<>();
+        }
+
         CollectionReference attendanceRef = getAttendanceCollection(institutionId, departmentId, courseCode);
         ApiFuture<QuerySnapshot> future = attendanceRef.get();
         List<QueryDocumentSnapshot> documents = future.get().getDocuments();
@@ -98,7 +118,7 @@ public class AttendanceService {
             String departmentId = deptDoc.getId();
 
             // Get all courses for each department
-            CollectionReference coursesRef = firestore.collection("institutions").document(institutionId)
+            CollectionReference coursesRef = firestore.collection("Institutions").document(institutionId)
                     .collection("departments").document(departmentId)
                     .collection("courses");
             ApiFuture<QuerySnapshot> coursesFuture = coursesRef.get();
@@ -150,14 +170,16 @@ public class AttendanceService {
                     List<Attendance> attendanceForCourse = getAttendanceForCourse(institutionId, course.getDepartmentId(), courseCode);
                     
                     int totalClasses = 0;
-                    if(attendanceForCourse != null && !attendanceForCourse.isEmpty()){
-                        totalClasses = attendanceForCourse.stream().map(Attendance::getDate).distinct().collect(Collectors.toList()).size();
-                    }
-
                     int attendedClasses = 0;
-                    for (Attendance attendance : attendanceForCourse) {
-                        if (attendance.getStudentUid().equals(studentUid) && "Present".equals(attendance.getStatus())) {
-                            attendedClasses++;
+
+                    if (attendanceForCourse != null) {
+                        for (Attendance attendance : attendanceForCourse) {
+                            if (Objects.equals(attendance.getStudentUid(), studentUid)) {
+                                totalClasses++;
+                                if ("Present".equals(attendance.getStatus())) {
+                                    attendedClasses++;
+                                }
+                            }
                         }
                     }
 

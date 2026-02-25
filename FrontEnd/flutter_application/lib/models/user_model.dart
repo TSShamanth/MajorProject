@@ -9,6 +9,7 @@ class UserModel {
   final String? phone;
   final String? sem;
   final String? departmentId; // Added departmentId
+  final String? sectionId; // Added sectionId
   final String? mentorName;
   final String? photoUrl;
   final String? programme;
@@ -23,6 +24,10 @@ class UserModel {
   final String? attendanceStatus;
   final String? activeLogId;
   final bool? isDetained;
+  final double? attendancePercentage;
+  final double? currentGPA;
+  final List<double>? attendanceHistory;
+  final List<double>? gpaHistory;
 
   UserModel({
     required this.uid,
@@ -35,6 +40,7 @@ class UserModel {
     this.phone,
     this.sem,
     this.departmentId,
+    this.sectionId,
     this.mentorName,
     this.photoUrl,
     this.programme,
@@ -49,6 +55,10 @@ class UserModel {
     this.attendanceStatus,
     this.activeLogId,
     this.isDetained,
+    this.attendancePercentage,
+    this.currentGPA,
+    this.attendanceHistory,
+    this.gpaHistory,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -69,6 +79,7 @@ class UserModel {
       phone: json['phone'] as String?,
       sem: json['sem'] as String?,
       departmentId: json['departmentId'] as String?,
+      sectionId: json['sectionId'] as String?,
       mentorName: json['mentorName'] as String?,
       photoUrl: json['photoUrl'] as String?,
       programme: json['programme'] as String?,
@@ -83,6 +94,10 @@ class UserModel {
       attendanceStatus: json['attendanceStatus'] as String?,
       activeLogId: json['activeLogId'] as String?,
       isDetained: json['isDetained'] as bool?,
+      attendancePercentage: (json['attendancePercentage'] as num?)?.toDouble(),
+      currentGPA: (json['currentGPA'] as num?)?.toDouble(),
+      attendanceHistory: (json['attendanceHistory'] as List<dynamic>?)?.map((e) => (e as num).toDouble()).toList(),
+      gpaHistory: (json['gpaHistory'] as List<dynamic>?)?.map((e) => (e as num).toDouble()).toList(),
     );
   }
 
@@ -98,6 +113,7 @@ class UserModel {
       'phone': phone,
       'sem': sem,
       'departmentId': departmentId,
+      'sectionId': sectionId,
       'mentorName': mentorName,
       'photoUrl': photoUrl,
       'programme': programme,
@@ -111,6 +127,10 @@ class UserModel {
       'assignedCourseCodes': assignedCourseCodes,
       'attendanceStatus': attendanceStatus,
       'activeLogId': activeLogId,
+      'attendancePercentage': attendancePercentage,
+      'currentGPA': currentGPA,
+      'attendanceHistory': attendanceHistory,
+      'gpaHistory': gpaHistory,
     };
   }
 
@@ -125,6 +145,7 @@ class UserModel {
     String? phone,
     String? sem,
     String? departmentId,
+    String? sectionId,
     String? mentorName,
     String? photoUrl,
     String? programme,
@@ -138,6 +159,10 @@ class UserModel {
     List<String>? assignedCourseCodes,
     String? attendanceStatus,
     String? activeLogId,
+    double? attendancePercentage,
+    double? currentGPA,
+    List<double>? attendanceHistory,
+    List<double>? gpaHistory,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -150,6 +175,7 @@ class UserModel {
       phone: phone ?? this.phone,
       sem: sem ?? this.sem,
       departmentId: departmentId ?? this.departmentId,
+      sectionId: sectionId ?? this.sectionId,
       mentorName: mentorName ?? this.mentorName,
       photoUrl: photoUrl ?? this.photoUrl,
       programme: programme ?? this.programme,
@@ -163,6 +189,10 @@ class UserModel {
       assignedCourseCodes: assignedCourseCodes ?? this.assignedCourseCodes,
       attendanceStatus: attendanceStatus ?? this.attendanceStatus,
       activeLogId: activeLogId ?? this.activeLogId,
+      attendancePercentage: attendancePercentage ?? this.attendancePercentage,
+      currentGPA: currentGPA ?? this.currentGPA,
+      attendanceHistory: attendanceHistory ?? this.attendanceHistory,
+      gpaHistory: gpaHistory ?? this.gpaHistory,
     );
   }
 }

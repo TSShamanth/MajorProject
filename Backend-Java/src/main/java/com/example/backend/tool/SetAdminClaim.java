@@ -25,11 +25,6 @@ public class SetAdminClaim {
     private static final String USER_UID = "QDfWXZNAaAhYZWcCe0bXySPI8063";
 
     public static void main(String[] args) {
-        if (USER_UID == null || USER_UID.isEmpty()) {
-            System.err.println("❌ ERROR: Please edit the USER_UID variable in SetAdminClaim.java before running.");
-            return;
-        }
-
         try {
             // Initialize Firebase Admin SDK
             initializeFirebase();

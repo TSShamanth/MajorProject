@@ -8,6 +8,7 @@ class Course {
   final List<String> studentsEnrolled;
   final String totalClasses;
   final String? departmentId;
+  final String credits;
 
   Course({
     required this.courseCode,
@@ -18,7 +19,8 @@ class Course {
     required this.semester,
     required this.studentsEnrolled,
     required this.totalClasses,
-    this.departmentId, // Made optional
+    this.departmentId, 
+    this.credits = '4', // Default to '4'
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -29,9 +31,10 @@ class Course {
       institutionId: json['institutionId'],
       program: json['program'],
       semester: json['semester'],
-      studentsEnrolled: List<String>.from(json['studentsEnrolled'] ?? []), // Handle null studentsEnrolled
+      studentsEnrolled: List<String>.from(json['studentsEnrolled'] ?? []), 
       totalClasses: json['totalClasses'],
-      departmentId: json['departmentId'], // Now nullable
+      departmentId: json['departmentId'],
+      credits: json['credits']?.toString() ?? '4',
     );
   }
 
@@ -45,7 +48,8 @@ class Course {
       'semester': semester,
       'studentsEnrolled': studentsEnrolled,
       'totalClasses': totalClasses,
-      'departmentId': departmentId, // Now nullable
+      'departmentId': departmentId,
+      'credits': credits,
     };
   }
 }

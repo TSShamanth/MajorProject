@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../services/auth_service.dart';
 
 class StudentShell extends StatelessWidget {
   final Widget child;
@@ -10,104 +9,47 @@ class StudentShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final location = state.uri.toString();
     final institutionId = state.pathParameters['institutionId'];
-    final bool isDashboard = state.uri.toString() == '/$institutionId/student/dashboard';
-    final menuItems = [
-      {'icon': Icons.person_outline, 'label': 'Profile', 'description': 'View personal details'},
-      {'icon': Icons.credit_card_outlined, 'label': 'Virtual ID', 'description': 'Access student ID card'},
-      {'icon': Icons.calendar_today_outlined, 'label': 'Timetable', 'description': 'View class schedule'},
-      {'icon': Icons.menu_book_outlined, 'label': 'Academics', 'description': 'Semester & subjects'},
-      {'icon': Icons.description_outlined, 'label': 'Leave', 'description': 'Apply & track leave'},
-      {'icon': Icons.celebration_outlined, 'label': 'Events', 'description': 'Register for events'},
-      {'icon': Icons.business_center_outlined, 'label': 'Placements', 'description': 'View opportunities'}
-    ];
+    final bool isDashboard = location == '/$institutionId/student/dashboard';
+    final bool isHallTicketViewer = location.contains('/student/hall-tickets/') && state.pathParameters.containsKey('examId');
+
+    // These screens have their own scaffold/appbar
+    if (isDashboard || isHallTicketViewer) {
+      return child;
+    }
+
+    String title = 'Student Portal';
+    if (location.contains('/student/profile')) {
+      title = 'My Profile';
+    } else if (location.contains('/student/virtual-id')) {
+      title = 'Virtual ID';
+    } else if (location.contains('/student/leave')) {
+      title = 'Leave Management';
+    } else if (location.contains('/student/fees')) {
+      title = 'My Fees';
+    } else if (location.contains('/student/attendance')) {
+      title = 'My Attendance';
+    } else if (location.contains('/student/timetable')) {
+      title = 'My Timetable';
+    } else if (location.contains('/student/hall-tickets')) {
+      title = 'My Hall Tickets';
+    } else if (location.contains('/student/academics')) {
+      title = 'Academic Performance';
+    }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        leading: isDashboard
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF1E293B)),
-                onPressed: () {
-                  context.go('/$institutionId/student/dashboard');
-                },
-              ),
-        title: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
-                child: Text('A', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Acadexa', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                Text('Student Portal', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Color(0xFF1E293B)),
-            onPressed: () async {
-              await AuthService.logout();
-            },
-          ),
-        ],
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Color(0xFF1E293B),
-              ),
-              child: Text(
-                'Menu',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.dashboard_outlined, color: Color(0xFF1E293B)),
-              title: const Text('Dashboard'),
-              subtitle: const Text('Back to home'),
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/$institutionId/student/dashboard');
-              },
-            ),
-            for (var item in menuItems)
-              ListTile(
-                leading: Icon(item['icon'] as IconData, color: const Color(0xFF1E293B)),
-                title: Text(item['label'] as String),
-                subtitle: Text(item['description'] as String),
-                onTap: () {
-                  Navigator.pop(context);
-                  final label = item['label'] as String;
-                  if (label == 'Profile') {
-                    context.go('/$institutionId/student/profile');
-                  } else if (label == 'Virtual ID') {
-                    context.go('/$institutionId/student/virtual-id');
-                  }
-                },
-              ),
-          ],
+        title: Text(title),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/$institutionId/student/dashboard');
+            }
+          },
         ),
       ),
       body: child,

@@ -7,7 +7,9 @@ import com.example.backend.models.SeatingEntry; // Import SeatingEntry
 import com.example.backend.models.User;
 import com.example.backend.dto.HallTicketData; // Import HallTicketData
 import com.example.backend.service.ExamService;
+import com.example.backend.service.FeeService;
 import com.example.backend.service.UserService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,11 +22,13 @@ import java.util.concurrent.ExecutionException;
 public class ExamController {
 
     private final ExamService examService;
-    private final UserService userService; // Inject UserService
+    private final UserService userService;
+    private final FeeService feeService;
 
-    public ExamController(ExamService examService, UserService userService) {
+    public ExamController(ExamService examService, UserService userService, FeeService feeService) {
         this.examService = examService;
-        this.userService = userService; // Initialize UserService
+        this.userService = userService;
+        this.feeService = feeService;
     }
 
     @PostMapping("/institutions/{institutionId}/exams")
@@ -230,11 +234,20 @@ public class ExamController {
 
     // Hall Ticket Endpoints
     @GetMapping("/institutions/{institutionId}/exams/{examId}/students/{studentId}/hall-ticket-data")
-    public ResponseEntity<HallTicketData> getHallTicketData(
+    public ResponseEntity<?> getHallTicketData(
             @PathVariable String institutionId,
             @PathVariable String examId,
             @PathVariable String studentId) {
         try {
+            // Check for outstanding fees
+            boolean hasOutstandingFees = feeService.getStudentFeesByStudentId(institutionId, studentId)
+                .stream()
+                .anyMatch(fee -> !"PAID".equals(fee.getStatus()));
+
+            if (hasOutstandingFees) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Hall ticket download is blocked due to outstanding fee payments.");
+            }
+
             HallTicketData hallTicketData = examService.getHallTicketData(institutionId, examId, studentId);
             return ResponseEntity.ok(hallTicketData);
         } catch (IllegalArgumentException | IllegalStateException e) {

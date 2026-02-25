@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application/models/course_model.dart';
+import 'package:flutter_application/models/time_slot_model.dart';
+import 'package:flutter_application/models/timetable_entry_model.dart';
+import 'package:flutter_application/models/room_model.dart';
+import 'package:flutter_application/services/timetable_service.dart';
+import 'package:flutter_application/services/attendance_service.dart';
 import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/services/api_service.dart';
 import 'package:go_router/go_router.dart';
@@ -22,6 +28,12 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
   bool _isClockingIn = false;
   final ApiService _apiService = ApiService();
   String? _institutionId;
+
+  List<TimetableEntry> _todaySchedule = [];
+  List<TimeSlot> _allTimeSlots = [];
+  List<Course> _allCourses = [];
+  List<Room> _allRooms = [];
+  bool _isLoadingSchedule = true;
   late AnimationController _animationController;
 
   @override
@@ -36,8 +48,52 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
           .routerDelegate
           .currentConfiguration
           .pathParameters['institutionId'];
-      _fetchCurrentUser();
+      _fetchCurrentUser().then((_) => _fetchTodaySchedule());
     });
+  }
+
+  Future<void> _fetchTodaySchedule() async {
+    if (_institutionId == null || _currentUser == null) return;
+
+    try {
+      final timetableService = TimetableService();
+
+      final now = DateTime.now();
+      final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      final todayName = days[now.weekday - 1];
+
+      final results = await Future.wait([
+        timetableService.getTimeSlots(_institutionId!),
+        timetableService.getTimetableForFaculty(_institutionId!, _currentUser!.uid),
+        AttendanceService.getSubjects(),
+        _apiService.getRooms(_institutionId!),
+      ]);
+
+      final slots = results[0] as List<TimeSlot>;
+      final allEntries = results[1] as List<TimetableEntry>;
+      final courses = results[2] as List<Course>;
+      final rooms = results[3] as List<Room>;
+
+      final todayEntries = allEntries.where((e) => e.day == todayName).toList();
+      todayEntries.sort((a, b) {
+        final slotA = slots.firstWhere((s) => s.id == a.timeSlotId);
+        final slotB = slots.firstWhere((s) => s.id == b.timeSlotId);
+        return slotA.slotNumber.compareTo(slotB.slotNumber);
+      });
+
+      if (mounted) {
+        setState(() {
+          _allTimeSlots = slots;
+          _todaySchedule = todayEntries;
+          _allCourses = courses;
+          _allRooms = rooms;
+          _isLoadingSchedule = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching faculty today schedule: $e');
+      if (mounted) setState(() => _isLoadingSchedule = false);
+    }
   }
 
   @override
@@ -93,17 +149,13 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
 
   Future<void> _handleClockIn() async {
     if (_institutionId == null) return;
-    setState(() {
-      _isClockingIn = true;
-    });
+    setState(() => _isClockingIn = true);
     try {
       final position = await _determinePosition();
       final updatedUser = await _apiService.clockIn(
           _institutionId!, position.latitude, position.longitude);
       if (!mounted) return;
-      setState(() {
-        _currentUser = updatedUser;
-      });
+      setState(() => _currentUser = updatedUser);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Successfully clocked in!'),
@@ -117,27 +169,19 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
             backgroundColor: Colors.red),
       );
     } finally {
-      if (mounted) {
-        setState(() {
-          _isClockingIn = false;
-        });
-      }
+      if (mounted) setState(() => _isClockingIn = false);
     }
   }
 
   Future<void> _handleClockOut() async {
     if (_institutionId == null) return;
-    setState(() {
-      _isClockingIn = true;
-    });
+    setState(() => _isClockingIn = true);
     try {
       final position = await _determinePosition();
       final updatedUser = await _apiService.clockOut(
           _institutionId!, position.latitude, position.longitude);
       if (!mounted) return;
-      setState(() {
-        _currentUser = updatedUser;
-      });
+      setState(() => _currentUser = updatedUser);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Successfully clocked out!'),
@@ -151,18 +195,15 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
             backgroundColor: Colors.red),
       );
     } finally {
-      if (mounted) {
-        setState(() {
-          _isClockingIn = false;
-        });
-      }
+      if (mounted) setState(() => _isClockingIn = false);
     }
   }
 
-  // ── Color helpers matching admin dashboard ──────────────────────────────────
+  // ── Color helpers ──────────────────────────────────────────────────────────
   Color get _bgColor =>
       _isDarkMode ? const Color(0xFF111827) : const Color(0xFFF8FAFC);
-  Color get _cardColor => _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+  Color get _cardColor =>
+      _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
   Color get _textPrimary =>
       _isDarkMode ? const Color(0xFFF9FAFB) : const Color(0xFF1F2937);
   Color get _textSecondary =>
@@ -170,30 +211,33 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
   Color get _borderColor =>
       _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
 
+  // ── Sidebar menu items ────────────────────────────────────────────────────
+  List<Map<String, Object?>> _menuItems() {
+    return [
+      {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
+      {'icon': Icons.person_outline, 'label': 'Profile', 'active': false, 'route': '/faculty/profile'},
+      {'icon': Icons.credit_card_outlined, 'label': 'Virtual ID', 'active': false, 'route': '/faculty/virtual-id'},
+      {'icon': Icons.calendar_today_outlined, 'label': 'Timetable', 'active': false, 'route': '/faculty/timetable'},
+      {'icon': Icons.group_outlined, 'label': 'Mentees', 'active': false, 'badge': '8', 'route': '/faculty/mentees'},
+      {'icon': Icons.payments_outlined, 'label': "Students' Fee Status", 'active': false, 'route': '/faculty/student-fees'},
+      {'icon': Icons.description_outlined, 'label': 'Leave', 'active': false, 'route': '/faculty/leave'},
+      {'icon': Icons.check_circle_outline, 'label': 'Approve Leaves', 'active': false, 'route': '/faculty/leave-approval'},
+      {'icon': Icons.grade_outlined, 'label': 'Marks Entry', 'active': false, 'route': '/faculty/marks-entry'},
+      {'icon': Icons.attach_money, 'label': 'Payroll', 'active': false, 'route': '/faculty/payroll'},
+      {'icon': Icons.celebration_outlined, 'label': 'Events', 'active': false, 'route': '/events'},
+      {'icon': Icons.assignment_outlined, 'label': 'Mark Attendance', 'active': false, 'route': '/faculty/mark-attendance'},
+      {'icon': Icons.history_outlined, 'label': 'Clock-in History', 'active': false, 'route': '/faculty/attendance-history'},
+      {'icon': Icons.announcement_outlined, 'label': 'Announcements', 'active': false, 'route': '/announcements'},
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 768;
-        final isTablet =
-            constraints.maxWidth >= 768 && constraints.maxWidth < 1024;
+        final isTablet = constraints.maxWidth >= 768 && constraints.maxWidth < 1024;
         final isDesktop = constraints.maxWidth >= 1024;
-    final menuItems = [
-      {'icon': Icons.home_outlined, 'label': 'Dashboard', 'active': true, 'route': null},
-      {'icon': Icons.person_outline, 'label': 'Profile', 'route': '/faculty/profile'},
-      {'icon': Icons.credit_card_outlined, 'label': 'Virtual ID', 'route': '/faculty/virtual-id'},
-      {'icon': Icons.calendar_today_outlined, 'label': 'Timetable', 'route': '/faculty/timetable'},
-      {'icon': Icons.group_outlined, 'label': 'Mentees', 'badge': '8', 'route': '/faculty/mentees'},
-      {'icon': Icons.description_outlined, 'label': 'Leave', 'route': '/faculty/leave'},
-      {'icon': Icons.check_circle_outline, 'label': 'Approve Leaves', 'route': '/faculty/leave-approval'}, // NEW ITEM
-      {'icon': Icons.attach_money, 'label': 'Payroll', 'route': '/faculty/payroll'},
-      {'icon': Icons.celebration_outlined, 'label': 'Events', 'route': '/faculty/events'},
-      {'icon': Icons.notifications_none_outlined, 'label': 'Meetings', 'route': '/faculty/meetings'},
-      {'icon': Icons.assignment_outlined, 'label': 'Mark Attendance', 'route': '/faculty/mark-attendance'},
-      {'icon': Icons.history_outlined, 'label': 'Clock-in History', 'route': '/faculty/attendance-history'},
-      {'icon': Icons.announcement_outlined, 'label': 'Announcements', 'route': '/announcements'},
-      {'icon': Icons.settings_outlined, 'label': 'Settings', 'route': '/faculty/settings'},
-    ];
 
         return Scaffold(
           backgroundColor: _bgColor,
@@ -210,9 +254,9 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                           _buildBreadcrumb(),
                           Expanded(
                             child: _isLoadingUser
-                                ? Center(
+                                ? const Center(
                                     child: CircularProgressIndicator(
-                                      color: const Color(0xFF4F46E5),
+                                      color: Color(0xFF4F46E5),
                                     ),
                                   )
                                 : _buildDashboardContent(
@@ -231,17 +275,15 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
     );
   }
 
-  // ── Mobile layout ────────────────────────────────────────────────────────────
+  // ── Mobile layout ──────────────────────────────────────────────────────────
   Widget _buildMobileLayout(bool isMobile, bool isTablet, bool isDesktop) {
     return Column(
       children: [
         _buildMobileTopBar(),
         Expanded(
           child: _isLoadingUser
-              ? Center(
-                  child: CircularProgressIndicator(
-                    color: const Color(0xFF4F46E5),
-                  ),
+              ? const Center(
+                  child: CircularProgressIndicator(color: Color(0xFF4F46E5)),
                 )
               : _buildDashboardContent(
                   isMobile: isMobile,
@@ -312,23 +354,17 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                 return ListTile(
                   leading: Icon(
                     item['icon'] as IconData,
-                    color: isActive
-                        ? const Color(0xFF4F46E5)
-                        : _textSecondary,
+                    color: isActive ? const Color(0xFF4F46E5) : _textSecondary,
                   ),
                   title: Text(
                     item['label'] as String,
                     style: TextStyle(
-                      color: isActive
-                          ? const Color(0xFF4F46E5)
-                          : _textPrimary,
-                      fontWeight:
-                          isActive ? FontWeight.w600 : FontWeight.w500,
+                      color: isActive ? const Color(0xFF4F46E5) : _textPrimary,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                     ),
                   ),
                   selected: isActive,
-                  selectedTileColor:
-                      const Color(0xFF4F46E5).withOpacity(0.1),
+                  selectedTileColor: const Color(0xFF4F46E5).withOpacity(0.1),
                   onTap: () {
                     Navigator.pop(context);
                     final route = item['route'];
@@ -381,9 +417,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
           ),
           IconButton(
             icon: Icon(
-              _isDarkMode
-                  ? Icons.light_mode_rounded
-                  : Icons.dark_mode_rounded,
+              _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
               color: _isDarkMode
                   ? const Color(0xFFFBBF24)
                   : const Color(0xFF4F46E5),
@@ -399,86 +433,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
     );
   }
 
-  // ── Sidebar menu items ────────────────────────────────────────────────────
-  List<Map<String, Object?>> _menuItems() {
-    return [
-      {
-        'icon': Icons.dashboard_rounded,
-        'label': 'Dashboard',
-        'active': true,
-        'route': null
-      },
-      {
-        'icon': Icons.person_outline,
-        'label': 'Profile',
-        'active': false,
-        'route': '/faculty/profile'
-      },
-      {
-        'icon': Icons.credit_card_outlined,
-        'label': 'Virtual ID',
-        'active': false,
-        'route': '/faculty/virtual-id'
-      },
-      {
-        'icon': Icons.calendar_today_outlined,
-        'label': 'Timetable',
-        'active': false,
-        'route': '/faculty/timetable'
-      },
-      {
-        'icon': Icons.group_outlined,
-        'label': 'Mentees',
-        'active': false,
-        'badge': '8',
-        'route': '/faculty/mentees'
-      },
-      {
-        'icon': Icons.description_outlined,
-        'label': 'Leave',
-        'active': false,
-        'route': '/faculty/leave'
-      },
-      {
-        'icon': Icons.attach_money,
-        'label': 'Payroll',
-        'active': false,
-        'route': '/faculty/payroll'
-      },
-      {
-        'icon': Icons.celebration_outlined,
-        'label': 'Events',
-        'active': false,
-        'route': '/faculty/events'
-      },
-      {
-        'icon': Icons.notifications_none_outlined,
-        'label': 'Meetings',
-        'active': false,
-        'route': '/faculty/meetings'
-      },
-      {
-        'icon': Icons.assignment_outlined,
-        'label': 'Mark Attendance',
-        'active': false,
-        'route': '/faculty/mark-attendance'
-      },
-      {
-        'icon': Icons.history_outlined,
-        'label': 'Clock-in History',
-        'active': false,
-        'route': '/faculty/attendance-history'
-      },
-      {
-        'icon': Icons.settings_outlined,
-        'label': 'Settings',
-        'active': false,
-        'route': '/faculty/settings'
-      },
-    ];
-  }
-
-  // ── Modern Sidebar (matches admin) ────────────────────────────────────────
+  // ── Modern Sidebar ────────────────────────────────────────────────────────
   Widget _buildModernSidebar() {
     final menuItems = _menuItems();
 
@@ -497,8 +452,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
         boxShadow: _sidebarExpanded
             ? [
                 BoxShadow(
-                  color: Colors.black
-                      .withOpacity(_isDarkMode ? 0.3 : 0.15),
+                  color: Colors.black.withOpacity(_isDarkMode ? 0.3 : 0.15),
                   blurRadius: 20,
                   offset: const Offset(4, 0),
                 ),
@@ -508,14 +462,12 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       child: _sidebarExpanded
           ? Column(
               children: [
-                // Logo header
                 Container(
                   padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
-                        color: Colors.white
-                            .withOpacity(_isDarkMode ? 0.05 : 0.1),
+                        color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
                         width: 1,
                       ),
                     ),
@@ -564,8 +516,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                       const SizedBox(width: 8),
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(
-                              _isDarkMode ? 0.05 : 0.1),
+                          color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: IconButton(
@@ -574,8 +525,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                             color: Colors.white,
                             size: 24,
                           ),
-                          onPressed: () =>
-                              setState(() => _sidebarExpanded = false),
+                          onPressed: () => setState(() => _sidebarExpanded = false),
                           tooltip: 'Collapse sidebar',
                           padding: const EdgeInsets.all(8),
                           constraints: const BoxConstraints(),
@@ -584,43 +534,34 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                     ],
                   ),
                 ),
-
-                // Menu items
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 12, horizontal: 0),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
                     children: menuItems.map((item) {
                       final isActive = item['active'] == true;
                       return Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: () {
                               final route = item['route'];
-                              if (route != null &&
-                                  _institutionId != null) {
-                                context.push(
-                                    '/$_institutionId${route as String}');
+                              if (route != null && _institutionId != null) {
+                                context.push('/$_institutionId${route as String}');
                               }
                             },
                             borderRadius: BorderRadius.circular(12),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                               decoration: BoxDecoration(
                                 color: isActive
-                                    ? Colors.white.withOpacity(
-                                        _isDarkMode ? 0.1 : 0.15)
+                                    ? Colors.white.withOpacity(_isDarkMode ? 0.1 : 0.15)
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
                                 border: isActive
                                     ? Border.all(
-                                        color: Colors.white.withOpacity(
-                                            _isDarkMode ? 0.2 : 0.3),
+                                        color: Colors.white.withOpacity(_isDarkMode ? 0.2 : 0.3),
                                         width: 1,
                                       )
                                     : null,
@@ -629,8 +570,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                                 children: [
                                   Icon(
                                     item['icon'] as IconData,
-                                    color: Colors.white.withOpacity(
-                                        isActive ? 1.0 : 0.7),
+                                    color: Colors.white.withOpacity(isActive ? 1.0 : 0.7),
                                     size: 24,
                                   ),
                                   const SizedBox(width: 16),
@@ -638,23 +578,18 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                                     child: Text(
                                       item['label'] as String,
                                       style: TextStyle(
-                                        color: Colors.white.withOpacity(
-                                            isActive ? 1.0 : 0.8),
+                                        color: Colors.white.withOpacity(isActive ? 1.0 : 0.8),
                                         fontSize: 15,
-                                        fontWeight: isActive
-                                            ? FontWeight.w600
-                                            : FontWeight.w500,
+                                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                                       ),
                                     ),
                                   ),
                                   if (item['badge'] != null)
                                     Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 7, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFEF4444),
-                                        borderRadius:
-                                            BorderRadius.circular(10),
+                                        borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: Text(
                                         item['badge'] as String,
@@ -674,15 +609,12 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                     }).toList(),
                   ),
                 ),
-
-                // Footer
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     border: Border(
                       top: BorderSide(
-                        color: Colors.white
-                            .withOpacity(_isDarkMode ? 0.05 : 0.1),
+                        color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
                         width: 1,
                       ),
                     ),
@@ -694,14 +626,11 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                         onTap: () {},
                         borderRadius: BorderRadius.circular(8),
                         child: Padding(
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Row(
                             children: [
                               Icon(Icons.help_outline_rounded,
-                                  size: 16,
-                                  color:
-                                      Colors.white.withOpacity(0.6)),
+                                  size: 16, color: Colors.white.withOpacity(0.6)),
                               const SizedBox(width: 8),
                               Text(
                                 'Help & Support',
@@ -719,14 +648,11 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                         onTap: () {},
                         borderRadius: BorderRadius.circular(8),
                         child: Padding(
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Row(
                             children: [
                               Icon(Icons.description_outlined,
-                                  size: 16,
-                                  color:
-                                      Colors.white.withOpacity(0.6)),
+                                  size: 16, color: Colors.white.withOpacity(0.6)),
                               const SizedBox(width: 8),
                               Text(
                                 'Documentation',
@@ -748,7 +674,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
     );
   }
 
-  // ── Modern Top Bar (matches admin) ────────────────────────────────────────
+  // ── Modern Top Bar ────────────────────────────────────────────────────────
   Widget _buildModernTopBar({bool isMobile = false}) {
     if (isMobile) return const SizedBox.shrink();
 
@@ -772,14 +698,11 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       ),
       child: Row(
         children: [
-          // Expand sidebar button (when collapsed)
           if (!_sidebarExpanded)
             Container(
               margin: const EdgeInsets.only(right: 16),
               decoration: BoxDecoration(
-                color: _isDarkMode
-                    ? const Color(0xFF1F2937)
-                    : const Color(0xFF4F46E5),
+                color: _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5),
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
@@ -801,41 +724,33 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                     width: 46,
                     height: 46,
                     alignment: Alignment.center,
-                    child: const Icon(Icons.menu_rounded,
-                        color: Colors.white, size: 24),
+                    child: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
                   ),
                 ),
               ),
             ),
-
-          // Search bar
           Expanded(
             child: Container(
               height: 46,
               decoration: BoxDecoration(
-                color: _isDarkMode
-                    ? const Color(0xFF111827)
-                    : _bgColor,
+                color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: _borderColor),
               ),
               child: Row(
                 children: [
                   const SizedBox(width: 18),
-                  Icon(Icons.search_rounded,
-                      color: _textSecondary, size: 22),
+                  Icon(Icons.search_rounded, color: _textSecondary, size: 22),
                   const SizedBox(width: 14),
                   Expanded(
                     child: TextField(
                       decoration: InputDecoration(
                         hintText: 'Search students, courses...',
-                        hintStyle: TextStyle(
-                            color: _textSecondary, fontSize: 15),
+                        hintStyle: TextStyle(color: _textSecondary, fontSize: 15),
                         border: InputBorder.none,
                         isDense: true,
                       ),
-                      style:
-                          TextStyle(color: _textPrimary, fontSize: 15),
+                      style: TextStyle(color: _textPrimary, fontSize: 15),
                     ),
                   ),
                 ],
@@ -843,73 +758,51 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
             ),
           ),
           const SizedBox(width: 16),
-
-          // Mark Attendance quick action
           ElevatedButton(
             onPressed: () {
               if (_institutionId != null) {
-                context.push(
-                    '/$_institutionId/faculty/mark-attendance');
+                context.push('/$_institutionId/faculty/mark-attendance');
               }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF4F46E5),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 0,
             ),
             child: const Text('Mark Attendance',
-                style: TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w600)),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           ),
           const SizedBox(width: 16),
-
-          // Dark mode toggle
           Container(
             decoration: BoxDecoration(
-              color: _isDarkMode
-                  ? const Color(0xFF111827)
-                  : _bgColor,
+              color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: _borderColor),
             ),
             child: IconButton(
               icon: Icon(
-                _isDarkMode
-                    ? Icons.light_mode_rounded
-                    : Icons.dark_mode_rounded,
-                color: _isDarkMode
-                    ? const Color(0xFFFBBF24)
-                    : const Color(0xFF4F46E5),
+                _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                color: _isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFF4F46E5),
                 size: 22,
               ),
-              onPressed: () =>
-                  setState(() => _isDarkMode = !_isDarkMode),
-              tooltip: _isDarkMode
-                  ? 'Switch to Light Mode'
-                  : 'Switch to Dark Mode',
+              onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
+              tooltip: _isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
             ),
           ),
           const SizedBox(width: 16),
-
-          // Notifications
           Stack(
             children: [
               Container(
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: _isDarkMode
-                      ? const Color(0xFF111827)
-                      : _bgColor,
+                  color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: IconButton(
-                  icon: Icon(Icons.notifications_rounded,
-                      color: _textPrimary, size: 24),
+                  icon: Icon(Icons.notifications_rounded, color: _textPrimary, size: 24),
                   onPressed: () {},
                 ),
               ),
@@ -928,13 +821,10 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
             ],
           ),
           const SizedBox(width: 20),
-
-          // User profile
           Container(
             padding: const EdgeInsets.only(left: 20),
             decoration: BoxDecoration(
-              border: Border(
-                  left: BorderSide(color: _borderColor)),
+              border: Border(left: BorderSide(color: _borderColor)),
             ),
             child: Row(
               children: [
@@ -943,10 +833,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                   height: 46,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF4F46E5),
-                        Color(0xFF7C3AED)
-                      ],
+                      colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -977,70 +864,54 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      'Faculty',
-                      style: TextStyle(
-                          fontSize: 13, color: _textSecondary),
-                    ),
+                    Text('Faculty', style: TextStyle(fontSize: 13, color: _textSecondary)),
                   ],
                 ),
                 const SizedBox(width: 10),
                 PopupMenuButton(
-                  icon: Icon(Icons.arrow_drop_down_rounded,
-                      color: _textSecondary, size: 26),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+                  icon: Icon(Icons.arrow_drop_down_rounded, color: _textSecondary, size: 26),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   color: _cardColor,
                   itemBuilder: (context) => [
                     PopupMenuItem(
-                      child: Row(
-                        children: [
-                          Icon(Icons.person_outline,
-                              size: 20, color: _textPrimary),
-                          const SizedBox(width: 14),
-                          Text('Profile',
-                              style: TextStyle(
-                                  fontSize: 15, color: _textPrimary)),
-                        ],
-                      ),
                       onTap: () {
                         if (_institutionId != null) {
-                          context.push(
-                              '/$_institutionId/faculty/profile');
+                          context.push('/$_institutionId/faculty/profile');
                         }
                       },
-                    ),
-                    PopupMenuItem(
                       child: Row(
                         children: [
-                          Icon(Icons.settings_rounded,
-                              size: 20, color: _textPrimary),
+                          Icon(Icons.person_outline, size: 20, color: _textPrimary),
                           const SizedBox(width: 14),
-                          Text('Settings',
-                              style: TextStyle(
-                                  fontSize: 15, color: _textPrimary)),
+                          Text('Profile', style: TextStyle(fontSize: 15, color: _textPrimary)),
                         ],
                       ),
-                      onTap: () {},
                     ),
                     PopupMenuItem(
-                      child: const Row(
+                      onTap: () {},
+                      child: Row(
                         children: [
-                          Icon(Icons.logout_rounded,
-                              size: 20, color: Color(0xFFEF4444)),
-                          SizedBox(width: 14),
-                          Text('Logout',
-                              style: TextStyle(
-                                  color: Color(0xFFEF4444),
-                                  fontSize: 15)),
+                          Icon(Icons.settings_rounded, size: 20, color: _textPrimary),
+                          const SizedBox(width: 14),
+                          Text('Settings', style: TextStyle(fontSize: 15, color: _textPrimary)),
                         ],
                       ),
+                    ),
+                    PopupMenuItem(
                       onTap: () async {
                         final router = GoRouter.of(context);
                         await SessionManager.clearSession();
                         await AuthService.logout();
                         router.go('/login');
                       },
+                      child: const Row(
+                        children: [
+                          Icon(Icons.logout_rounded, size: 20, color: Color(0xFFEF4444)),
+                          SizedBox(width: 14),
+                          Text('Logout',
+                              style: TextStyle(color: Color(0xFFEF4444), fontSize: 15)),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1052,24 +923,19 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
     );
   }
 
-  // ── Breadcrumb (matches admin) ─────────────────────────────────────────────
+  // ── Breadcrumb ─────────────────────────────────────────────────────────────
   Widget _buildBreadcrumb() {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
       decoration: BoxDecoration(
         color: _cardColor,
-        border:
-            Border(bottom: BorderSide(color: _borderColor)),
+        border: Border(bottom: BorderSide(color: _borderColor)),
       ),
       child: Row(
         children: [
-          Text('Home',
-              style:
-                  TextStyle(fontSize: 14, color: _textSecondary)),
+          Text('Home', style: TextStyle(fontSize: 14, color: _textSecondary)),
           const SizedBox(width: 10),
-          Icon(Icons.chevron_right_rounded,
-              size: 18, color: _textSecondary),
+          Icon(Icons.chevron_right_rounded, size: 18, color: _textSecondary),
           const SizedBox(width: 10),
           const Text(
             'Dashboard',
@@ -1098,7 +964,6 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Text(
               'Welcome, ${_currentUser?.displayName ?? '...'}',
               style: TextStyle(
@@ -1111,21 +976,13 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
             const SizedBox(height: 4),
             Text(
               '${_currentUser?.programme ?? '...'} Department',
-              style: TextStyle(
-                  fontSize: isMobile ? 13 : 14,
-                  color: _textSecondary),
+              style: TextStyle(fontSize: isMobile ? 13 : 14, color: _textSecondary),
             ),
             SizedBox(height: isMobile ? 16 : 24),
-
-            // Clock-in card
             _buildClockInCard(),
             SizedBox(height: isMobile ? 16 : 20),
-
-            // Stats row
             _buildResponsiveStatsRow(isMobile, isTablet),
             SizedBox(height: isMobile ? 16 : 20),
-
-            // Main content
             _buildResponsiveMainContent(isMobile, isTablet, isDesktop),
           ],
         ),
@@ -1133,16 +990,14 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
     );
   }
 
-  // ── Clock-in card (restyled to match admin card style) ────────────────────
+  // ── Clock-in card ─────────────────────────────────────────────────────────
   Widget _buildClockInCard() {
-    final isClockedIn =
-        _currentUser?.attendanceStatus == 'Clocked-in';
+    final isClockedIn = _currentUser?.attendanceStatus == 'Clocked-in';
     final statusText =
         isClockedIn ? 'You are currently Clocked-in' : 'You are Clocked-out';
     final buttonText = isClockedIn ? 'Clock Out' : 'Clock In';
-    final statusColor = isClockedIn
-        ? const Color(0xFF10B981)
-        : const Color(0xFFEF4444);
+    final statusColor =
+        isClockedIn ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
     return Container(
       width: double.infinity,
@@ -1153,8 +1008,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
         border: Border.all(color: _borderColor),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -1172,9 +1026,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  isClockedIn
-                      ? Icons.login_rounded
-                      : Icons.logout_rounded,
+                  isClockedIn ? Icons.login_rounded : Icons.logout_rounded,
                   color: statusColor,
                   size: 22,
                 ),
@@ -1229,9 +1081,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                         color: Colors.white, strokeWidth: 2),
                   )
                 : Icon(
-                    isClockedIn
-                        ? Icons.logout_rounded
-                        : Icons.login_rounded,
+                    isClockedIn ? Icons.logout_rounded : Icons.login_rounded,
                     size: 18),
             label: _isClockingIn
                 ? const SizedBox.shrink()
@@ -1241,10 +1091,8 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: statusColor,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 20, vertical: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               elevation: 0,
             ),
           ),
@@ -1319,8 +1167,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
           border: Border.all(color: _borderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black
-                  .withOpacity(_isDarkMode ? 0.1 : 0.03),
+              color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -1336,8 +1183,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                 color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon,
-                  color: color, size: isSmall ? 20 : 22),
+              child: Icon(icon, color: color, size: isSmall ? 20 : 22),
             ),
             SizedBox(height: isSmall ? 12 : 16),
             FittedBox(
@@ -1381,8 +1227,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
   }
 
   // ── Responsive main content ────────────────────────────────────────────────
-  Widget _buildResponsiveMainContent(
-      bool isMobile, bool isTablet, bool isDesktop) {
+  Widget _buildResponsiveMainContent(bool isMobile, bool isTablet, bool isDesktop) {
     if (isMobile || isTablet) {
       return Column(
         children: [
@@ -1403,11 +1248,9 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       );
     }
 
-    // Desktop: three-column layout
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Column 1 – 35%
         Expanded(
           flex: 35,
           child: Column(
@@ -1419,7 +1262,6 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
           ),
         ),
         const SizedBox(width: 16),
-        // Column 2 – 32%
         Expanded(
           flex: 32,
           child: Column(
@@ -1431,7 +1273,6 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
           ),
         ),
         const SizedBox(width: 16),
-        // Column 3 – 33%
         Expanded(
           flex: 33,
           child: Column(
@@ -1459,8 +1300,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
         border: Border.all(color: _borderColor),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -1470,8 +1310,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
     );
   }
 
-  Widget _cardHeader(String title, IconData icon, Color color,
-      {Widget? trailing}) {
+  Widget _cardHeader(String title, IconData icon, Color color, {Widget? trailing}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1503,33 +1342,6 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
 
   // ── Today's Schedule ───────────────────────────────────────────────────────
   Widget _buildTodaysScheduleCard() {
-    final scheduleItems = [
-      {
-        'time': '09:00 AM',
-        'class': 'CSE-A',
-        'subject': 'Data Structures',
-        'room': 'Lab 301'
-      },
-      {
-        'time': '11:00 AM',
-        'class': 'CSE-B',
-        'subject': 'Algorithms',
-        'room': 'Room 205'
-      },
-      {
-        'time': '02:00 PM',
-        'class': 'CSE-C',
-        'subject': 'DBMS',
-        'room': 'Lab 302'
-      },
-      {
-        'time': '04:00 PM',
-        'class': 'CSE-D',
-        'subject': 'Networks',
-        'room': 'Lab 201'
-      },
-    ];
-
     return _cardContainer(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1537,85 +1349,110 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
           _cardHeader("Today's Schedule",
               Icons.calendar_today_outlined, const Color(0xFF4F46E5)),
           const SizedBox(height: 16),
-          ...scheduleItems.map((item) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _isDarkMode
-                      ? const Color(0xFF111827)
-                      : _bgColor,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _borderColor),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF4F46E5)
-                            .withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        item['time']!,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                          color: Color(0xFF4F46E5),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item['subject']!,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: _textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item['room']!,
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: _textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981)
-                            .withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                            color: const Color(0xFF10B981)
-                                .withOpacity(0.3)),
-                      ),
-                      child: Text(
-                        item['class']!,
-                        style: const TextStyle(
-                          color: Color(0xFF10B981),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
+          if (_isLoadingSchedule)
+            const Center(child: CircularProgressIndicator(color: Color(0xFF4F46E5)))
+          else if (_todaySchedule.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'No classes scheduled for today.',
+                  style: TextStyle(fontSize: 13, color: _textSecondary),
                 ),
               ),
-            );
-          }),
+            )
+          else
+            ..._todaySchedule.map((entry) {
+              final slot = _allTimeSlots.firstWhere(
+                (s) => s.id == entry.timeSlotId,
+                orElse: () => TimeSlot(id: '', startTime: '--', endTime: '--', slotNumber: 0, institutionId: ''),
+              );
+              final course = _allCourses.firstWhere(
+                (c) => c.courseCode == entry.courseCode,
+                orElse: () => Course(
+                    courseCode: '',
+                    courseName: 'Unknown',
+                    facultyUid: '',
+                    institutionId: '',
+                    program: '',
+                    semester: '',
+                    studentsEnrolled: [],
+                    totalClasses: ''),
+              );
+              final room = _allRooms.firstWhere(
+                (r) => r.id == entry.roomId,
+                orElse: () => Room(id: '', name: entry.roomId, capacity: 0, institutionId: ''),
+              );
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _borderColor),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4F46E5).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${slot.startTime} - ${slot.endTime}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                            color: Color(0xFF4F46E5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              course.courseName,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: _textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Room: ${room.name}',
+                              style: TextStyle(fontSize: 12, color: _textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                              color: const Color(0xFF10B981).withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          '${entry.program} Sem ${entry.semester}',
+                          style: const TextStyle(
+                            color: Color(0xFF10B981),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
         ],
       ),
     );
@@ -1624,42 +1461,20 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
   // ── Recent Activity ────────────────────────────────────────────────────────
   Widget _buildRecentActivityCard() {
     final activities = [
-      {
-        'title': 'Grade Assignment - CS301',
-        'time': 'Due Today',
-        'color': const Color(0xFFEF4444)
-      },
-      {
-        'title': 'Student Profile Approval',
-        'time': '3 pending',
-        'color': const Color(0xFFF59E0B)
-      },
-      {
-        'title': 'Lecture: Algorithms',
-        'time': 'Today 2:00 PM',
-        'color': const Color(0xFF4F46E5)
-      },
-      {
-        'title': 'Mark Attendance - CSE-A',
-        'time': '09:00 AM',
-        'color': const Color(0xFF8B5CF6)
-      },
-      {
-        'title': 'Faculty Meeting',
-        'time': 'Tomorrow',
-        'color': const Color(0xFF10B981)
-      },
+      {'title': 'Grade Assignment - CS301', 'time': 'Due Today', 'color': const Color(0xFFEF4444)},
+      {'title': 'Student Profile Approval', 'time': '3 pending', 'color': const Color(0xFFF59E0B)},
+      {'title': 'Lecture: Algorithms', 'time': 'Today 2:00 PM', 'color': const Color(0xFF4F46E5)},
+      {'title': 'Mark Attendance - CSE-A', 'time': '09:00 AM', 'color': const Color(0xFF8B5CF6)},
+      {'title': 'Faculty Meeting', 'time': 'Tomorrow', 'color': const Color(0xFF10B981)},
     ];
 
     return _cardContainer(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _cardHeader('Recent Activity', Icons.timeline_rounded,
-              const Color(0xFF8B5CF6),
+          _cardHeader('Recent Activity', Icons.timeline_rounded, const Color(0xFF8B5CF6),
               trailing: IconButton(
-                icon: Icon(Icons.filter_list_rounded,
-                    size: 18, color: _textSecondary),
+                icon: Icon(Icons.filter_list_rounded, size: 18, color: _textSecondary),
                 onPressed: () {},
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -1671,9 +1486,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: _isDarkMode
-                      ? const Color(0xFF111827)
-                      : _bgColor,
+                  color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -1702,16 +1515,13 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                           const SizedBox(height: 2),
                           Text(
                             activity['time'] as String,
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: _textSecondary),
+                            style: TextStyle(fontSize: 11, color: _textSecondary),
                           ),
                         ],
                       ),
                     ),
                     Icon(Icons.chevron_right_rounded,
-                        size: 16,
-                        color: activity['color'] as Color),
+                        size: 16, color: activity['color'] as Color),
                   ],
                 ),
               ),
@@ -1728,31 +1538,25 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _cardHeader('Mentees Overview', Icons.group_outlined,
-              const Color(0xFF10B981)),
+          _cardHeader('Mentees Overview', Icons.group_outlined, const Color(0xFF10B981)),
           const SizedBox(height: 16),
-          // Summary tile
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF10B981)
-                  .withOpacity(_isDarkMode ? 0.15 : 0.08),
+              color: const Color(0xFF10B981).withOpacity(_isDarkMode ? 0.15 : 0.08),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                  color: const Color(0xFF10B981)
-                      .withOpacity(_isDarkMode ? 0.3 : 0.2)),
+                  color: const Color(0xFF10B981).withOpacity(_isDarkMode ? 0.3 : 0.2)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981)
-                        .withOpacity(_isDarkMode ? 0.25 : 0.15),
+                    color: const Color(0xFF10B981).withOpacity(_isDarkMode ? 0.25 : 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.groups_rounded,
-                      color: Color(0xFF10B981), size: 20),
+                  child: const Icon(Icons.groups_rounded, color: Color(0xFF10B981), size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1774,20 +1578,16 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right_rounded,
-                    color: const Color(0xFF10B981), size: 22),
+                const Icon(Icons.chevron_right_rounded, color: Color(0xFF10B981), size: 22),
               ],
             ),
           ),
           const SizedBox(height: 10),
-          _buildMenteeTile('Excellent (90%+)', '12',
-              const Color(0xFF10B981)),
+          _buildMenteeTile('Excellent (90%+)', '12', const Color(0xFF10B981)),
           const SizedBox(height: 8),
-          _buildMenteeTile(
-              'Good (75–90%)', '8', const Color(0xFF4F46E5)),
+          _buildMenteeTile('Good (75–90%)', '8', const Color(0xFF4F46E5)),
           const SizedBox(height: 8),
-          _buildMenteeTile(
-              'Needs Attention', '4', const Color(0xFFF59E0B)),
+          _buildMenteeTile('Needs Attention', '4', const Color(0xFFF59E0B)),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -1799,15 +1599,12 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               },
               icon: const Icon(Icons.arrow_forward_rounded, size: 16),
               label: const Text('View All Mentees',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 14)),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 elevation: 0,
               ),
             ),
@@ -1819,27 +1616,20 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
 
   Widget _buildMenteeTile(String label, String count, Color color) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: color.withOpacity(_isDarkMode ? 0.1 : 0.06),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: color.withOpacity(_isDarkMode ? 0.25 : 0.15)),
+        border: Border.all(color: color.withOpacity(_isDarkMode ? 0.25 : 0.15)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
               style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: _textPrimary)),
+                  fontSize: 13, fontWeight: FontWeight.w500, color: _textPrimary)),
           Text(count,
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: color)),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
         ],
       ),
     );
@@ -1851,33 +1641,27 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _cardHeader('Events & Meetings',
-              Icons.celebration_outlined, const Color(0xFF8B5CF6),
+          _cardHeader('Events & Meetings', Icons.celebration_outlined, const Color(0xFF8B5CF6),
               trailing: ElevatedButton.icon(
                 onPressed: () {
                   if (_institutionId != null) {
-                    context.push(
-                        '/$_institutionId/faculty/events');
+                    context.push('/$_institutionId/events');
                   }
                 },
                 icon: const Icon(Icons.add_rounded, size: 14),
                 label: const Text('Create',
-                    style: TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w600)),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   elevation: 0,
                 ),
               )),
           const SizedBox(height: 16),
           _buildEventTile('Faculty Meeting', 'Tomorrow',
-              '10:00 AM | Conference Hall',
-              const Color(0xFF8B5CF6)),
+              '10:00 AM | Conference Hall', const Color(0xFF8B5CF6)),
           const SizedBox(height: 10),
           _buildEventTile('Tech Workshop', 'Jan 10',
               'Organized by: You', const Color(0xFF4F46E5)),
@@ -1886,15 +1670,13 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
     );
   }
 
-  Widget _buildEventTile(
-      String title, String badge, String subtitle, Color color) {
+  Widget _buildEventTile(String title, String badge, String subtitle, Color color) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: color.withOpacity(_isDarkMode ? 0.15 : 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: color.withOpacity(_isDarkMode ? 0.3 : 0.2)),
+        border: Border.all(color: color.withOpacity(_isDarkMode ? 0.3 : 0.2)),
       ),
       child: Row(
         children: [
@@ -1904,28 +1686,22 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               children: [
                 Text(title,
                     style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        color: color)),
+                        fontWeight: FontWeight.w700, fontSize: 13, color: color)),
                 const SizedBox(height: 4),
                 Text(subtitle,
-                    style: TextStyle(
-                        fontSize: 12, color: _textSecondary)),
+                    style: TextStyle(fontSize: 12, color: _textSecondary)),
               ],
             ),
           ),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: color.withOpacity(0.15),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(badge,
                 style: TextStyle(
-                    color: color,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+                    color: color, fontSize: 11, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -1938,8 +1714,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _cardHeader('Payroll Summary', Icons.attach_money,
-              const Color(0xFF10B981)),
+          _cardHeader('Payroll Summary', Icons.attach_money, const Color(0xFF10B981)),
           const SizedBox(height: 16),
           Container(
             width: double.infinity,
@@ -1985,9 +1760,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _isDarkMode
-                        ? const Color(0xFF111827)
-                        : _bgColor,
+                    color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: _borderColor),
                   ),
@@ -1995,8 +1768,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Basic',
-                          style: TextStyle(
-                              color: _textSecondary, fontSize: 11)),
+                          style: TextStyle(color: _textSecondary, fontSize: 11)),
                       const SizedBox(height: 4),
                       Text('₹60,000',
                           style: TextStyle(
@@ -2012,9 +1784,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _isDarkMode
-                        ? const Color(0xFF111827)
-                        : _bgColor,
+                    color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: _borderColor),
                   ),
@@ -2022,8 +1792,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Allowances',
-                          style: TextStyle(
-                              color: _textSecondary, fontSize: 11)),
+                          style: TextStyle(color: _textSecondary, fontSize: 11)),
                       const SizedBox(height: 4),
                       Text('₹25,000',
                           style: TextStyle(
@@ -2047,15 +1816,12 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               },
               icon: const Icon(Icons.receipt_long_rounded, size: 16),
               label: const Text('View Salary Slip',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 14)),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 elevation: 0,
               ),
             ),
@@ -2087,46 +1853,35 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
         'route': '/faculty/leave'
       },
       {
-        'label': 'View Payroll',
+        'label': 'Approve Leaves',
+        'color': const Color(0xFF64748B),
+        'icon': Icons.check_circle_outline,
+        'route': '/faculty/leave-approval'
+      },
+      {
+        'label': 'Marks Entry',
         'color': const Color(0xFFF59E0B),
+        'icon': Icons.grade_outlined,
+        'route': '/faculty/marks-entry'
+      },
+      {
+        'label': 'View Payroll',
+        'color': const Color(0xFF0EA5E9),
         'icon': Icons.account_balance_wallet_rounded,
         'route': '/faculty/payroll'
       },
     ];
 
     return _cardContainer(
-      {'label': 'Mark Attendance', 'color': Colors.indigo, 'route': '/faculty/mark-attendance'},
-      {'label': 'View History', 'color': Colors.green, 'route': '/faculty/attendance-history'},
-      {'label': 'Apply Leave', 'color': Colors.purple, 'route': '/faculty/leave'},
-      {'label': 'Approve Leaves', 'color': Colors.blueGrey, 'route': '/faculty/leave-approval'}, // NEW ITEM
-      {'label': 'View Payroll', 'color': Colors.orange, 'route': '/faculty/payroll'},
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 3,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _cardHeader('Quick Actions', Icons.bolt_rounded,
-              const Color(0xFFF59E0B)),
+          _cardHeader('Quick Actions', Icons.bolt_rounded, const Color(0xFFF59E0B)),
           const SizedBox(height: 16),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate:
-                const SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               childAspectRatio: 1.8,
               crossAxisSpacing: 10,
@@ -2189,22 +1944,18 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _cardHeader('Leave Balance', Icons.description_outlined,
-              const Color(0xFF4F46E5)),
+          _cardHeader('Leave Balance', Icons.description_outlined, const Color(0xFF4F46E5)),
           const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
-                  child: _buildLeaveBalanceTile(
-                      'Casual', '12', const Color(0xFF4F46E5))),
+                  child: _buildLeaveBalanceTile('Casual', '12', const Color(0xFF4F46E5))),
               const SizedBox(width: 10),
               Expanded(
-                  child: _buildLeaveBalanceTile(
-                      'Optional', '5', const Color(0xFF8B5CF6))),
+                  child: _buildLeaveBalanceTile('Optional', '5', const Color(0xFF8B5CF6))),
               const SizedBox(width: 10),
               Expanded(
-                  child: _buildLeaveBalanceTile(
-                      'Sick', '8', const Color(0xFF10B981))),
+                  child: _buildLeaveBalanceTile('Sick', '8', const Color(0xFF10B981))),
             ],
           ),
           const SizedBox(height: 16),
@@ -2216,18 +1967,14 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                   context.push('/$_institutionId/faculty/leave');
                 }
               },
-              icon: const Icon(Icons.add_circle_outline_rounded,
-                  size: 16),
+              icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
               label: const Text('Apply for Leave',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 14)),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4F46E5),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 elevation: 0,
               ),
             ),
@@ -2237,15 +1984,13 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
     );
   }
 
-  Widget _buildLeaveBalanceTile(
-      String label, String count, Color color) {
+  Widget _buildLeaveBalanceTile(String label, String count, Color color) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: color.withOpacity(_isDarkMode ? 0.15 : 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: color.withOpacity(_isDarkMode ? 0.3 : 0.2)),
+        border: Border.all(color: color.withOpacity(_isDarkMode ? 0.3 : 0.2)),
       ),
       child: Column(
         children: [

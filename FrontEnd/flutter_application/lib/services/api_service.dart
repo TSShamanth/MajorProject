@@ -20,6 +20,9 @@ import '../models/exam_model.dart';
 import '../models/exam_schedule_entry.dart';
 import '../models/room_model.dart';
 import './session_manager.dart';
+import '../models/student_fee_model.dart';
+import '../models/saved_payment_method_model.dart';
+import '../models/marks_model.dart';
 
 class ApiService {
   /* -------------------- Institutions -------------------- */
@@ -85,6 +88,28 @@ class ApiService {
     }
   }
 
+  Future<UserModel> getUserDetails(String institutionId, String uid) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    final token = await user.getIdToken();
+    final url = Uri.parse(
+        '${ApiConfig.baseUrl}/api/admin/users/$uid?institutionId=$institutionId');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return UserModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to load user details: ${response.body}');
+    }
+  }
+
   Future<http.Response> createUser({
     required String email,
     required String password,
@@ -96,6 +121,7 @@ class ApiService {
     String? phone,
     String? sem,
     String? departmentId, // New parameter
+    String? sectionId, // New parameter
     String? mentorName,
     String? photoUrl,
     String? programme,
@@ -123,6 +149,7 @@ class ApiService {
       'phone': phone,
       'sem': sem,
       'departmentId': departmentId, // Add departmentId to the body
+      'sectionId': sectionId, // Add sectionId to the body
       'mentorName': mentorName,
       'photoUrl': photoUrl,
       'programme': programme,
@@ -155,6 +182,7 @@ class ApiService {
     String? phone,
     String? sem,
     String? departmentId,
+    String? sectionId,
     String? mentorName,
     String? photoUrl,
     String? programme,
@@ -181,6 +209,7 @@ class ApiService {
       'phone': phone,
       'sem': sem,
       'departmentId': departmentId,
+      'sectionId': sectionId,
       'mentorName': mentorName,
       'photoUrl': photoUrl,
       'programme': programme,
@@ -1253,5 +1282,161 @@ class ApiService {
       throw Exception('Failed to load hall ticket data: ${response.body}');
     }
   }
-}
 
+  // New method for faculty to get their students' fee status
+  Future<List<StudentFee>> getStudentFeesForFaculty(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/fees/faculty/student-fees'); // Updated endpoint
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => StudentFee.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load student fees for faculty: ${response.body}');
+    }
+  }
+
+  Future<StudentFee> updateStudentFeeRemarks(String institutionId, String studentFeeId, String remarks) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/fees/student-fees/$studentFeeId/remarks');
+
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'remarks': remarks}),
+    );
+
+    if (response.statusCode == 200) {
+      return StudentFee.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to update student fee remarks: ${response.body}');
+    }
+  }
+
+  // --- Saved Payment Methods ---
+
+  Future<List<SavedPaymentMethod>> getMyPaymentMethods(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/me/payment-methods');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => SavedPaymentMethod.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load saved payment methods: ${response.body}');
+    }
+  }
+
+  Future<SavedPaymentMethod> saveMyPaymentMethod(String institutionId, SavedPaymentMethod method) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/me/payment-methods');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(method.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return SavedPaymentMethod.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to save payment method: ${response.body}');
+    }
+  }
+
+  Future<void> deleteMyPaymentMethod(String institutionId, String methodId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/me/payment-methods/$methodId');
+
+    final response = await http.delete(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete payment method: ${response.statusCode}');
+    }
+  }
+
+  /* -------------------- Marks & Academic Progress -------------------- */
+
+  Future<MarksModel> saveMarks(String institutionId, MarksModel marks) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/marks');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(marks.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return MarksModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to save marks: ${response.body}');
+    }
+  }
+
+  Future<List<MarksModel>> getMarksByStudent(String institutionId, String studentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/marks/student/$studentId');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => MarksModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load marks: ${response.body}');
+    }
+  }
+
+  Future<Map<String, dynamic>> getAcademicSummary(String institutionId, String studentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/marks/student/$studentId/summary');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to load academic summary: ${response.body}');
+    }
+  }
+}

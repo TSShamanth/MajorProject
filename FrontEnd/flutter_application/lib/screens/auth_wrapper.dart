@@ -48,6 +48,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         'admin' => '/$institutionId/admin/dashboard',
         'faculty' => '/$institutionId/faculty/dashboard',
         'student' => '/$institutionId/student/dashboard',
+        'placements' => '/$institutionId/placement/dashboard',
         _ => '/login', // Default to login if role is unknown or invalid
       };
 
