@@ -196,7 +196,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
       {'icon': Icons.description_outlined, 'label': 'Leave', 'route': '/faculty/leave'},
       {'icon': Icons.check_circle_outline, 'label': 'Approve Leaves', 'route': '/faculty/leave-approval'}, // NEW ITEM
       {'icon': Icons.attach_money, 'label': 'Payroll', 'route': '/faculty/payroll'},
-      {'icon': Icons.celebration_outlined, 'label': 'Events', 'route': '/faculty/events'},
+      {'icon': Icons.celebration_outlined, 'label': 'Events', 'route': '/events'},
       {'icon': Icons.notifications_none_outlined, 'label': 'Meetings', 'route': '/faculty/meetings'},
       {'icon': Icons.assignment_outlined, 'label': 'Mark Attendance', 'route': '/faculty/mark-attendance'},
       {'icon': Icons.history_outlined, 'label': 'Clock-in History', 'route': '/faculty/attendance-history'},

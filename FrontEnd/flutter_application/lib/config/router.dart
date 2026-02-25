@@ -59,6 +59,11 @@ import '../screens/announcements_list_screen.dart';
 import '../screens/announcement_detail_screen.dart';
 import '../screens/create_edit_announcement_screen.dart';
 import '../screens/manage_announcements_screen.dart';
+import '../models/event_model.dart';
+import '../screens/events_list_screen.dart';
+import '../screens/event_detail_screen.dart';
+import '../screens/create_edit_event_screen.dart';
+import '../screens/event_participants_screen.dart';
 import '../screens/faculty/virtual_id_screen.dart' as faculty_vid;
 import '../screens/faculty/faculty_leave_approval_screen.dart';
 import '../screens/faculty/faculty_student_fee_status_screen.dart';
@@ -423,10 +428,52 @@ final router = GoRouter(
       },
     ),
     GoRoute(
+      path: '/:institutionId/events',
+      builder: (context, state) => const EventsListScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/events/create',
+      builder: (context, state) => const CreateEditEventScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/events/:eventId',
+      builder: (context, state) {
+        final eventId = state.pathParameters['eventId']!;
+        EventModel? event;
+        if (state.extra is EventModel) {
+          event = state.extra as EventModel;
+        } else if (state.extra is Map<String, dynamic>) {
+          event = EventModel.fromJson(state.extra as Map<String, dynamic>);
+        }
+        return EventDetailScreen(eventId: eventId, event: event);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/events/:eventId/edit',
+      builder: (context, state) {
+        EventModel? event;
+        if (state.extra is EventModel) {
+          event = state.extra as EventModel;
+        } else if (state.extra is Map<String, dynamic>) {
+          event = EventModel.fromJson(state.extra as Map<String, dynamic>);
+        }
+        return CreateEditEventScreen(event: event);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/events/:eventId/participants',
+      builder: (context, state) {
+        final eventId = state.pathParameters['eventId']!;
+        final eventTitle = state.extra as String;
+        return EventParticipantsScreen(eventId: eventId, eventTitle: eventTitle);
+      },
+    ),
+    GoRoute(
       path: '/',
       builder: (context, state) => const AuthWrapper(),
     ),
   ],
+
   refreshListenable: GoRouterRefreshStream(fb_auth.FirebaseAuth.instance.authStateChanges()),
   redirect: (BuildContext context, GoRouterState state) async {
     final user = fb_auth.FirebaseAuth.instance.currentUser;

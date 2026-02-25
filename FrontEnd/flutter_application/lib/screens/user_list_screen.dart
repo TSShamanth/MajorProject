@@ -70,7 +70,11 @@ class _UserListScreenState extends State<UserListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.role[0].toUpperCase()}${widget.role.substring(1)} List'),
+        title: Text(
+          widget.role.isNotEmpty
+              ? '${widget.role[0].toUpperCase()}${widget.role.substring(1)} List'
+              : 'User List',
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
