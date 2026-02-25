@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+//import '../services/auth_service.dart';
 import 'package:flutter_application/models/course_model.dart';
 import 'package:flutter_application/models/time_slot_model.dart';
 import 'package:flutter_application/models/timetable_entry_model.dart';
@@ -2365,4 +2366,6 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       ),
     );
   }
+} 
+
 }
