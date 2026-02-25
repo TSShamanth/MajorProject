@@ -48,6 +48,7 @@ import '../screens/form_responses_screen.dart';
 import '../screens/alumni_dashboard_screen.dart';
 import '../screens/alumni_directory_screen.dart';
 import '../screens/alumni_job_board_screen.dart';
+import '../screens/student_mentor_dashboard_screen.dart';
 import '../screens/student_attendance_screen.dart';
 import '../screens/student/student_academics_screen.dart';
 import '../screens/regularisation_request_screen.dart';
@@ -124,6 +125,10 @@ final router = GoRouter(
         GoRoute(
           path: '/:institutionId/student/academics',
           builder: (context, state) => const StudentAcademicsScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/my-mentors',
+          builder: (context, state) => const StudentMentorDashboardScreen(),
         ),
       ],
     ),

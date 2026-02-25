@@ -202,7 +202,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       'My Profile': '/$institutionId/student/profile',
       'Virtual ID': '/$institutionId/student/virtual-id',
       'Timetable': '/$institutionId/student/timetable',
-      'My Mentor': '/$institutionId/student/mentor',
+      'My Mentor': '/$institutionId/student/my-mentors',
       'My Hall Tickets': '/$institutionId/student/hall-tickets',
       'Academics': '/$institutionId/student/academics',
       'Academic Records': '/$institutionId/student/academics',
@@ -216,14 +216,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       'Credits': '/$institutionId/student/academics',
       'Announcements': '/$institutionId/announcements',
       'Messages': '/$institutionId/student/messages',
-      'Library': '/$institutionId/student/library',
-      'Canteen': '/$institutionId/student/canteen',
-      'Transport': '/$institutionId/student/transport',
       'Fees': '/$institutionId/student/fees',
       'Study Planner': '/$institutionId/student/study-planner',
-      'Notes': '/$institutionId/student/notes',
-      'Certifications': '/$institutionId/student/certifications',
-      'Settings': '/$institutionId/student/settings',
+      'Notes': '/$institutionId/student/notes'
     };
     if (routes.containsKey(label)) {
       context.push(routes[label]!);
@@ -298,17 +293,12 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       {'icon': Icons.assignment_rounded, 'label': 'Assignments & Tasks', 'badge': '5'},
       {'icon': Icons.event_busy_rounded, 'label': 'Leave'},
       {'icon': Icons.calendar_today_rounded, 'label': 'Events & Calendar'},
-      {'icon': Icons.workspace_premium_rounded, 'label': 'Certifications'},
       {'icon': Icons.business_center_rounded, 'label': 'Placements', 'badge': '12'},
       {'icon': Icons.campaign_rounded, 'label': 'Announcements'},
       {'icon': Icons.message_rounded, 'label': 'Messages'},
-      {'icon': Icons.local_library_rounded, 'label': 'Library'},
-      {'icon': Icons.restaurant_rounded, 'label': 'Canteen'},
-      {'icon': Icons.directions_bus_rounded, 'label': 'Transport'},
       {'icon': Icons.payment_rounded, 'label': 'Fees'},
       {'icon': Icons.edit_note_rounded, 'label': 'Study Planner'},
-      {'icon': Icons.notes_rounded, 'label': 'Notes'},
-      {'icon': Icons.settings_rounded, 'label': 'Settings'},
+      {'icon': Icons.notes_rounded, 'label': 'Notes'}
     ];
 
     return Column(

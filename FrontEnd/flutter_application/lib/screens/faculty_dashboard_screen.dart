@@ -199,11 +199,9 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
       {'icon': Icons.grade_outlined, 'label': 'Marks Entry', 'route': '/faculty/marks-entry'},
       {'icon': Icons.attach_money, 'label': 'Payroll', 'route': '/faculty/payroll'},
       {'icon': Icons.celebration_outlined, 'label': 'Events', 'route': '/events'},
-      {'icon': Icons.notifications_none_outlined, 'label': 'Meetings', 'route': '/faculty/meetings'},
       {'icon': Icons.assignment_outlined, 'label': 'Mark Attendance', 'route': '/faculty/mark-attendance'},
       {'icon': Icons.history_outlined, 'label': 'Clock-in History', 'route': '/faculty/attendance-history'},
       {'icon': Icons.announcement_outlined, 'label': 'Announcements', 'route': '/announcements'},
-      {'icon': Icons.settings_outlined, 'label': 'Settings', 'route': '/faculty/settings'},
     ];
 
     return Scaffold(
