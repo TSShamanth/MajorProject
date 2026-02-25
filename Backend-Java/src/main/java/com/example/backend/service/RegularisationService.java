@@ -5,20 +5,14 @@ import com.example.backend.models.AttendanceLog;
 import com.example.backend.models.RegularisationRequest;
 import com.example.backend.models.Notification;
 import com.example.backend.models.User;
-import com.google.cloud.firestore.DocumentReference;
-import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.Query;
-import com.google.cloud.firestore.QueryDocumentSnapshot;
+import com.google.api.core.ApiFuture;
+import com.google.cloud.firestore.*;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 @Service
@@ -33,6 +27,22 @@ public class RegularisationService {
         this.firestore = firestore;
         this.notificationService = notificationService;
         this.userService = userService;
+    }
+
+    public User getUserById(String institutionId, String uid) throws ExecutionException, InterruptedException {
+        DocumentReference userDocRef = firestore.collection("Institutions").document(institutionId).collection("users").document(uid);
+        ApiFuture<DocumentSnapshot> documentSnapshot = userDocRef.get();
+        DocumentSnapshot document = documentSnapshot.get();
+
+        if (document.exists()) {
+            User userData = document.toObject(User.class);
+            if (userData != null) {
+                userData.setUid(document.getId());
+            }
+            return userData;
+        } else {
+            return null;
+        }
     }
 
     public RegularisationRequest createRegularisationRequest(String institutionId, String facultyId, RegularisationRequestDTO requestDTO) throws ExecutionException, InterruptedException {

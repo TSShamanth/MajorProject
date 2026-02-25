@@ -35,7 +35,6 @@ class AnnouncementService {
     final uri = Uri.parse('$baseUrl/api/institutions/$institutionId/announcements/audience').replace( // Changed endpoint
       queryParameters: params,
     );
-    debugPrint('Fetching announcements from URI: $uri');
 
     try {
       final response = await http.get(
@@ -45,8 +44,6 @@ class AnnouncementService {
           'Authorization': 'Bearer $token',
         },
       );
-      debugPrint('Announcements API Response Status: ${response.statusCode}');
-      debugPrint('Announcements API Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         List<dynamic> data = json.decode(response.body);

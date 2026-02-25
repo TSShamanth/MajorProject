@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/announcement_service.dart'; // Add AnnouncementService import
 import '../models/department_model.dart'; // Import Department model
+import '../models/section_model.dart'; // Import Section model
 import '../models/announcement_model.dart'; // Add AnnouncementModel import
 import '../models/user_model.dart'; // Add UserModel import
 
@@ -38,6 +39,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   String? _selectedRole = 'student';
   String? _selectedDepartmentForStudent; // New field
+  String? _selectedDepartmentForFaculty; // New field
+  String? _selectedSectionId; // New field
   bool _isLoading = false;
   Uint8List? _pickedImageBytes;
   String? _photoUrl;
@@ -54,6 +57,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   final ImageService _imageService = ImageService();
   final AnnouncementService _announcementService = AnnouncementService(); // Initialize AnnouncementService
   List<Department> _departments = []; // New list for departments
+  List<Section> _sections = []; // New list for sections
   bool _isLoadingDepartments = false; // New loading flag
 
   // Announcement state variables
@@ -105,44 +109,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   Future<void> _fetchAnnouncements() async {
     if (_institutionId == null) return;
-    setState(() {
-      _isLoadingAnnouncements = true;
-    });
-
-    try {
-      debugPrint('Fetching announcements for institution: $_institutionId');
-      // Fetch "My Announcements"
-      final myAnnouncements = await _announcementService.getMyAnnouncementsFromBackend(_institutionId!);
-      debugPrint('Fetched ${myAnnouncements.length} My Announcements');
-      
-      // Fetch "All Announcements"
-      final allAnnouncements = await _announcementService.getAllAnnouncements(_institutionId!);
-      debugPrint('Fetched ${allAnnouncements.length} All Announcements');
-      
-      // Fetch "Audience Announcements" using current user's role and department
-      debugPrint('Fetching audience announcements for role: ${_currentUser?.role}, dept: ${_currentUser?.departmentId}, prog: ${_currentUser?.programme}');
-      final audienceAnnouncements = await _announcementService.getAnnouncements(
-        _institutionId!,
-        role: _currentUser?.role,
-        departmentId: _currentUser?.departmentId,
-        programme: _currentUser?.programme,
-      );
-      debugPrint('Fetched ${audienceAnnouncements.length} Audience Announcements');
-
-      setState(() {
-        _myAnnouncements = myAnnouncements;
-        _allAnnouncements = allAnnouncements;
-        _audienceAnnouncements = audienceAnnouncements;
-        _isLoadingAnnouncements = false;
-      });
-    } catch (e) {
-      debugPrint('Error fetching announcements: $e');
-      setState(() {
-        _isLoadingAnnouncements = false;
-      });
-    }
-  }
-
+        setState(() {
+          _isLoadingAnnouncements = true;
+        });
+    
+        try {
+          // Fetch "My Announcements"
+          final myAnnouncements = await _announcementService.getMyAnnouncementsFromBackend(_institutionId!);
+    
+          // Fetch "All Announcements"
+          final allAnnouncements = await _announcementService.getAllAnnouncements(_institutionId!);
+    
+          // Fetch "Audience Announcements" using current user's role and department
+          final audienceAnnouncements = await _announcementService.getAnnouncements(
+            _institutionId!,
+            role: _currentUser?.role,
+            departmentId: _currentUser?.departmentId,
+            programme: _currentUser?.programme,
+          );
+    
+          setState(() {
+            _myAnnouncements = myAnnouncements;
+            _allAnnouncements = allAnnouncements;
+            _audienceAnnouncements = audienceAnnouncements;
+            _isLoadingAnnouncements = false;
+          });
+        } catch (e) {
+          debugPrint('Error fetching announcements: $e');
+          setState(() {
+            _isLoadingAnnouncements = false;
+          });
+        }
+      }
   Future<void> _fetchUsersAndCounts() async {
     if (_institutionId == null) return;
     try {
@@ -189,6 +187,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       });
     }
   }
+
   Future<void> _fetchNotificationCount() async {
     if (_institutionId == null) return;
     try {
@@ -198,6 +197,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       });
     } catch (e) {
       debugPrint('Error fetching notifications: $e');
+    }
+  }
+
+  Future<void> _fetchSections(String departmentId, Function setDialogState) async {
+    if (_institutionId == null) return;
+    try {
+      final sections = await _apiService.getSections(_institutionId!, departmentId);
+      setDialogState(() {
+        _sections = sections;
+      });
+    } catch (e) {
+      debugPrint('Error fetching sections: $e');
     }
   }
 
@@ -345,7 +356,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                           decoration: _inputDecoration('Role', Icons.school_rounded),
                           dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
                           style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
-                          items: ['student', 'faculty', 'admin'].map((String role) {
+                          items: ['student', 'faculty', 'admin', 'placements'].map((String role) {
                             return DropdownMenuItem<String>(
                               value: role,
                               child: Text(role.substring(0, 1).toUpperCase() + role.substring(1)),
@@ -367,6 +378,51 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                         const SizedBox(height: 20),
                         _buildTextField(_passwordController, 'Password', Icons.lock_rounded, obscureText: true),
                         
+                        if (selectedRole == 'faculty') ...[
+                          const SizedBox(height: 20),
+                          _isLoadingDepartments
+                              ? const Center(child: CircularProgressIndicator())
+                              : DropdownButtonFormField<String>(
+                                  value: _selectedDepartmentForFaculty,
+                                  decoration: _inputDecoration('Department', Icons.business_rounded),
+                                  dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
+                                  style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
+                                  items: _departments.map((department) {
+                                    return DropdownMenuItem<String>(
+                                      value: department.id,
+                                      child: Text(department.name),
+                                    );
+                                  }).toList(),
+                                  onChanged: (newValue) {
+                                    setDialogState(() {
+                                      _selectedDepartmentForFaculty = newValue;
+                                    });
+                                  },
+                                  validator: (value) => value == null ? 'Please select a department' : null,
+                                ),
+                          const SizedBox(height: 20),
+                          _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_phoneController, 'Phone Number', Icons.phone_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_schoolController, 'School', Icons.school_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_rounded),
+                        ],
+
+                        if (selectedRole == 'placements') ...[
+                          const SizedBox(height: 20),
+                          _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_usnController, 'Officer ID', Icons.badge_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_phoneController, 'Phone Number', Icons.phone_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_schoolController, 'School', Icons.school_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_rounded),
+                        ],
+                        
                         if (selectedRole == 'student') ...[
                           const SizedBox(height: 20),
                           _isLoadingDepartments
@@ -385,10 +441,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                                   onChanged: (newValue) {
                                     setDialogState(() {
                                       _selectedDepartmentForStudent = newValue;
+                                      _selectedSectionId = null; // Reset section
+                                      _sections = []; // Clear sections
                                     });
+                                    if (newValue != null) {
+                                      _fetchSections(newValue, setDialogState);
+                                    }
                                   },
                                   validator: (value) => value == null ? 'Please select a department' : null,
                                 ),
+                          const SizedBox(height: 20),
+                          DropdownButtonFormField<String>(
+                            value: _selectedSectionId,
+                            decoration: _inputDecoration('Section', Icons.group_work_rounded),
+                            dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
+                            style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
+                            items: _sections.where((s) => s.id != null).map((section) {
+                              return DropdownMenuItem<String>(
+                                value: section.id!,
+                                child: Text(section.name),
+                              );
+                            }).toList(),
+                            onChanged: (newValue) {
+                              setDialogState(() {
+                                _selectedSectionId = newValue;
+                              });
+                            },
+                            validator: (value) => value == null ? 'Please select a section' : null,
+                          ),
                           const SizedBox(height: 20),
                           _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
                           const SizedBox(height: 20),
@@ -534,7 +614,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
           usn: _usnController.text,
           phone: _phoneController.text,
           sem: _semController.text,
-          departmentId: _selectedRole == 'student' ? _selectedDepartmentForStudent : null, // Pass departmentId
+          departmentId: _selectedRole == 'student' ? _selectedDepartmentForStudent : (_selectedRole == 'faculty' ? _selectedDepartmentForFaculty : null), // Pass departmentId for faculty too
+          sectionId: _selectedRole == 'student' ? _selectedSectionId : null, // Pass sectionId for student
           mentorName: _mentorController.text,
           photoUrl: _photoUrl,
           programme: _programmeController.text,
@@ -593,6 +674,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     _validUptoController.clear();
     setState(() {
       _selectedRole = 'student';
+      _selectedDepartmentForStudent = null;
+      _selectedDepartmentForFaculty = null;
+      _selectedSectionId = null;
+      _sections = [];
       _pickedImageBytes = null;
       _photoUrl = null;
     });
@@ -663,10 +748,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
       {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
-      {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/$_institutionId/admin/institution-setup'},
+      {'icon': Icons.supervisor_account_rounded, 'label': 'Mentor Management', 'active': false, 'route': '/admin/mentor-management'},
+      {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
+      {'icon': Icons.account_balance_wallet_rounded, 'label': 'Fee Management', 'active': false, 'route': '/admin/fee-management'},
+      {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'active': false, 'route': '/admin/timetable/timeslots'},
+      {'icon': Icons.calendar_today_rounded, 'label': 'Working Days', 'active': false, 'route': '/admin/timetable/working-days'},
+      {'icon': Icons.grid_on_rounded, 'label': 'Timetable', 'active': false, 'route': '/admin/timetable/generate'},
       {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
       {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
-      {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': null},
+      {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': '/events'},
       {'icon': Icons.announcement_rounded, 'label': 'Announcements', 'active': false, 'route': '/announcements/manage'},
       {'icon': Icons.bar_chart_rounded, 'label': 'Analytics & Reports', 'active': false, 'route': null},
       {'icon': Icons.article_rounded, 'label': 'Content Management', 'active': false, 'route': null},
@@ -843,11 +933,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
       {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
+      {'icon': Icons.supervisor_account_rounded, 'label': 'Mentor Management', 'active': false, 'route': '/admin/mentor-management'},
       {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
+      {'icon': Icons.account_balance_wallet_rounded, 'label': 'Fee Management', 'active': false, 'route': '/admin/fee-management'},
+      {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'active': false, 'route': '/admin/timetable/timeslots'},
+      {'icon': Icons.calendar_today_rounded, 'label': 'Working Days', 'active': false, 'route': '/admin/timetable/working-days'},
+      {'icon': Icons.grid_on_rounded, 'label': 'Timetable', 'active': false, 'route': '/admin/timetable/generate'},
       {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
       {'icon': Icons.approval, 'label': 'Approval', 'active': false, 'route': '/admin/approval'},
       {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
-      {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': null},
+      {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': '/events'},
       {'icon': Icons.announcement_rounded, 'label': 'Announcements', 'active': false, 'route': '/announcements/manage'},
       {'icon': Icons.bar_chart_rounded, 'label': 'Analytics & Reports', 'active': false, 'route': null},
       {'icon': Icons.article_rounded, 'label': 'Content Management', 'active': false, 'route': null},
@@ -1903,9 +1998,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   Widget _buildQuickActionsCard() {
     final actions = [
       {'label': 'Manage Users', 'color': const Color(0xFF4F46E5), 'icon': Icons.people_rounded, 'route': null},
+      {'label': 'Mentor Management', 'color': const Color(0xFFEC4899), 'icon': Icons.supervisor_account_rounded, 'route': '/admin/mentor-management'},
       {'label': 'Schedule Drive', 'color': const Color(0xFF10B981), 'icon': Icons.event_rounded, 'route': null},
       {'label': 'System Reports', 'color': const Color(0xFF8B5CF6), 'icon': Icons.bar_chart_rounded, 'route': null},
-      {'label': 'Publish Results', 'color': const Color(0xFFF59E0B), 'icon': Icons.publish_rounded, 'route': null},
     ];
 
     return Container(
@@ -2225,7 +2320,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   }
 
   Widget _buildAnnouncementsSection(bool isMobile, bool isTablet) {
-    debugPrint('Building Announcements Section. Audience: ${_audienceAnnouncements.length}, My: ${_myAnnouncements.length}, All: ${_allAnnouncements.length}');
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(

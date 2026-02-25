@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application/models/course_model.dart';
+import 'package:flutter_application/models/time_slot_model.dart';
+import 'package:flutter_application/models/timetable_entry_model.dart';
+import 'package:flutter_application/models/room_model.dart';
+import 'package:flutter_application/services/timetable_service.dart';
+import 'package:flutter_application/services/attendance_service.dart';
 import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/services/api_service.dart';
 import 'package:go_router/go_router.dart';
@@ -23,13 +29,63 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
   String? _institutionId;
   int _notificationCount = 0;
 
+  List<TimetableEntry> _todaySchedule = [];
+  List<TimeSlot> _allTimeSlots = [];
+  List<Course> _allCourses = [];
+  List<Room> _allRooms = [];
+  bool _isLoadingSchedule = true;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _institutionId = GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId'];
-      _fetchCurrentUser();
+      _fetchCurrentUser().then((_) => _fetchTodaySchedule());
     });
+  }
+
+  Future<void> _fetchTodaySchedule() async {
+    if (_institutionId == null || _currentUser == null) return;
+
+    try {
+      final timetableService = TimetableService();
+      
+      final now = DateTime.now();
+      final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      final todayName = days[now.weekday - 1];
+
+      final results = await Future.wait([
+        timetableService.getTimeSlots(_institutionId!),
+        timetableService.getTimetableForFaculty(_institutionId!, _currentUser!.uid),
+        AttendanceService.getSubjects(),
+        _apiService.getRooms(_institutionId!),
+      ]);
+
+      final slots = results[0] as List<TimeSlot>;
+      final allEntries = results[1] as List<TimetableEntry>;
+      final courses = results[2] as List<Course>;
+      final rooms = results[3] as List<Room>;
+
+      final todayEntries = allEntries.where((e) => e.day == todayName).toList();
+      todayEntries.sort((a, b) {
+        final slotA = slots.firstWhere((s) => s.id == a.timeSlotId);
+        final slotB = slots.firstWhere((s) => s.id == b.timeSlotId);
+        return slotA.slotNumber.compareTo(slotB.slotNumber);
+      });
+
+      if (mounted) {
+        setState(() {
+          _allTimeSlots = slots;
+          _todaySchedule = todayEntries;
+          _allCourses = courses;
+          _allRooms = rooms;
+          _isLoadingSchedule = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching faculty today schedule: $e');
+      if (mounted) setState(() => _isLoadingSchedule = false);
+    }
   }
 
   Future<void> _fetchCurrentUser() async {
@@ -152,15 +208,15 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
       {'icon': Icons.credit_card_outlined, 'label': 'Virtual ID', 'route': '/faculty/virtual-id'},
       {'icon': Icons.calendar_today_outlined, 'label': 'Timetable', 'route': '/faculty/timetable'},
       {'icon': Icons.group_outlined, 'label': 'Mentees', 'badge': '8', 'route': '/faculty/mentees'},
+      {'icon': Icons.payments_outlined, 'label': "Students' Fee Status", 'route': '/faculty/student-fees'},
       {'icon': Icons.description_outlined, 'label': 'Leave', 'route': '/faculty/leave'},
-      {'icon': Icons.check_circle_outline, 'label': 'Approve Leaves', 'route': '/faculty/leave-approval'}, // NEW ITEM
+      {'icon': Icons.check_circle_outline, 'label': 'Approve Leaves', 'route': '/faculty/leave-approval'},
+      {'icon': Icons.grade_outlined, 'label': 'Marks Entry', 'route': '/faculty/marks-entry'},
       {'icon': Icons.attach_money, 'label': 'Payroll', 'route': '/faculty/payroll'},
-      {'icon': Icons.celebration_outlined, 'label': 'Events', 'route': '/faculty/events'},
-      {'icon': Icons.notifications_none_outlined, 'label': 'Meetings', 'route': '/faculty/meetings'},
+      {'icon': Icons.celebration_outlined, 'label': 'Events', 'route': '/events'},
       {'icon': Icons.assignment_outlined, 'label': 'Mark Attendance', 'route': '/faculty/mark-attendance'},
       {'icon': Icons.history_outlined, 'label': 'Clock-in History', 'route': '/faculty/attendance-history'},
       {'icon': Icons.announcement_outlined, 'label': 'Announcements', 'route': '/announcements'},
-      {'icon': Icons.settings_outlined, 'label': 'Settings', 'route': '/faculty/settings'},
     ];
 
     return Scaffold(
@@ -771,12 +827,13 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
   }
 
   Widget _buildTodaysScheduleCard() {
-    final scheduleItems = [
-      {'time': '09:00 AM', 'class': 'CSE-A', 'subject': 'Data Structures', 'room': 'Lab 301'},
-      {'time': '11:00 AM', 'class': 'CSE-B', 'subject': 'Algorithms', 'room': 'Room 205'},
-      {'time': '02:00 PM', 'class': 'CSE-C', 'subject': 'DBMS', 'room': 'Lab 302'},
-      {'time': '04:00 PM', 'class': 'CSE-D', 'subject': 'Networks', 'room': 'Lab 201'},
-    ];
+    if (_isLoadingSchedule) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_todaySchedule.isEmpty) {
+      return const Center(child: Text('No classes for today.', style: TextStyle(fontSize: 12)));
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -815,9 +872,16 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
           const SizedBox(height: 8),
           Expanded(
             child: ListView.builder(
-              itemCount: scheduleItems.length,
+              itemCount: _todaySchedule.length,
               itemBuilder: (context, index) {
-                final item = scheduleItems[index];
+                final entry = _todaySchedule[index];
+                final slot = _allTimeSlots.firstWhere((s) => s.id == entry.timeSlotId);
+                final course = _allCourses.firstWhere((c) => c.courseCode == entry.courseCode, orElse: () => Course(courseCode: '', courseName: 'Unknown', facultyUid: '', institutionId: '', program: '', semester: '', studentsEnrolled: [], totalClasses: ''));
+                final room = _allRooms.firstWhere(
+                  (r) => r.id == entry.roomId, 
+                  orElse: () => Room(id: '', name: entry.roomId, capacity: 0, institutionId: '')
+                );
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 5),
                   child: Container(
@@ -834,8 +898,8 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              item['time']!,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF111827)),
+                              '${slot.startTime} - ${slot.endTime}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 9, color: Color(0xFF111827)),
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
@@ -844,15 +908,15 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                                 borderRadius: BorderRadius.circular(3),
                               ),
                               child: Text(
-                                item['class']!,
+                                '${entry.program} Sem ${entry.semester}',
                                 style: TextStyle(color: Colors.blue.shade800, fontSize: 8, fontWeight: FontWeight.w500),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 2),
-                        Text(item['subject']!, style: const TextStyle(color: Color(0xFF111827), fontSize: 10)),
-                        Text(item['room']!, style: const TextStyle(color: Color(0xFF6B7280), fontSize: 9)),
+                        Text(course.courseName, style: const TextStyle(color: Color(0xFF111827), fontSize: 10, fontWeight: FontWeight.w600)),
+                        Text('Room: ${room.name}', style: const TextStyle(color: Color(0xFF6B7280), fontSize: 9)),
                       ],
                     ),
                   ),
@@ -1308,10 +1372,11 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
   Widget _buildQuickActionsCard() {
     final actions = [
       {'label': 'Mark Attendance', 'color': Colors.indigo, 'route': '/faculty/mark-attendance'},
+      {'label': 'Marks Entry', 'color': Colors.orange, 'route': '/faculty/marks-entry'},
+      {'label': 'Mentees', 'color': Colors.pink, 'route': '/faculty/mentees'},
       {'label': 'View History', 'color': Colors.green, 'route': '/faculty/attendance-history'},
       {'label': 'Apply Leave', 'color': Colors.purple, 'route': '/faculty/leave'},
-      {'label': 'Approve Leaves', 'color': Colors.blueGrey, 'route': '/faculty/leave-approval'}, // NEW ITEM
-      {'label': 'View Payroll', 'color': Colors.orange, 'route': '/faculty/payroll'},
+      {'label': 'Approve Leaves', 'color': Colors.blueGrey, 'route': '/faculty/leave-approval'},
     ];
 
     return Container(

@@ -1,4 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application/models/course_model.dart';
+import 'package:flutter_application/models/time_slot_model.dart';
+import 'package:flutter_application/models/timetable_entry_model.dart';
+import 'package:flutter_application/models/room_model.dart';
+import 'package:flutter_application/models/user_model.dart';
+import 'package:flutter_application/services/api_service.dart';
+import 'package:flutter_application/services/attendance_service.dart';
+import 'package:flutter_application/services/timetable_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -28,9 +36,127 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   final TextEditingController _searchController = TextEditingController();
   int _notificationCount = 0;
 
+  List<TimetableEntry> _todaySchedule = [];
+  List<TimeSlot> _allTimeSlots = [];
+  List<Course> _allCourses = [];
+  List<Room> _allRooms = [];
+  UserModel? _user;
+  Map<String, dynamic>? _academicSummary;
+  bool _isLoadingSchedule = true;
+  bool _isLoadingSummary = true;
+  double _attendancePercentage = 0.0;
+
+  Future<void> _fetchTodaySchedule() async {
+    final institutionId = _getInstitutionId();
+    if (institutionId.isEmpty) return;
+
+    try {
+      final timetableService = TimetableService();
+      final apiService = ApiService();
+      
+      final user = await apiService.getMe(institutionId);
+      if (mounted) {
+        setState(() {
+          _user = user;
+          _attendancePercentage = user.attendancePercentage ?? 0.0;
+        });
+      }
+      if (user.departmentId == null || user.programme == null || user.sem == null || user.sectionId == null) {
+        if (mounted) {
+          setState(() {
+            _isLoadingSchedule = false;
+            _isLoadingSummary = false;
+          });
+        }
+        return;
+      }
+
+      _fetchAcademicSummary(institutionId, user.uid);
+
+      final now = DateTime.now();
+      final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      final todayName = days[now.weekday - 1];
+      debugPrint('Student Dashboard: Fetching schedule for $todayName');
+
+      final results = await Future.wait([
+        timetableService.getTimeSlots(institutionId),
+        timetableService.getTimetableForClass(institutionId, user.departmentId!, user.programme!, user.sem!, user.sectionId!),
+        apiService.getCourses(institutionId, user.departmentId!),
+        apiService.getRooms(institutionId),
+      ]);
+
+      final slots = results[0] as List<TimeSlot>;
+      final allEntries = results[1] as List<TimetableEntry>;
+      final courses = results[2] as List<Course>;
+      final rooms = results[3] as List<Room>;
+
+      final todayEntries = allEntries.where((e) => e.day == todayName).toList();
+      
+      // Robust sorting
+      todayEntries.sort((a, b) {
+        final slotA = slots.indexWhere((s) => s.id == a.timeSlotId);
+        final slotB = slots.indexWhere((s) => s.id == b.timeSlotId);
+        return slotA.compareTo(slotB);
+      });
+
+      if (mounted) {
+        setState(() {
+          _allTimeSlots = slots;
+          _todaySchedule = todayEntries;
+          _allCourses = courses;
+          _allRooms = rooms;
+          _user = user;
+          _isLoadingSchedule = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching today schedule: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingSchedule = false;
+          _isLoadingSummary = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchAcademicSummary(String institutionId, String studentId) async {
+    try {
+      final apiService = ApiService();
+      final results = await Future.wait([
+        apiService.getAcademicSummary(institutionId, studentId),
+        AttendanceService.getSubjectWiseAttendance(studentId),
+      ]);
+
+      if (mounted) {
+        final attendanceData = results[1] as List<dynamic>;
+        double totalPct = 0;
+        if (attendanceData.isNotEmpty) {
+          for (var item in attendanceData) {
+            totalPct += (item.attendancePercentage as num).toDouble();
+          }
+          _attendancePercentage = totalPct / attendanceData.length;
+        }
+
+        setState(() {
+          _academicSummary = results[0] as Map<String, dynamic>;
+          _isLoadingSummary = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching academic summary: $e');
+      if (mounted) {
+        setState(() => _isLoadingSummary = false);
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchTodaySchedule();
+    });
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -92,27 +218,24 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       'My Profile': '/$institutionId/student/profile',
       'Virtual ID': '/$institutionId/student/virtual-id',
       'Timetable': '/$institutionId/student/timetable',
+      'My Mentor': '/$institutionId/student/my-mentors',
       'My Hall Tickets': '/$institutionId/student/hall-tickets',
       'Academics': '/$institutionId/student/academics',
       'Academic Records': '/$institutionId/student/academics',
       'Attendance': '/$institutionId/student/attendance',
       'Leave': '/$institutionId/student/leave',
-      'Events': '/$institutionId/student/events',
-      'Events & Calendar': '/$institutionId/student/events',
+      'Events': '/$institutionId/events',
+      'Events & Calendar': '/$institutionId/events',
       'Placements': '/$institutionId/student/placements',
-      'Assignments': '/$institutionId/student/assignments',
-      'Assignments & Tasks': '/$institutionId/student/assignments',
+      'Assignments': '/$institutionId/student/academics',
+      'Assignments & Tasks': '/$institutionId/student/academics',
+      'Credits': '/$institutionId/student/academics',
       'Announcements': '/$institutionId/announcements',
       'Notifications': '/$institutionId/notifications',
       'Messages': '/$institutionId/student/messages',
-      'Library': '/$institutionId/student/library',
-      'Canteen': '/$institutionId/student/canteen',
-      'Transport': '/$institutionId/student/transport',
       'Fees': '/$institutionId/student/fees',
       'Study Planner': '/$institutionId/student/study-planner',
-      'Notes': '/$institutionId/student/notes',
-      'Certifications': '/$institutionId/student/certifications',
-      'Settings': '/$institutionId/student/settings',
+      'Notes': '/$institutionId/student/notes'
     };
     if (routes.containsKey(label)) {
       // when opening notifications, clear the badge immediately
@@ -185,6 +308,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true},
       {'icon': Icons.person_outline_rounded, 'label': 'My Profile'},
+      {'icon': Icons.supervisor_account_rounded, 'label': 'My Mentor'},
       {'icon': Icons.credit_card_rounded, 'label': 'Virtual ID'},
       {'icon': Icons.schedule_rounded, 'label': 'Timetable'},
       {'icon': Icons.article_outlined, 'label': 'My Hall Tickets'},
@@ -192,17 +316,12 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       {'icon': Icons.assignment_rounded, 'label': 'Assignments & Tasks', 'badge': '5'},
       {'icon': Icons.event_busy_rounded, 'label': 'Leave'},
       {'icon': Icons.calendar_today_rounded, 'label': 'Events & Calendar'},
-      {'icon': Icons.workspace_premium_rounded, 'label': 'Certifications'},
       {'icon': Icons.business_center_rounded, 'label': 'Placements', 'badge': '12'},
       {'icon': Icons.campaign_rounded, 'label': 'Announcements'},
       {'icon': Icons.message_rounded, 'label': 'Messages'},
-      {'icon': Icons.local_library_rounded, 'label': 'Library'},
-      {'icon': Icons.restaurant_rounded, 'label': 'Canteen'},
-      {'icon': Icons.directions_bus_rounded, 'label': 'Transport'},
       {'icon': Icons.payment_rounded, 'label': 'Fees'},
       {'icon': Icons.edit_note_rounded, 'label': 'Study Planner'},
-      {'icon': Icons.notes_rounded, 'label': 'Notes'},
-      {'icon': Icons.settings_rounded, 'label': 'Settings'},
+      {'icon': Icons.notes_rounded, 'label': 'Notes'}
     ];
 
     return Column(
@@ -902,14 +1021,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
         final cards = [
           {
             'title': 'Current Semester',
-            'value': 'VI',
+            'value': _user?.sem ?? 'N/A',
             'icon': Icons.menu_book_rounded,
             'color': const Color(0xFF4F46E5),
-            'subtext': branch.isNotEmpty ? branch : 'B.Tech CSE',
+            'subtext': _user?.programme ?? (branch.isNotEmpty ? branch : 'B.Tech CSE'),
           },
           {
             'title': 'CGPA',
-            'value': '8.6',
+            'value': _user?.currentGPA?.toStringAsFixed(1) ?? '8.6',
             'icon': Icons.trending_up_rounded,
             'color': const Color(0xFF10B981),
             'subtext': 'Current Standing',
@@ -1081,11 +1200,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
             ),
           ),
           const Spacer(),
-          _buildProgressRing('Attendance', 90, const Color(0xFF10B981)),
+          _buildProgressRing('Attendance', _attendancePercentage, const Color(0xFF10B981)),
           const SizedBox(width: 30),
-          _buildProgressRing('Assignments', 75, const Color(0xFF4F46E5)),
+          _buildProgressRing('Assignments', (_academicSummary?['assignmentsPercentage'] as num?)?.toDouble() ?? 0.0, const Color(0xFF4F46E5)),
           const SizedBox(width: 30),
-          _buildProgressRing('Credits', 85, const Color(0xFFF59E0B)),
+          _buildProgressRing('Credits', (_academicSummary?['creditsPercentage'] as num?)?.toDouble() ?? 0.0, const Color(0xFFF59E0B)),
         ],
       ),
     );
@@ -1114,7 +1233,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
                 painter: _ProgressRingPainter(percentage: percentage, color: color),
                 child: Center(
                   child: Text(
-                    '${percentage.toInt()}%',
+                    '${percentage.toStringAsFixed(1)}%',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
@@ -1153,14 +1272,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
         final cards = [
           {
             'title': 'Current Semester',
-            'value': 'VI',
+            'value': _user?.sem ?? 'N/A',
             'icon': Icons.menu_book_rounded,
             'color': const Color(0xFF4F46E5),
-            'subtext': branch.isNotEmpty ? branch : 'B.Tech CSE',
+            'subtext': _user?.programme ?? (branch.isNotEmpty ? branch : 'B.Tech CSE'),
           },
           {
             'title': 'CGPA',
-            'value': '8.6',
+            'value': _user?.currentGPA?.toStringAsFixed(1) ?? '8.6',
             'icon': Icons.trending_up_rounded,
             'color': const Color(0xFF10B981),
             'subtext': 'Current Standing',
@@ -1401,26 +1520,13 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   }
 
   Widget _buildTodaySchedule() {
-    final schedules = [
-      {
-        'subject': 'Data Structures',
-        'time': '09:00 AM - 10:00 AM',
-        'room': 'Lab 301',
-        'type': 'Lab',
-      },
-      {
-        'subject': 'Computer Networks',
-        'time': '10:15 AM - 11:15 AM',
-        'room': 'Room 205',
-        'type': 'Lecture',
-      },
-      {
-        'subject': 'Operating Systems',
-        'time': '02:00 PM - 03:00 PM',
-        'room': 'Room 102',
-        'type': 'Lecture',
-      },
-    ];
+    if (_isLoadingSchedule) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_todaySchedule.isEmpty) {
+      return const Center(child: Text('No classes scheduled for today.'));
+    }
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1484,10 +1590,17 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
           const SizedBox(height: 14),
           Expanded(
             child: ListView.separated(
-              itemCount: schedules.length,
-              separatorBuilder: (context, index) => SizedBox(height: 10),
+              itemCount: _todaySchedule.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
-                final schedule = schedules[index];
+                final entry = _todaySchedule[index];
+                final slot = _allTimeSlots.firstWhere((s) => s.id == entry.timeSlotId);
+                final course = _allCourses.firstWhere((c) => c.courseCode == entry.courseCode, orElse: () => Course(courseCode: '', courseName: 'Unknown', facultyUid: '', institutionId: '', program: '', semester: '', studentsEnrolled: [], totalClasses: ''));
+                final room = _allRooms.firstWhere(
+                  (r) => r.id == entry.roomId, 
+                  orElse: () => Room(id: '', name: entry.roomId, capacity: 0, institutionId: '')
+                );
+
                 return Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -1514,7 +1627,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
                               children: [
                                 Expanded(
                                   child: Text(
-                                    schedule['subject'] as String,
+                                    course.courseName,
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -1532,7 +1645,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    schedule['type'] as String,
+                                    'Room ${room.name}',
                                     style: const TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w600,
@@ -1552,21 +1665,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  schedule['time'] as String,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: _textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Icon(
-                                  Icons.room_rounded,
-                                  size: 11,
-                                  color: _textSecondary,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  schedule['room'] as String,
+                                  '${slot.startTime} - ${slot.endTime}',
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: _textSecondary,
@@ -1590,7 +1689,12 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
 
   Widget _buildQuickActions() {
     final actions = [
-
+      {
+        'label': 'My Mentor',
+        'icon': Icons.supervisor_account_rounded,
+        'color': const Color(0xFFEC4899),
+        'route': 'My Mentor',
+      },
       {
         'label': 'Library',
         'icon': Icons.local_library_rounded,
@@ -1724,24 +1828,34 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   }
 
   Widget _buildProgressStats() {
+    if (_isLoadingSummary) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final stats = [
       {
         'label': 'Assignments Completed',
-        'value': '24/30',
-        'percentage': 80.0,
+        'value': '${_academicSummary?['assignmentsCompleted'] ?? 0}/${_academicSummary?['assignmentsTotal'] ?? 5}',
+        'percentage': (_academicSummary?['assignmentsPercentage'] as num?)?.toDouble() ?? 0.0,
         'color': const Color(0xFF10B981),
       },
       {
         'label': 'Tests Attempted',
-        'value': '15/18',
-        'percentage': 83.0,
+        'value': '${_academicSummary?['testsAttempted'] ?? 0}/${_academicSummary?['testsTotal'] ?? 3}',
+        'percentage': (_academicSummary?['testsPercentage'] as num?)?.toDouble() ?? 0.0,
         'color': const Color(0xFF4F46E5),
       },
       {
         'label': 'Projects Submitted',
-        'value': '3/4',
-        'percentage': 75.0,
+        'value': '${_academicSummary?['projectsSubmitted'] ?? 0}/${_academicSummary?['projectsTotal'] ?? 1}',
+        'percentage': (_academicSummary?['projectsPercentage'] as num?)?.toDouble() ?? 0.0,
         'color': const Color(0xFFF59E0B),
+      },
+      {
+        'label': 'Exam Performance',
+        'value': '${(_academicSummary?['averageExamScore'] ?? 0.0).toStringAsFixed(1)}%',
+        'percentage': (_academicSummary?['examsPercentage'] as num?)?.toDouble() ?? 0.0,
+        'color': const Color(0xFF8B5CF6),
       },
     ];
 
