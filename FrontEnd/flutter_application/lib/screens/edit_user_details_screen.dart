@@ -240,7 +240,7 @@ class _EditUserDetailsScreenState extends State<EditUserDetailsScreen> {
               DropdownButtonFormField<String>(
                 value: _selectedRole,
                 decoration: _inputDecoration('Role', Icons.school_outlined),
-                items: ['student', 'faculty', 'admin'].map((String role) {
+                items: ['student', 'faculty', 'admin', 'placements'].map((String role) {
                   return DropdownMenuItem<String>(
                     value: role,
                     child: Text(role.substring(0, 1).toUpperCase() + role.substring(1)),

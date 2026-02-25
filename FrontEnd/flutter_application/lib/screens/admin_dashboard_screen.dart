@@ -341,7 +341,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                           decoration: _inputDecoration('Role', Icons.school_rounded),
                           dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
                           style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
-                          items: ['student', 'faculty', 'admin'].map((String role) {
+                          items: ['student', 'faculty', 'admin', 'placements'].map((String role) {
                             return DropdownMenuItem<String>(
                               value: role,
                               child: Text(role.substring(0, 1).toUpperCase() + role.substring(1)),
@@ -385,6 +385,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                                   },
                                   validator: (value) => value == null ? 'Please select a department' : null,
                                 ),
+                          const SizedBox(height: 20),
+                          _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_phoneController, 'Phone Number', Icons.phone_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_schoolController, 'School', Icons.school_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_rounded),
+                        ],
+
+                        if (selectedRole == 'placements') ...[
+                          const SizedBox(height: 20),
+                          _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_usnController, 'Officer ID', Icons.badge_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_phoneController, 'Phone Number', Icons.phone_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_schoolController, 'School', Icons.school_rounded),
+                          const SizedBox(height: 20),
+                          _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_rounded),
                         ],
                         
                         if (selectedRole == 'student') ...[
