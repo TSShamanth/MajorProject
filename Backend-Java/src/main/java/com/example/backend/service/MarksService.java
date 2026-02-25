@@ -79,8 +79,8 @@ public class MarksService {
                     int courseCredits = 4; // Default
                     try {
                         com.example.backend.models.Course course = courseService.getCourseByCode(institutionId, m.getCourseCode());
-                        if (course != null) {
-                            courseCredits = course.getCredits();
+                        if (course != null && course.getCredits() != null) {
+                            courseCredits = Integer.parseInt(course.getCredits().toString());
                         }
                     } catch (Exception e) {
                         // Keep default

@@ -8,7 +8,7 @@ class Course {
   final List<String> studentsEnrolled;
   final String totalClasses;
   final String? departmentId;
-  final int credits;
+  final String credits;
 
   Course({
     required this.courseCode,
@@ -20,7 +20,7 @@ class Course {
     required this.studentsEnrolled,
     required this.totalClasses,
     this.departmentId, 
-    this.credits = 4, // Default to 4
+    this.credits = '4', // Default to '4'
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -34,7 +34,7 @@ class Course {
       studentsEnrolled: List<String>.from(json['studentsEnrolled'] ?? []), 
       totalClasses: json['totalClasses'],
       departmentId: json['departmentId'],
-      credits: json['credits'] ?? 4,
+      credits: json['credits']?.toString() ?? '4',
     );
   }
 

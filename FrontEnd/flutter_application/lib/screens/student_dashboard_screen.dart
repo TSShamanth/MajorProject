@@ -5,6 +5,7 @@ import 'package:flutter_application/models/timetable_entry_model.dart';
 import 'package:flutter_application/models/room_model.dart';
 import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/services/api_service.dart';
+import 'package:flutter_application/services/attendance_service.dart';
 import 'package:flutter_application/services/timetable_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -119,10 +120,23 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   Future<void> _fetchAcademicSummary(String institutionId, String studentId) async {
     try {
       final apiService = ApiService();
-      final summary = await apiService.getAcademicSummary(institutionId, studentId);
+      final results = await Future.wait([
+        apiService.getAcademicSummary(institutionId, studentId),
+        AttendanceService.getSubjectWiseAttendance(studentId),
+      ]);
+
       if (mounted) {
+        final attendanceData = results[1] as List<dynamic>;
+        double totalPct = 0;
+        if (attendanceData.isNotEmpty) {
+          for (var item in attendanceData) {
+            totalPct += (item.attendancePercentage as num).toDouble();
+          }
+          _attendancePercentage = totalPct / attendanceData.length;
+        }
+
         setState(() {
-          _academicSummary = summary;
+          _academicSummary = results[0] as Map<String, dynamic>;
           _isLoadingSummary = false;
         });
       }
@@ -1198,7 +1212,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
                 painter: _ProgressRingPainter(percentage: percentage, color: color),
                 child: Center(
                   child: Text(
-                    '${percentage.toInt()}%',
+                    '${percentage.toStringAsFixed(1)}%',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,

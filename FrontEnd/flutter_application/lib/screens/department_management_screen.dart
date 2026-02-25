@@ -255,7 +255,7 @@ class _DepartmentManagementScreenState
                         studentsEnrolled: selectedStudentIds,
                         totalClasses: totalClassesController.text,
                         departmentId: _departmentId!,
-                        credits: int.tryParse(creditsController.text) ?? 4,
+                        credits: creditsController.text.isNotEmpty ? creditsController.text : '4',
                       );
 
                       final url = course == null
