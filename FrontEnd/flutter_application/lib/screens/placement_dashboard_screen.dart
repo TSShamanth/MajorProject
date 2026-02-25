@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application/services/session_manager.dart';
+import 'package:go_router/go_router.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../models/user_model.dart';
 
 class PlacementDashboardScreen extends StatefulWidget {
@@ -149,6 +151,17 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     );
   }
 
+  Future<void> _handleLogout() async {
+    try {
+      await AuthService.logout();
+      if (mounted) {
+        context.go('/login');
+      }
+    } catch (e) {
+      debugPrint('Error logging out: $e');
+    }
+  }
+
   Widget _buildSidebarItems() {
     final items = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true},
@@ -164,6 +177,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
       itemBuilder: (context, index) {
         final item = items[index];
         bool active = item['active'] == true;
+
         return InkWell(
           onTap: () {},
           child: Container(
@@ -175,7 +189,11 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
             ),
             child: Row(
               children: [
-                Icon(item['icon'] as IconData, color: active ? _accentColor : Colors.white60, size: 22),
+                Icon(
+                  item['icon'] as IconData, 
+                  color: active ? _accentColor : Colors.white60, 
+                  size: 22
+                ),
                 if (_sidebarExpanded) ...[
                   const SizedBox(width: 16),
                   Text(
@@ -235,16 +253,6 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
           onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
         ),
         const SizedBox(width: 12),
-        Container(
-          height: 40,
-          width: 40,
-          decoration: BoxDecoration(
-            color: _accentColor.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(_accentColor == const Color(0xFF6366F1) ? Icons.person_rounded : Icons.person, color: _accentColor),
-        ),
-        const SizedBox(width: 12),
         if (MediaQuery.of(context).size.width > 1024)
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -254,6 +262,58 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
               Text('Placement Cell', style: TextStyle(color: _textSecondary, fontSize: 12)),
             ],
           ),
+        const SizedBox(width: 12),
+        PopupMenuButton<String>(
+          offset: const Offset(0, 50),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          onSelected: (value) {
+            if (value == 'logout') {
+              _handleLogout();
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'profile',
+              child: Row(
+                children: [
+                  Icon(Icons.person_outline_rounded, size: 20),
+                  SizedBox(width: 12),
+                  Text('My Profile'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'settings',
+              child: Row(
+                children: [
+                  Icon(Icons.settings_outlined, size: 20),
+                  SizedBox(width: 12),
+                  Text('Settings'),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              value: 'logout',
+              child: Row(
+                children: [
+                  Icon(Icons.logout_rounded, color: Colors.redAccent.shade200, size: 20),
+                  const SizedBox(width: 12),
+                  const Text('Logout', style: TextStyle(color: Colors.redAccent)),
+                ],
+              ),
+            ),
+          ],
+          child: Container(
+            height: 40,
+            width: 40,
+            decoration: BoxDecoration(
+              color: _accentColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.person_rounded, color: _accentColor),
+          ),
+        ),
       ],
     );
   }
