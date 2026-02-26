@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-//import '../services/auth_service.dart';
 import 'package:flutter_application/models/course_model.dart';
 import 'package:flutter_application/models/time_slot_model.dart';
 import 'package:flutter_application/models/timetable_entry_model.dart';
@@ -12,7 +11,193 @@ import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/auth_service.dart';
 import '../services/session_manager.dart';
+// ─── Import the shared search bar ───────────────────────────────────────────
+import 'global_search_bar.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FACULTY SEARCH DATA SOURCE
+// Covers every page, action, course, class, leave type, and student
+// that a faculty member can access. Add new categories here as the app grows.
+// ─────────────────────────────────────────────────────────────────────────────
+class _FacultySearchDataSource implements SearchDataSource {
+  final String institutionId;
+  final List<Course> courses;
+  final List<TimetableEntry> todaySchedule;
+  final List<TimeSlot> timeSlots;
+  final List<UserModel> mentees;
+
+  _FacultySearchDataSource({
+    required this.institutionId,
+    required this.courses,
+    required this.todaySchedule,
+    required this.timeSlots,
+    this.mentees = const [],
+  });
+
+  @override
+  Future<List<SearchResult>> search(String query) async {
+    final q = query.toLowerCase();
+    final results = <SearchResult>[];
+
+    // ── 1. PAGES  (sidebar navigation links) ─────────────────────────────────
+    final pages = [
+      {'label': 'Dashboard',          'sub': 'Home overview',                    'icon': Icons.dashboard_rounded,         'color': const Color(0xFF4F46E5), 'route': ''},
+      {'label': 'Profile',            'sub': 'View & edit your profile',         'icon': Icons.person_outline,            'color': const Color(0xFF4F46E5), 'route': '/faculty/profile'},
+      {'label': 'Virtual ID',         'sub': 'Your digital faculty ID card',     'icon': Icons.credit_card_outlined,      'color': const Color(0xFF4F46E5), 'route': '/faculty/virtual-id'},
+      {'label': 'Timetable',          'sub': 'Weekly class schedule',            'icon': Icons.calendar_today_outlined,   'color': const Color(0xFF4F46E5), 'route': '/faculty/timetable'},
+      {'label': 'Mentees',            'sub': 'Students under your mentorship',   'icon': Icons.group_outlined,            'color': const Color(0xFF10B981), 'route': '/faculty/mentees'},
+      {'label': "Students' Fee Status",'sub': 'Check student fee records',       'icon': Icons.payments_outlined,         'color': const Color(0xFF10B981), 'route': '/faculty/student-fees'},
+      {'label': 'Leave',              'sub': 'Apply for leave',                  'icon': Icons.description_outlined,      'color': const Color(0xFF8B5CF6), 'route': '/faculty/leave'},
+      {'label': 'Approve Leaves',     'sub': 'Review student leave requests',    'icon': Icons.check_circle_outline,      'color': const Color(0xFF8B5CF6), 'route': '/faculty/leave-approval'},
+      {'label': 'Marks Entry',        'sub': 'Enter & submit student marks',     'icon': Icons.grade_outlined,            'color': const Color(0xFFF59E0B), 'route': '/faculty/marks-entry'},
+      {'label': 'Payroll',            'sub': 'Salary & payslip details',         'icon': Icons.attach_money,              'color': const Color(0xFF10B981), 'route': '/faculty/payroll'},
+      {'label': 'Events',             'sub': 'Campus events & meetings',         'icon': Icons.celebration_outlined,      'color': const Color(0xFF8B5CF6), 'route': '/events'},
+      {'label': 'Mark Attendance',    'sub': 'Record class attendance',          'icon': Icons.assignment_turned_in_rounded,'color': const Color(0xFF4F46E5), 'route': '/faculty/mark-attendance'},
+      {'label': 'Clock-in History',   'sub': 'View your attendance log',         'icon': Icons.history_outlined,          'color': const Color(0xFF10B981), 'route': '/faculty/attendance-history'},
+      {'label': 'Announcements',      'sub': 'Institution announcements',        'icon': Icons.announcement_outlined,     'color': const Color(0xFF4F46E5), 'route': '/announcements'},
+    ];
+    for (final p in pages) {
+      final label = (p['label'] as String).toLowerCase();
+      final sub   = (p['sub']   as String).toLowerCase();
+      if (label.contains(q) || sub.contains(q)) {
+        final route = p['route'] as String;
+        results.add(SearchResult(
+          id: 'page_$label',
+          title: p['label'] as String,
+          subtitle: p['sub'] as String,
+          category: 'Pages',
+          icon: p['icon'] as IconData,
+          iconColor: p['color'] as Color,
+          route: route.isEmpty ? '/$institutionId' : '/$institutionId$route',
+        ));
+      }
+    }
+
+    // ── 2. COURSES  (real data from API) ─────────────────────────────────────
+    for (final c in courses) {
+      if (c.courseName.toLowerCase().contains(q) ||
+          c.courseCode.toLowerCase().contains(q) ||
+          c.program.toLowerCase().contains(q)) {
+        results.add(SearchResult(
+          id: c.courseCode,
+          title: c.courseName,
+          subtitle: '${c.courseCode}  •  ${c.program}  •  Sem ${c.semester}',
+          category: 'Courses',
+          icon: Icons.book_outlined,
+          iconColor: const Color(0xFF4F46E5),
+          route: '/$institutionId/faculty/mark-attendance',
+        ));
+      }
+    }
+
+    // ── 3. TODAY'S CLASSES  (real timetable data) ─────────────────────────────
+    for (final entry in todaySchedule) {
+      final slot = timeSlots.where((s) => s.id == entry.timeSlotId).firstOrNull;
+      final timeLabel = slot != null
+          ? '${slot.startTime} – ${slot.endTime}'
+          : 'Today';
+      final courseName = courses
+          .where((c) => c.courseCode == entry.courseCode)
+          .firstOrNull
+          ?.courseName ?? entry.courseCode;
+      if (courseName.toLowerCase().contains(q) ||
+          entry.courseCode.toLowerCase().contains(q) ||
+          'today'.contains(q) ||
+          'class'.contains(q) ||
+          'schedule'.contains(q)) {
+        results.add(SearchResult(
+          id: 'today_${entry.courseCode}',
+          title: courseName,
+          subtitle: 'Today  •  $timeLabel  •  ${entry.program} Sem ${entry.semester}',
+          category: "Today's Classes",
+          icon: Icons.access_time_rounded,
+          iconColor: const Color(0xFF10B981),
+          route: '/$institutionId/faculty/mark-attendance',
+        ));
+      }
+    }
+
+    // ── 4. QUICK ACTIONS ─────────────────────────────────────────────────────
+    final actions = [
+      {'label': 'Mark Attendance',   'sub': 'Record attendance for a class',    'icon': Icons.assignment_turned_in_rounded, 'color': const Color(0xFF4F46E5), 'route': '/faculty/mark-attendance'},
+      {'label': 'View Clock-in History','sub': 'Check your clock-in/out log',   'icon': Icons.history_rounded,              'color': const Color(0xFF10B981), 'route': '/faculty/attendance-history'},
+      {'label': 'Apply Leave',       'sub': 'Submit a leave application',        'icon': Icons.event_busy_rounded,           'color': const Color(0xFF8B5CF6), 'route': '/faculty/leave'},
+      {'label': 'Approve Leaves',    'sub': 'Approve or reject leave requests',  'icon': Icons.check_circle_outline,         'color': const Color(0xFF64748B), 'route': '/faculty/leave-approval'},
+      {'label': 'Marks Entry',       'sub': 'Enter marks for your courses',      'icon': Icons.grade_outlined,               'color': const Color(0xFFF59E0B), 'route': '/faculty/marks-entry'},
+      {'label': 'View Payroll',      'sub': 'See salary and payslip',            'icon': Icons.account_balance_wallet_rounded,'color': const Color(0xFF0EA5E9), 'route': '/faculty/payroll'},
+      {'label': 'View Salary Slip',  'sub': 'Download monthly salary slip',      'icon': Icons.receipt_long_rounded,          'color': const Color(0xFF10B981), 'route': '/faculty/payroll'},
+    ];
+    for (final a in actions) {
+      final label = (a['label'] as String).toLowerCase();
+      final sub   = (a['sub']   as String).toLowerCase();
+      if (label.contains(q) || sub.contains(q)) {
+        results.add(SearchResult(
+          id: 'action_$label',
+          title: a['label'] as String,
+          subtitle: a['sub'] as String,
+          category: 'Quick Actions',
+          icon: a['icon'] as IconData,
+          iconColor: a['color'] as Color,
+          route: '/$institutionId${a['route']}',
+        ));
+      }
+    }
+
+    // ── 5. LEAVE  ────────────────────────────────────────────────────────────
+    final leaveTypes = [
+      {'label': 'Casual Leave',   'sub': '12 days balance  •  Apply now', 'route': '/faculty/leave'},
+      {'label': 'Sick Leave',     'sub': '8 days balance  •  Apply now',  'route': '/faculty/leave'},
+      {'label': 'Optional Leave', 'sub': '5 days balance  •  Apply now',  'route': '/faculty/leave'},
+    ];
+    for (final l in leaveTypes) {
+      if ((l['label']!).toLowerCase().contains(q) ||
+          'leave'.contains(q)) {
+        results.add(SearchResult(
+          id: 'leave_${l['label']}',
+          title: l['label']!,
+          subtitle: l['sub']!,
+          category: 'Leave',
+          icon: Icons.description_outlined,
+          iconColor: const Color(0xFF8B5CF6),
+          route: '/$institutionId${l['route']}',
+        ));
+      }
+    }
+
+    // ── 6. PAYROLL  ──────────────────────────────────────────────────────────
+    if ('payroll salary slip payment'.contains(q) && q.length >= 3) {
+      results.add(SearchResult(
+        id: 'payroll_summary',
+        title: 'Payroll Summary',
+        subtitle: 'Current month: ₹85,000  •  View full details',
+        category: 'Payroll',
+        icon: Icons.attach_money,
+        iconColor: const Color(0xFF10B981),
+        route: '/$institutionId/faculty/payroll',
+      ));
+    }
+
+    // ── 7. STUDENTS / MENTEES  (real data when available) ────────────────────
+    for (final m in mentees) {
+      if (m.displayName.toLowerCase().contains(q) ||
+          (m.email?.toLowerCase() ?? '').contains(q)) {
+        results.add(SearchResult(
+          id: m.uid,
+          title: m.displayName,
+          subtitle: m.email ?? 'Student',
+          category: 'Students',
+          icon: Icons.person_outline,
+          iconColor: const Color(0xFF10B981),
+          route: '/$institutionId/faculty/mentees',
+        ));
+      }
+    }
+
+    return results;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 class FacultyDashboardScreen extends StatefulWidget {
   const FacultyDashboardScreen({super.key});
 
@@ -59,9 +244,11 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
 
     try {
       final timetableService = TimetableService();
-
       final now = DateTime.now();
-      final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      final days = [
+        'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+        'Friday', 'Saturday', 'Sunday'
+      ];
       final todayName = days[now.weekday - 1];
 
       final results = await Future.wait([
@@ -119,34 +306,24 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to fetch user data: $e')),
       );
-      setState(() {
-        _isLoadingUser = false;
-      });
+      setState(() => _isLoadingUser = false);
     }
   }
 
   Future<Position> _determinePosition() async {
-    bool serviceEnabled;
-    LocationPermission permission;
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return Future.error('Location services are disabled.');
 
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return Future.error('Location services are disabled.');
-    }
-
-    permission = await Geolocator.checkPermission();
+    LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         return Future.error('Location permissions are denied');
       }
     }
-
     if (permission == LocationPermission.deniedForever) {
-      return Future.error(
-          'Location permissions are permanently denied, we cannot request permissions.');
+      return Future.error('Location permissions are permanently denied.');
     }
-
     return await Geolocator.getCurrentPosition();
   }
 
@@ -241,9 +418,21 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       setState(() {
         _notificationCount = list.where((n) => !n.read).length;
       });
-    } catch (e) {
-      // ignore
-    }
+    } catch (_) {}
+  }
+
+  // ── Build the search data source from all currently loaded data ──────────
+  _FacultySearchDataSource get _searchDataSource => _FacultySearchDataSource(
+        institutionId: _institutionId ?? '',
+        courses: _allCourses,
+        todaySchedule: _todaySchedule,
+        timeSlots: _allTimeSlots,
+        // mentees: _mentees,  ← uncomment when you load mentee data
+      );
+
+  // ── Navigate to a search result — route is already fully formed ───────────
+  void _onSearchResultTap(String route) {
+    if (route.isNotEmpty) context.push(route);
   }
 
   @override
@@ -399,7 +588,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
   // ── Mobile Top Bar ────────────────────────────────────────────────────────
   Widget _buildMobileTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
       decoration: BoxDecoration(
         color: _cardColor,
         border: Border(bottom: BorderSide(color: _borderColor)),
@@ -411,37 +600,75 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Builder(
-            builder: (context) => IconButton(
-              icon: Icon(Icons.menu_rounded, color: _textPrimary),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text(
-              'AcadWorkHub',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF4F46E5),
+          // Row 1 — hamburger + logo + icons
+          Row(
+            children: [
+              Builder(
+                builder: (ctx) => IconButton(
+                  icon: Icon(Icons.menu_rounded, color: _textPrimary),
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                ),
               ),
-            ),
+              const SizedBox(width: 4),
+              const Expanded(
+                child: Text(
+                  'AcadWorkHub',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF4F46E5),
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: Icon(
+                  _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: _isDarkMode
+                      ? const Color(0xFFFBBF24)
+                      : const Color(0xFF4F46E5),
+                ),
+                onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
+              ),
+              Stack(
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.notifications_rounded, color: _textPrimary),
+                    onPressed: () {
+                      if (_institutionId != null) {
+                        context.push('/$_institutionId/notifications');
+                        setState(() => _notificationCount = 0);
+                      }
+                    },
+                  ),
+                  if (_notificationCount > 0)
+                    Positioned(
+                      right: 10,
+                      top: 10,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEF4444),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ),
-          IconButton(
-            icon: Icon(
-              _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-              color: _isDarkMode
-                  ? const Color(0xFFFBBF24)
-                  : const Color(0xFF4F46E5),
+          // Row 2 — active search bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+            child: GlobalSearchBar(
+              isDarkMode: _isDarkMode,
+              height: 42,
+              hintText: 'Search courses, students...',
+              dataSource: _searchDataSource,
+              onNavigate: _onSearchResultTap,
             ),
-            onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
-          ),
-          IconButton(
-            icon: Icon(Icons.notifications_rounded, color: _textPrimary),
-            onPressed: () {},
           ),
         ],
       ),
@@ -483,7 +710,6 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                     border: Border(
                       bottom: BorderSide(
                         color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
-                        width: 1,
                       ),
                     ),
                   ),
@@ -535,11 +761,8 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: IconButton(
-                          icon: const Icon(
-                            Icons.chevron_left_rounded,
-                            color: Colors.white,
-                            size: 24,
-                          ),
+                          icon: const Icon(Icons.chevron_left_rounded,
+                              color: Colors.white, size: 24),
                           onPressed: () => setState(() => _sidebarExpanded = false),
                           tooltip: 'Collapse sidebar',
                           padding: const EdgeInsets.all(8),
@@ -551,32 +774,37 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                 ),
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     children: menuItems.map((item) {
                       final isActive = item['active'] == true;
                       return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 3),
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: () {
                               final route = item['route'];
                               if (route != null && _institutionId != null) {
-                                context.push('/$_institutionId${route as String}');
+                                context.push(
+                                    '/$_institutionId${route as String}');
                               }
                             },
                             borderRadius: BorderRadius.circular(12),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 14),
                               decoration: BoxDecoration(
                                 color: isActive
-                                    ? Colors.white.withOpacity(_isDarkMode ? 0.1 : 0.15)
+                                    ? Colors.white
+                                        .withOpacity(_isDarkMode ? 0.1 : 0.15)
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
                                 border: isActive
                                     ? Border.all(
-                                        color: Colors.white.withOpacity(_isDarkMode ? 0.2 : 0.3),
+                                        color: Colors.white.withOpacity(
+                                            _isDarkMode ? 0.2 : 0.3),
                                         width: 1,
                                       )
                                     : null,
@@ -585,7 +813,8 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                                 children: [
                                   Icon(
                                     item['icon'] as IconData,
-                                    color: Colors.white.withOpacity(isActive ? 1.0 : 0.7),
+                                    color: Colors.white
+                                        .withOpacity(isActive ? 1.0 : 0.7),
                                     size: 24,
                                   ),
                                   const SizedBox(width: 16),
@@ -593,18 +822,23 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                                     child: Text(
                                       item['label'] as String,
                                       style: TextStyle(
-                                        color: Colors.white.withOpacity(isActive ? 1.0 : 0.8),
+                                        color: Colors.white.withOpacity(
+                                            isActive ? 1.0 : 0.8),
                                         fontSize: 15,
-                                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                                        fontWeight: isActive
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
                                       ),
                                     ),
                                   ),
                                   if (item['badge'] != null)
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 7, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFEF4444),
-                                        borderRadius: BorderRadius.circular(10),
+                                        borderRadius:
+                                            BorderRadius.circular(10),
                                       ),
                                       child: Text(
                                         item['badge'] as String,
@@ -629,8 +863,8 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                   decoration: BoxDecoration(
                     border: Border(
                       top: BorderSide(
-                        color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
-                        width: 1,
+                        color:
+                            Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
                       ),
                     ),
                   ),
@@ -645,15 +879,13 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                           child: Row(
                             children: [
                               Icon(Icons.help_outline_rounded,
-                                  size: 16, color: Colors.white.withOpacity(0.6)),
+                                  size: 16,
+                                  color: Colors.white.withOpacity(0.6)),
                               const SizedBox(width: 8),
-                              Text(
-                                'Help & Support',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
-                                  fontSize: 13,
-                                ),
-                              ),
+                              Text('Help & Support',
+                                  style: TextStyle(
+                                      color: Colors.white.withOpacity(0.7),
+                                      fontSize: 13)),
                             ],
                           ),
                         ),
@@ -667,15 +899,13 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                           child: Row(
                             children: [
                               Icon(Icons.description_outlined,
-                                  size: 16, color: Colors.white.withOpacity(0.6)),
+                                  size: 16,
+                                  color: Colors.white.withOpacity(0.6)),
                               const SizedBox(width: 8),
-                              Text(
-                                'Documentation',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
-                                  fontSize: 13,
-                                ),
-                              ),
+                              Text('Documentation',
+                                  style: TextStyle(
+                                      color: Colors.white.withOpacity(0.7),
+                                      fontSize: 13)),
                             ],
                           ),
                         ),
@@ -689,7 +919,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
     );
   }
 
-  // ── Modern Top Bar ────────────────────────────────────────────────────────
+  // ── Modern Top Bar (desktop / tablet) ─────────────────────────────────────
   Widget _buildModernTopBar({bool isMobile = false}) {
     if (isMobile) return const SizedBox.shrink();
 
@@ -713,11 +943,14 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       ),
       child: Row(
         children: [
+          // Sidebar re-open button (shown when sidebar is collapsed)
           if (!_sidebarExpanded)
             Container(
               margin: const EdgeInsets.only(right: 16),
               decoration: BoxDecoration(
-                color: _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5),
+                color: _isDarkMode
+                    ? const Color(0xFF1F2937)
+                    : const Color(0xFF4F46E5),
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
@@ -739,40 +972,27 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                     width: 46,
                     height: 46,
                     alignment: Alignment.center,
-                    child: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
+                    child: const Icon(Icons.menu_rounded,
+                        color: Colors.white, size: 24),
                   ),
                 ),
               ),
             ),
+
+          // ── ACTIVE SEARCH BAR ─────────────────────────────────────────────
           Expanded(
-            child: Container(
+            child: GlobalSearchBar(
+              isDarkMode: _isDarkMode,
               height: 46,
-              decoration: BoxDecoration(
-                color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _borderColor),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 18),
-                  Icon(Icons.search_rounded, color: _textSecondary, size: 22),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search students, courses...',
-                        hintStyle: TextStyle(color: _textSecondary, fontSize: 15),
-                        border: InputBorder.none,
-                        isDense: true,
-                      ),
-                      style: TextStyle(color: _textPrimary, fontSize: 15),
-                    ),
-                  ),
-                ],
-              ),
+              hintText: 'Search students, courses...',
+              dataSource: _searchDataSource,
+              onNavigate: _onSearchResultTap,
             ),
           ),
+          // ─────────────────────────────────────────────────────────────────
+
           const SizedBox(width: 16),
+          // Mark Attendance button
           ElevatedButton(
             onPressed: () {
               if (_institutionId != null) {
@@ -783,13 +1003,15 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               backgroundColor: const Color(0xFF4F46E5),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               elevation: 0,
             ),
             child: const Text('Mark Attendance',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           ),
           const SizedBox(width: 16),
+          // Dark mode toggle
           Container(
             decoration: BoxDecoration(
               color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
@@ -798,8 +1020,12 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
             ),
             child: IconButton(
               icon: Icon(
-                _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                color: _isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFF4F46E5),
+                _isDarkMode
+                    ? Icons.light_mode_rounded
+                    : Icons.dark_mode_rounded,
+                color: _isDarkMode
+                    ? const Color(0xFFFBBF24)
+                    : const Color(0xFF4F46E5),
                 size: 22,
               ),
               onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
@@ -807,6 +1033,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
             ),
           ),
           const SizedBox(width: 16),
+          // Notifications
           Stack(
             children: [
               Container(
@@ -817,30 +1044,37 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: IconButton(
-                  icon: Icon(Icons.notifications_rounded, color: _textPrimary, size: 24),
-                  onPressed: () {},
+                  icon: Icon(Icons.notifications_rounded,
+                      color: _textPrimary, size: 24),
+                  onPressed: () {
+                    if (_institutionId != null) {
+                      context.push('/$_institutionId/notifications');
+                      setState(() => _notificationCount = 0);
+                    }
+                  },
                 ),
               ),
-              Positioned(
-                right: 12,
-                top: 12,
-                child: Container(
-                  width: 9,
-                  height: 9,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEF4444),
-                    shape: BoxShape.circle,
+              if (_notificationCount > 0)
+                Positioned(
+                  right: 12,
+                  top: 12,
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(width: 20),
+          // User profile + dropdown
           Container(
             padding: const EdgeInsets.only(left: 20),
-            decoration: BoxDecoration(
-              border: Border(left: BorderSide(color: _borderColor)),
-            ),
+            decoration:
+                BoxDecoration(border: Border(left: BorderSide(color: _borderColor))),
             child: Row(
               children: [
                 Container(
@@ -855,14 +1089,12 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                     borderRadius: BorderRadius.circular(23),
                   ),
                   child: Center(
-                    child: Text(
-                      initials,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 17,
-                      ),
-                    ),
+                    child: Text(initials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 17,
+                        )),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -870,47 +1102,50 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      displayName,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: _textPrimary,
-                      ),
-                    ),
+                    Text(displayName,
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: _textPrimary)),
                     const SizedBox(height: 2),
-                    Text('Faculty', style: TextStyle(fontSize: 13, color: _textSecondary)),
+                    Text('Faculty',
+                        style: TextStyle(
+                            fontSize: 13, color: _textSecondary)),
                   ],
                 ),
                 const SizedBox(width: 10),
                 PopupMenuButton(
-                  icon: Icon(Icons.arrow_drop_down_rounded, color: _textSecondary, size: 26),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  icon: Icon(Icons.arrow_drop_down_rounded,
+                      color: _textSecondary, size: 26),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                   color: _cardColor,
-                  itemBuilder: (context) => [
+                  itemBuilder: (_) => [
                     PopupMenuItem(
                       onTap: () {
                         if (_institutionId != null) {
                           context.push('/$_institutionId/faculty/profile');
                         }
                       },
-                      child: Row(
-                        children: [
-                          Icon(Icons.person_outline, size: 20, color: _textPrimary),
-                          const SizedBox(width: 14),
-                          Text('Profile', style: TextStyle(fontSize: 15, color: _textPrimary)),
-                        ],
-                      ),
+                      child: Row(children: [
+                        Icon(Icons.person_outline,
+                            size: 20, color: _textPrimary),
+                        const SizedBox(width: 14),
+                        Text('Profile',
+                            style: TextStyle(
+                                fontSize: 15, color: _textPrimary)),
+                      ]),
                     ),
                     PopupMenuItem(
                       onTap: () {},
-                      child: Row(
-                        children: [
-                          Icon(Icons.settings_rounded, size: 20, color: _textPrimary),
-                          const SizedBox(width: 14),
-                          Text('Settings', style: TextStyle(fontSize: 15, color: _textPrimary)),
-                        ],
-                      ),
+                      child: Row(children: [
+                        Icon(Icons.settings_rounded,
+                            size: 20, color: _textPrimary),
+                        const SizedBox(width: 14),
+                        Text('Settings',
+                            style: TextStyle(
+                                fontSize: 15, color: _textPrimary)),
+                      ]),
                     ),
                     PopupMenuItem(
                       onTap: () async {
@@ -919,14 +1154,14 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                         await AuthService.logout();
                         router.go('/login');
                       },
-                      child: const Row(
-                        children: [
-                          Icon(Icons.logout_rounded, size: 20, color: Color(0xFFEF4444)),
-                          SizedBox(width: 14),
-                          Text('Logout',
-                              style: TextStyle(color: Color(0xFFEF4444), fontSize: 15)),
-                        ],
-                      ),
+                      child: const Row(children: [
+                        Icon(Icons.logout_rounded,
+                            size: 20, color: Color(0xFFEF4444)),
+                        SizedBox(width: 14),
+                        Text('Logout',
+                            style: TextStyle(
+                                color: Color(0xFFEF4444), fontSize: 15)),
+                      ]),
                     ),
                   ],
                 ),
@@ -952,14 +1187,12 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
           const SizedBox(width: 10),
           Icon(Icons.chevron_right_rounded, size: 18, color: _textSecondary),
           const SizedBox(width: 10),
-          const Text(
-            'Dashboard',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF4F46E5),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          const Text('Dashboard',
+              style: TextStyle(
+                fontSize: 14,
+                color: Color(0xFF4F46E5),
+                fontWeight: FontWeight.w600,
+              )),
         ],
       ),
     );
@@ -991,7 +1224,8 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
             const SizedBox(height: 4),
             Text(
               '${_currentUser?.programme ?? '...'} Department',
-              style: TextStyle(fontSize: isMobile ? 13 : 14, color: _textSecondary),
+              style: TextStyle(
+                  fontSize: isMobile ? 13 : 14, color: _textSecondary),
             ),
             SizedBox(height: isMobile ? 16 : 24),
             _buildClockInCard(),
@@ -1001,344 +1235,6 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
             _buildResponsiveMainContent(isMobile, isTablet, isDesktop),
           ],
         ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Help & Support',
-                          style: TextStyle(
-                            color: Color(0xFFA5B4FC),
-                            fontSize: 11,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Documentation',
-                          style: TextStyle(
-                            color: Color(0xFFA5B4FC),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          // Main Content Area - SCROLLABLE
-          Expanded(
-            child: Column(
-              children: [
-                // Top Bar - Fixed Height
-                Container(
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      // Search Bar
-                      Expanded(
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 400),
-                          height: 40,
-                          child: TextField(
-                            decoration: InputDecoration(
-                              hintText: 'Search students, courses...',
-                              hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
-                              prefixIcon: const Icon(Icons.search, color: Color(0xFF9CA3AF), size: 18),
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 2),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Quick Action Button
-                      ElevatedButton(
-                        onPressed: () {
-                          final institutionId = GoRouter.of(context)
-                              .routerDelegate
-                              .currentConfiguration
-                              .pathParameters['institutionId'];
-                          if (institutionId != null) {
-                            context.push('/$institutionId/faculty/mark-attendance');
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4F46E5),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text('Mark Attendance', style: TextStyle(fontSize: 13)),
-                      ),
-                      const SizedBox(width: 12),
-                      // Notifications
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF6B7280), size: 22),
-                            onPressed: () {
-                              if (_institutionId != null) {
-                                context.push('/$_institutionId/notifications');
-                                setState(() {
-                                  _notificationCount = 0;
-                                });
-                              }
-                            },
-                          ),
-                          if (_notificationCount > 0)
-                            Positioned(
-                              top: 6,
-                              right: 6,
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  '$_notificationCount',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(width: 12),
-                      // User Profile
-                      Container(
-                        padding: const EdgeInsets.only(left: 12),
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            left: BorderSide(color: Color(0xFFD1D5DB), width: 1),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF4F46E5),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  _currentUser != null && _currentUser!.displayName.isNotEmpty ? _currentUser!.displayName.substring(0, 2).toUpperCase() : '..',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _currentUser?.displayName ?? 'Loading...',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xFF374151),
-                                  ),
-                                ),
-                                Text(
-                                  'FAC2021', // This should probably come from the user model
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.logout, color: Color(0xFF6B7280), size: 18),
-                              onPressed: () async {
-                                final router = GoRouter.of(context);
-                                await SessionManager.clearSession();
-                                await AuthService.logout();
-                                router.go('/login');
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Breadcrumb - Fixed Height
-                Container(
-                  height: 40,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    border: Border(
-                      bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-                    ),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      const Text(
-                        'Home',
-                        style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
-                      ),
-                      const Icon(Icons.chevron_right, size: 14, color: Color(0xFF6B7280)),
-                      const Text(
-                        'Dashboard',
-                        style: TextStyle(fontSize: 13, color: Color(0xFF4F46E5), fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                  ),
-                ),
-                // Dashboard Content - Scrollable
-                Expanded(
-                  child: _isLoadingUser
-                      ? const Center(child: CircularProgressIndicator())
-                      : SingleChildScrollView(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Welcome Section
-                              Text(
-                                'Welcome, ${_currentUser?.displayName ?? '...'}',
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF111827),
-                                ),
-                              ),
-                              Text(
-                                '${_currentUser?.programme ?? '...'} Department | FAC2021',
-                                style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
-                              ),
-                              const SizedBox(height: 10),
-                              // Clock In Card
-                              _buildClockInCard(),
-                              const SizedBox(height: 10),
-                              // Stats Cards - Fixed Height
-                              SizedBox(
-                                height: 75,
-                                child: Row(
-                                  children: [
-                                    Expanded(child: _buildStatCard('Courses', '4', Icons.book_outlined, Colors.blue, '142 Students')),
-                                    const SizedBox(width: 8),
-                                    Expanded(child: _buildStatCard('Evaluations', '28', Icons.assignment_outlined, Colors.orange, '3 Pending')),
-                                    const SizedBox(width: 8),
-                                    Expanded(child: _buildStatCard('Placements', '32/42', Icons.work_outline, Colors.green, '76% Placed')),
-                                    const SizedBox(width: 8),
-                                    Expanded(child: _buildStatCard('Classes', '6', Icons.calendar_today_outlined, Colors.purple, 'This Week')),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              // Main Content Grid - Intrinsic Height
-                              IntrinsicHeight(
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    // Column 1 - 35%
-                                    Expanded(
-                                      flex: 35,
-                                      child: Column(
-                                        children: [
-                                          SizedBox(
-                                            height: 400,
-                                            child: _buildTodaysScheduleCard(),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          SizedBox(
-                                            height: 400,
-                                            child: _buildRecentActivity(),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    // Column 2 - 32%
-                                    Expanded(
-                                      flex: 32,
-                                      child: Column(
-                                        children: [
-                                          SizedBox(
-                                            height: 280,
-                                            child: _buildMenteesOverviewCard(),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          SizedBox(
-                                            height: 250,
-                                            child: _buildEventsMeetingsCard(),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          SizedBox(
-                                            height: 270,
-                                            child: _buildPayrollSummaryCard(),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    // Column 3 - 33%
-                                    Expanded(
-                                      flex: 33,
-                                      child: Column(
-                                        children: [
-                                          SizedBox(
-                                            height: 240,
-                                            child: _buildQuickActionsCard(),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          SizedBox(
-                                            height: 560,
-                                            child: _buildLeaveStatusCard(),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1388,14 +1284,11 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Attendance Status',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: _textPrimary,
-                    ),
-                  ),
+                  Text('Attendance Status',
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: _textPrimary)),
                   const SizedBox(height: 4),
                   Row(
                     children: [
@@ -1403,19 +1296,14 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
-                        ),
+                            color: statusColor, shape: BoxShape.circle),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        statusText,
-                        style: TextStyle(
-                          color: statusColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
+                      Text(statusText,
+                          style: TextStyle(
+                              color: statusColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13)),
                     ],
                   ),
                 ],
@@ -1444,8 +1332,10 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: statusColor,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
               elevation: 0,
             ),
           ),
@@ -1542,37 +1432,31 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontSize: isSmall ? 24 : 30,
-                  fontWeight: FontWeight.w800,
-                  color: _textPrimary,
-                  letterSpacing: -1,
-                ),
-              ),
+              child: Text(value,
+                  style: TextStyle(
+                    fontSize: isSmall ? 24 : 30,
+                    fontWeight: FontWeight.w800,
+                    color: _textPrimary,
+                    letterSpacing: -1,
+                  )),
             ),
             const SizedBox(height: 4),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: isSmall ? 11 : 13,
-                color: _textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
+            Text(title,
+                style: TextStyle(
+                  fontSize: isSmall ? 11 : 13,
+                  color: _textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1),
             const SizedBox(height: 2),
-            Text(
-              subtext,
-              style: TextStyle(
-                fontSize: isSmall ? 10 : 12,
-                color: _textSecondary.withOpacity(0.7),
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
+            Text(subtext,
+                style: TextStyle(
+                  fontSize: isSmall ? 10 : 12,
+                  color: _textSecondary.withOpacity(0.7),
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1),
           ],
         ),
       );
@@ -1580,7 +1464,8 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
   }
 
   // ── Responsive main content ────────────────────────────────────────────────
-  Widget _buildResponsiveMainContent(bool isMobile, bool isTablet, bool isDesktop) {
+  Widget _buildResponsiveMainContent(
+      bool isMobile, bool isTablet, bool isDesktop) {
     if (isMobile || isTablet) {
       return Column(
         children: [
@@ -1663,7 +1548,8 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
     );
   }
 
-  Widget _cardHeader(String title, IconData icon, Color color, {Widget? trailing}) {
+  Widget _cardHeader(String title, IconData icon, Color color,
+      {Widget? trailing}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1678,14 +1564,11 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               child: Icon(icon, color: color, size: 20),
             ),
             const SizedBox(width: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: _textPrimary,
-              ),
-            ),
+            Text(title,
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: _textPrimary)),
           ],
         ),
         if (trailing != null) trailing,
@@ -1703,22 +1586,26 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               Icons.calendar_today_outlined, const Color(0xFF4F46E5)),
           const SizedBox(height: 16),
           if (_isLoadingSchedule)
-            const Center(child: CircularProgressIndicator(color: Color(0xFF4F46E5)))
+            const Center(
+                child: CircularProgressIndicator(color: Color(0xFF4F46E5)))
           else if (_todaySchedule.isEmpty)
             Center(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'No classes scheduled for today.',
-                  style: TextStyle(fontSize: 13, color: _textSecondary),
-                ),
+                padding: const EdgeInsets.all(16),
+                child: Text('No classes scheduled for today.',
+                    style: TextStyle(fontSize: 13, color: _textSecondary)),
               ),
             )
           else
             ..._todaySchedule.map((entry) {
               final slot = _allTimeSlots.firstWhere(
                 (s) => s.id == entry.timeSlotId,
-                orElse: () => TimeSlot(id: '', startTime: '--', endTime: '--', slotNumber: 0, institutionId: ''),
+                orElse: () => TimeSlot(
+                    id: '',
+                    startTime: '--',
+                    endTime: '--',
+                    slotNumber: 0,
+                    institutionId: ''),
               );
               final course = _allCourses.firstWhere(
                 (c) => c.courseCode == entry.courseCode,
@@ -1734,7 +1621,11 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               );
               final room = _allRooms.firstWhere(
                 (r) => r.id == entry.roomId,
-                orElse: () => Room(id: '', name: entry.roomId, capacity: 0, institutionId: ''),
+                orElse: () => Room(
+                    id: '',
+                    name: entry.roomId,
+                    capacity: 0,
+                    institutionId: ''),
               );
 
               return Padding(
@@ -1742,16 +1633,20 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+                    color: _isDarkMode
+                        ? const Color(0xFF111827)
+                        : _bgColor,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: _borderColor),
                   ),
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF4F46E5).withOpacity(0.1),
+                          color:
+                              const Color(0xFF4F46E5).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -1768,29 +1663,27 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              course.courseName,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                                color: _textPrimary,
-                              ),
-                            ),
+                            Text(course.courseName,
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    color: _textPrimary)),
                             const SizedBox(height: 2),
-                            Text(
-                              'Room: ${room.name}',
-                              style: TextStyle(fontSize: 12, color: _textSecondary),
-                            ),
+                            Text('Room: ${room.name}',
+                                style: TextStyle(
+                                    fontSize: 12, color: _textSecondary)),
                           ],
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: const Color(0xFF10B981).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                              color: const Color(0xFF10B981).withOpacity(0.3)),
+                              color:
+                                  const Color(0xFF10B981).withOpacity(0.3)),
                         ),
                         child: Text(
                           '${entry.program} Sem ${entry.semester}',
@@ -1825,9 +1718,11 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _cardHeader('Recent Activity', Icons.timeline_rounded, const Color(0xFF8B5CF6),
+          _cardHeader('Recent Activity', Icons.timeline_rounded,
+              const Color(0xFF8B5CF6),
               trailing: IconButton(
-                icon: Icon(Icons.filter_list_rounded, size: 18, color: _textSecondary),
+                icon: Icon(Icons.filter_list_rounded,
+                    size: 18, color: _textSecondary),
                 onPressed: () {},
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -1839,7 +1734,9 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+                  color: _isDarkMode
+                      ? const Color(0xFF111827)
+                      : _bgColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -1848,28 +1745,23 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                       width: 6,
                       height: 6,
                       decoration: BoxDecoration(
-                        color: activity['color'] as Color,
-                        shape: BoxShape.circle,
-                      ),
+                          color: activity['color'] as Color,
+                          shape: BoxShape.circle),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            activity['title'] as String,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: _textPrimary,
-                            ),
-                          ),
+                          Text(activity['title'] as String,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: _textPrimary)),
                           const SizedBox(height: 2),
-                          Text(
-                            activity['time'] as String,
-                            style: TextStyle(fontSize: 11, color: _textSecondary),
-                          ),
+                          Text(activity['time'] as String,
+                              style: TextStyle(
+                                  fontSize: 11, color: _textSecondary)),
                         ],
                       ),
                     ),
@@ -1891,25 +1783,30 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _cardHeader('Mentees Overview', Icons.group_outlined, const Color(0xFF10B981)),
+          _cardHeader('Mentees Overview', Icons.group_outlined,
+              const Color(0xFF10B981)),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withOpacity(_isDarkMode ? 0.15 : 0.08),
+              color: const Color(0xFF10B981)
+                  .withOpacity(_isDarkMode ? 0.15 : 0.08),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                  color: const Color(0xFF10B981).withOpacity(_isDarkMode ? 0.3 : 0.2)),
+                  color: const Color(0xFF10B981)
+                      .withOpacity(_isDarkMode ? 0.3 : 0.2)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity(_isDarkMode ? 0.25 : 0.15),
+                    color: const Color(0xFF10B981)
+                        .withOpacity(_isDarkMode ? 0.25 : 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.groups_rounded, color: Color(0xFF10B981), size: 20),
+                  child: const Icon(Icons.groups_rounded,
+                      color: Color(0xFF10B981), size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1924,14 +1821,14 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                       const SizedBox(height: 2),
                       const Text('24',
                           style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF10B981),
-                          )),
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF10B981))),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded, color: Color(0xFF10B981), size: 22),
+                const Icon(Icons.chevron_right_rounded,
+                    color: Color(0xFF10B981), size: 22),
               ],
             ),
           ),
@@ -1956,8 +1853,10 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
                 elevation: 0,
               ),
             ),
@@ -1973,16 +1872,22 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       decoration: BoxDecoration(
         color: color.withOpacity(_isDarkMode ? 0.1 : 0.06),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(_isDarkMode ? 0.25 : 0.15)),
+        border:
+            Border.all(color: color.withOpacity(_isDarkMode ? 0.25 : 0.15)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
               style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w500, color: _textPrimary)),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: _textPrimary)),
           Text(count,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: color)),
         ],
       ),
     );
@@ -1994,7 +1899,8 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _cardHeader('Events & Meetings', Icons.celebration_outlined, const Color(0xFF8B5CF6),
+          _cardHeader('Events & Meetings', Icons.celebration_outlined,
+              const Color(0xFF8B5CF6),
               trailing: ElevatedButton.icon(
                 onPressed: () {
                   if (_institutionId != null) {
@@ -2003,12 +1909,15 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                 },
                 icon: const Icon(Icons.add_rounded, size: 14),
                 label: const Text('Create',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                   elevation: 0,
                 ),
               )),
@@ -2023,13 +1932,15 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
     );
   }
 
-  Widget _buildEventTile(String title, String badge, String subtitle, Color color) {
+  Widget _buildEventTile(
+      String title, String badge, String subtitle, Color color) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: color.withOpacity(_isDarkMode ? 0.15 : 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(_isDarkMode ? 0.3 : 0.2)),
+        border: Border.all(
+            color: color.withOpacity(_isDarkMode ? 0.3 : 0.2)),
       ),
       child: Row(
         children: [
@@ -2039,10 +1950,13 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               children: [
                 Text(title,
                     style: TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 13, color: color)),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: color)),
                 const SizedBox(height: 4),
                 Text(subtitle,
-                    style: TextStyle(fontSize: 12, color: _textSecondary)),
+                    style:
+                        TextStyle(fontSize: 12, color: _textSecondary)),
               ],
             ),
           ),
@@ -2054,7 +1968,9 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
             ),
             child: Text(badge,
                 style: TextStyle(
-                    color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+                    color: color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -2067,7 +1983,8 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _cardHeader('Payroll Summary', Icons.attach_money, const Color(0xFF10B981)),
+          _cardHeader(
+              'Payroll Summary', Icons.attach_money, const Color(0xFF10B981)),
           const SizedBox(height: 16),
           Container(
             width: double.infinity,
@@ -2113,7 +2030,9 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+                    color: _isDarkMode
+                        ? const Color(0xFF111827)
+                        : _bgColor,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: _borderColor),
                   ),
@@ -2121,7 +2040,8 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Basic',
-                          style: TextStyle(color: _textSecondary, fontSize: 11)),
+                          style: TextStyle(
+                              color: _textSecondary, fontSize: 11)),
                       const SizedBox(height: 4),
                       Text('₹60,000',
                           style: TextStyle(
@@ -2137,7 +2057,9 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+                    color: _isDarkMode
+                        ? const Color(0xFF111827)
+                        : _bgColor,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: _borderColor),
                   ),
@@ -2145,7 +2067,8 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Allowances',
-                          style: TextStyle(color: _textSecondary, fontSize: 11)),
+                          style: TextStyle(
+                              color: _textSecondary, fontSize: 11)),
                       const SizedBox(height: 4),
                       Text('₹25,000',
                           style: TextStyle(
@@ -2169,12 +2092,15 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               },
               icon: const Icon(Icons.receipt_long_rounded, size: 16),
               label: const Text('View Salary Slip',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  style:
+                      TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
                 elevation: 0,
               ),
             ),
@@ -2187,49 +2113,20 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
   // ── Quick Actions ──────────────────────────────────────────────────────────
   Widget _buildQuickActionsCard() {
     final actions = [
-      {
-        'label': 'Mark Attendance',
-        'color': const Color(0xFF4F46E5),
-        'icon': Icons.assignment_turned_in_rounded,
-        'route': '/faculty/mark-attendance'
-      },
-      {
-        'label': 'View History',
-        'color': const Color(0xFF10B981),
-        'icon': Icons.history_rounded,
-        'route': '/faculty/attendance-history'
-      },
-      {
-        'label': 'Apply Leave',
-        'color': const Color(0xFF8B5CF6),
-        'icon': Icons.event_busy_rounded,
-        'route': '/faculty/leave'
-      },
-      {
-        'label': 'Approve Leaves',
-        'color': const Color(0xFF64748B),
-        'icon': Icons.check_circle_outline,
-        'route': '/faculty/leave-approval'
-      },
-      {
-        'label': 'Marks Entry',
-        'color': const Color(0xFFF59E0B),
-        'icon': Icons.grade_outlined,
-        'route': '/faculty/marks-entry'
-      },
-      {
-        'label': 'View Payroll',
-        'color': const Color(0xFF0EA5E9),
-        'icon': Icons.account_balance_wallet_rounded,
-        'route': '/faculty/payroll'
-      },
+      {'label': 'Mark Attendance', 'color': const Color(0xFF4F46E5), 'icon': Icons.assignment_turned_in_rounded, 'route': '/faculty/mark-attendance'},
+      {'label': 'View History', 'color': const Color(0xFF10B981), 'icon': Icons.history_rounded, 'route': '/faculty/attendance-history'},
+      {'label': 'Apply Leave', 'color': const Color(0xFF8B5CF6), 'icon': Icons.event_busy_rounded, 'route': '/faculty/leave'},
+      {'label': 'Approve Leaves', 'color': const Color(0xFF64748B), 'icon': Icons.check_circle_outline, 'route': '/faculty/leave-approval'},
+      {'label': 'Marks Entry', 'color': const Color(0xFFF59E0B), 'icon': Icons.grade_outlined, 'route': '/faculty/marks-entry'},
+      {'label': 'View Payroll', 'color': const Color(0xFF0EA5E9), 'icon': Icons.account_balance_wallet_rounded, 'route': '/faculty/payroll'},
     ];
 
     return _cardContainer(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _cardHeader('Quick Actions', Icons.bolt_rounded, const Color(0xFFF59E0B)),
+          _cardHeader(
+              'Quick Actions', Icons.bolt_rounded, const Color(0xFFF59E0B)),
           const SizedBox(height: 16),
           GridView.builder(
             shrinkWrap: true,
@@ -2271,10 +2168,9 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                         child: Text(
                           action['label'] as String,
                           style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: action['color'] as Color,
-                          ),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: action['color'] as Color),
                           textAlign: TextAlign.center,
                           overflow: TextOverflow.ellipsis,
                           maxLines: 2,
@@ -2297,18 +2193,22 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _cardHeader('Leave Balance', Icons.description_outlined, const Color(0xFF4F46E5)),
+          _cardHeader('Leave Balance', Icons.description_outlined,
+              const Color(0xFF4F46E5)),
           const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
-                  child: _buildLeaveBalanceTile('Casual', '12', const Color(0xFF4F46E5))),
+                  child: _buildLeaveBalanceTile(
+                      'Casual', '12', const Color(0xFF4F46E5))),
               const SizedBox(width: 10),
               Expanded(
-                  child: _buildLeaveBalanceTile('Optional', '5', const Color(0xFF8B5CF6))),
+                  child: _buildLeaveBalanceTile(
+                      'Optional', '5', const Color(0xFF8B5CF6))),
               const SizedBox(width: 10),
               Expanded(
-                  child: _buildLeaveBalanceTile('Sick', '8', const Color(0xFF10B981))),
+                  child: _buildLeaveBalanceTile(
+                      'Sick', '8', const Color(0xFF10B981))),
             ],
           ),
           const SizedBox(height: 16),
@@ -2322,12 +2222,15 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               },
               icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
               label: const Text('Apply for Leave',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  style:
+                      TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4F46E5),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
                 elevation: 0,
               ),
             ),
@@ -2343,29 +2246,26 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       decoration: BoxDecoration(
         color: color.withOpacity(_isDarkMode ? 0.15 : 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(_isDarkMode ? 0.3 : 0.2)),
+        border: Border.all(
+            color: color.withOpacity(_isDarkMode ? 0.3 : 0.2)),
       ),
       child: Column(
         children: [
           Text(count,
               style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: color,
-                letterSpacing: -1,
-              )),
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                  letterSpacing: -1)),
           const SizedBox(height: 4),
           Text(label,
               style: TextStyle(
-                fontSize: 12,
-                color: _textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
+                  fontSize: 12,
+                  color: _textSecondary,
+                  fontWeight: FontWeight.w500),
               textAlign: TextAlign.center),
         ],
       ),
     );
   }
-} 
-
 }
