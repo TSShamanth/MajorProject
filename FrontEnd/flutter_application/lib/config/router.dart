@@ -49,6 +49,7 @@ import '../screens/alumni_dashboard_screen.dart';
 import '../screens/alumni_directory_screen.dart';
 import '../screens/alumni_job_board_screen.dart';
 import '../screens/placement_dashboard_screen.dart';
+import '../screens/drive_details_screen.dart';
 import '../screens/student_mentor_dashboard_screen.dart';
 import '../screens/student_attendance_screen.dart';
 import '../screens/student/student_academics_screen.dart';
@@ -160,6 +161,13 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/placement/dashboard',
       builder: (context, state) => const PlacementDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/placement/drive/:driveId',
+      builder: (context, state) {
+        final driveId = state.pathParameters['driveId']!;
+        return DriveDetailsScreen(driveId: driveId);
+      },
     ),
     GoRoute(
       path: '/:institutionId/admin/fee-management',
