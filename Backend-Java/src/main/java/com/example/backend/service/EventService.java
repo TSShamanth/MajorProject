@@ -3,7 +3,6 @@ package com.example.backend.service;
 import com.example.backend.models.Event;
 import com.example.backend.models.EventRegistration;
 import com.example.backend.models.User;
-import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.*;
 import org.springframework.stereotype.Service;
 

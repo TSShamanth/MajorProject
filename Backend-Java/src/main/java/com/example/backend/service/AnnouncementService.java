@@ -1,8 +1,5 @@
 package com.example.backend.service;
-
 import com.example.backend.models.Announcement;
-import com.example.backend.service.UserService;
-import com.example.backend.service.NotificationService;
 import com.example.backend.models.Notification;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.Firestore;
