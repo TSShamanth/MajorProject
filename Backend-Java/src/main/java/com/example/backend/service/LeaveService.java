@@ -5,7 +5,6 @@ import com.example.backend.dto.LeaveApplicationDto;
 import com.example.backend.models.LeaveApplication;
 import com.example.backend.models.User;
 import com.example.backend.models.Notification;
-import com.example.backend.service.NotificationService;
 import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;

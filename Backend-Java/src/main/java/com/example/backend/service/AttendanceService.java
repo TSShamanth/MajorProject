@@ -6,7 +6,6 @@ import com.example.backend.models.Course;
 import com.example.backend.models.User;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -21,7 +20,6 @@ public class AttendanceService {
     private final UserService userService;
     private final CourseService courseService;
 
-    @Autowired
     public AttendanceService(Firestore firestore, UserService userService, CourseService courseService) {
         this.firestore = firestore;
         this.userService = userService;
