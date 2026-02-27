@@ -10,6 +10,41 @@ class AlumniDashboardScreen extends StatefulWidget {
 }
 
 class _AlumniDashboardScreenState extends State<AlumniDashboardScreen> {
+  // ── Shell state ────────────────────────────────────────────────────────────
+  bool _sidebarExpanded = true;
+  bool _isDarkMode = false;
+  String? _institutionId;
+
+  // ── Theme helpers ──────────────────────────────────────────────────────────
+  Color get _bgColor =>
+      _isDarkMode ? const Color(0xFF111827) : const Color(0xFFF8FAFC);
+  Color get _cardColor =>
+      _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+  Color get _textPrimary =>
+      _isDarkMode ? const Color(0xFFF9FAFB) : const Color(0xFF1F2937);
+  Color get _textSecondary =>
+      _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
+  Color get _borderColor =>
+      _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+
+  static const _accent  = Color(0xFF4F46E5);
+  static const _success = Color(0xFF10B981);
+  static const _warning = Color(0xFFF59E0B);
+  static const _danger  = Color(0xFFEF4444);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _institutionId = GoRouter.of(context)
+          .routerDelegate
+          .currentConfiguration
+          .pathParameters['institutionId'];
+      setState(() {});
+    });
+  }
+
+  // ── Navigation (unchanged) ─────────────────────────────────────────────────
   Future<void> _navigateTo(String route) async {
     final institutionId = await SessionManager.getInstitutionId();
     if (!mounted) return;

@@ -83,6 +83,7 @@ import '../screens/hall_ticket_viewer_screen.dart';
 import '../screens/student/student_leave_screen.dart';
 import '../screens/student/leave_history_screen.dart';
 import '../screens/notifications_screen.dart';
+import '../screens/coming_soon_screen.dart';
 
 
 final router = GoRouter(
@@ -511,6 +512,18 @@ final router = GoRouter(
         final eventTitle = state.extra as String;
         return EventParticipantsScreen(eventId: eventId, eventTitle: eventTitle);
       },
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/profile',
+      builder: (context, state) => const ComingSoonScreen(title: 'Faculty Profile'),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/leave',
+      builder: (context, state) => const ComingSoonScreen(title: 'Leave Application'),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/payroll',
+      builder: (context, state) => const ComingSoonScreen(title: 'Payroll'),
     ),
     GoRoute(
       path: '/',
