@@ -27,9 +27,9 @@ public class User {
     private List<String> assignedCourseCodes;  // For faculty
     private String attendanceStatus;
     private String activeLogId;
-    private boolean isDetained; // New field for student eligibility
-    private double attendancePercentage; // For mentorship snapshot
-    private double currentGPA; // For mentorship snapshot
+    private Boolean isDetained; // New field for student eligibility
+    private Double attendancePercentage; // For mentorship snapshot
+    private Double currentGPA; // For mentorship snapshot
     private List<Double> attendanceHistory; // Trend data
     private List<Double> gpaHistory; // Trend data
 
@@ -52,19 +52,19 @@ public class User {
         this.gpaHistory = gpaHistory;
     }
 
-    public double getAttendancePercentage() {
+    public Double getAttendancePercentage() {
         return attendancePercentage;
     }
 
-    public void setAttendancePercentage(double attendancePercentage) {
+    public void setAttendancePercentage(Double attendancePercentage) {
         this.attendancePercentage = attendancePercentage;
     }
 
-    public double getCurrentGPA() {
+    public Double getCurrentGPA() {
         return currentGPA;
     }
 
-    public void setCurrentGPA(double currentGPA) {
+    public void setCurrentGPA(Double currentGPA) {
         this.currentGPA = currentGPA;
     }
 
@@ -76,11 +76,11 @@ public class User {
         this.mentorId = mentorId;
     }
 
-    public boolean getIsDetained() {
+    public Boolean getIsDetained() {
         return isDetained;
     }
 
-    public void setIsDetained(boolean detained) {
+    public void setIsDetained(Boolean detained) {
         this.isDetained = detained;
     }
 

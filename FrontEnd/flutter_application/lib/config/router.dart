@@ -86,6 +86,11 @@ import '../screens/notifications_screen.dart';
 import '../screens/coming_soon_screen.dart';
 
 
+import 'package:flutter_application/screens/student_placement_dashboard_screen.dart';
+import 'package:flutter_application/screens/placement_registration_screen.dart';
+import 'package:flutter_application/screens/resume_builder_screen.dart';
+import 'package:flutter_application/screens/placement_history_screen.dart';
+
 final router = GoRouter(
   routes: [
     GoRoute(
@@ -137,7 +142,35 @@ final router = GoRouter(
           path: '/:institutionId/student/my-mentors',
           builder: (context, state) => const StudentMentorDashboardScreen(),
         ),
+        GoRoute(
+          path: '/:institutionId/student/placement',
+          builder: (context, state) {
+            final institutionId = state.pathParameters['institutionId']!;
+            return StudentPlacementDashboardScreen(institutionId: institutionId);
+          },
+        ),
       ],
+    ),
+    GoRoute(
+      path: '/:institutionId/placement/registration',
+      builder: (context, state) {
+        final institutionId = state.pathParameters['institutionId']!;
+        return PlacementRegistrationScreen(institutionId: institutionId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/placement/resume-builder',
+      builder: (context, state) {
+        final institutionId = state.pathParameters['institutionId']!;
+        return ResumeBuilderScreen(institutionId: institutionId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/placement/history',
+      builder: (context, state) {
+        final institutionId = state.pathParameters['institutionId']!;
+        return PlacementHistoryScreen(institutionId: institutionId);
+      },
     ),
     GoRoute(
       path: '/:institutionId/admin/dashboard',

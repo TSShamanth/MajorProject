@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/company_model.dart';
 import '../models/placement_drive_model.dart';
 import '../models/placement_application_model.dart';
+import '../models/placement_registration_model.dart';
 import '../models/interview_slot_model.dart';
 
 class PlacementService {
@@ -22,6 +25,43 @@ class PlacementService {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
+  }
+
+  // --- Placement Registration & Profile ---
+
+  Future<PlacementRegistrationModel?> getRegistration(String uid) async {
+    final token = await _getToken();
+    if (token == null) return null;
+
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/placement/profile/$uid'),
+      headers: _getHeaders(token),
+    );
+
+    if (response.statusCode == 200) {
+      return PlacementRegistrationModel.fromJson(json.decode(response.body));
+    } else if (response.statusCode == 404) {
+      return null;
+    } else {
+      throw Exception('Failed to load placement registration');
+    }
+  }
+
+  Future<PlacementRegistrationModel> registerStudent(PlacementRegistrationModel registration) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/placement/register/${registration.uid}'),
+      headers: _getHeaders(token),
+      body: jsonEncode(registration.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return PlacementRegistrationModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to register for placement');
+    }
   }
 
   // --- Interviews ---
@@ -151,6 +191,70 @@ class PlacementService {
       return data.map((json) => PlacementApplicationModel.fromJson(json)).toList();
     } else {
       throw Exception('Failed to load applications');
+    }
+  }
+
+  Future<List<PlacementApplicationModel>> getStudentApplications(String uid) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/placement/applications/student/$uid'),
+      headers: _getHeaders(token),
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => PlacementApplicationModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load student applications');
+    }
+  }
+
+  Stream<List<PlacementApplicationModel>> streamStudentApplications(String uid) async* {
+    while (true) {
+      try {
+        yield await getStudentApplications(uid);
+      } catch (e) {
+        debugPrint('Error streaming applications: $e');
+      }
+      await Future.delayed(const Duration(seconds: 10)); // Poll every 10 seconds
+    }
+  }
+
+  Future<PlacementApplicationModel> applyForDrive(String uid, String studentName, String driveId) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/placement/apply/$uid/$driveId?studentName=$studentName'),
+      headers: _getHeaders(token),
+    );
+
+    if (response.statusCode == 200) {
+      return PlacementApplicationModel.fromJson(json.decode(response.body));
+    } else if (response.statusCode == 400) {
+      final error = json.decode(response.body)['error'];
+      throw Exception(error ?? 'Ineligible or already applied');
+    } else {
+      throw Exception('Failed to apply for drive');
+    }
+  }
+
+  Future<List<PlacementApplicationModel>> getPlacementHistory() async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/placement/history'),
+      headers: _getHeaders(token),
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => PlacementApplicationModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load placement history');
     }
   }
 

@@ -36,6 +36,8 @@ class StudentShell extends StatelessWidget {
       title = 'My Hall Tickets';
     } else if (location.contains('/student/academics')) {
       title = 'Academic Performance';
+    } else if (location.contains('/student/placement')) {
+      title = 'Placements';
     }
 
     return Scaffold(

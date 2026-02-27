@@ -224,7 +224,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       'Leave': '/$institutionId/student/leave',
       'Events': '/$institutionId/events',
       'Events & Calendar': '/$institutionId/events',
-      'Placements': '/$institutionId/student/placements',
+      'Placements': '/$institutionId/student/placement',
       'Assignments': '/$institutionId/student/academics',
       'Assignments & Tasks': '/$institutionId/student/academics',
       'Credits': '/$institutionId/student/academics',
