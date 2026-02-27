@@ -8,6 +8,10 @@ import '../services/placement_service.dart';
 import '../models/company_model.dart';
 import '../models/placement_drive_model.dart';
 import '../models/placement_application_model.dart';
+import '../models/interview_slot_model.dart';
+
+import '../services/event_service.dart';
+import '../models/event_model.dart';
 
 class PlacementDashboardScreen extends StatefulWidget {
   const PlacementDashboardScreen({super.key});
@@ -23,10 +27,14 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
   bool _isLoading = true;
   UserModel? _currentUser;
   PlacementService? _placementService;
+  final EventService _eventService = EventService();
   
   List<CompanyModel> _companies = [];
   List<PlacementDriveModel> _drives = [];
   List<PlacementApplicationModel> _applications = [];
+  List<UserModel> _students = [];
+  List<EventModel> _events = [];
+  List<InterviewSlotModel> _interviewSlots = [];
   Map<String, dynamic> _stats = {};
 
   final ApiService _apiService = ApiService();
@@ -62,7 +70,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
       if (institutionId != null) {
         _placementService = PlacementService(institutionId: institutionId);
         _currentUser = await _apiService.getMe(institutionId);
-        await _fetchAllData();
+        await _fetchAllData(institutionId);
       }
     } catch (e) {
       debugPrint('Error initializing placement dashboard: $e');
@@ -71,14 +79,20 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     }
   }
 
-  Future<void> _fetchAllData() async {
+  Future<void> _fetchAllData([String? institutionId]) async {
     if (_placementService == null) return;
     try {
+      final targetInstitutionId = institutionId ?? GoRouter.of(context).routerDelegate.currentConfiguration.pathParameters['institutionId'];
+      if (targetInstitutionId == null) return;
+
       final results = await Future.wait([
         _placementService!.getCompanies(),
         _placementService!.getPlacementDrives(),
         _placementService!.getApplications(),
         _placementService!.getPlacementStats(),
+        _apiService.getUsers(targetInstitutionId),
+        _eventService.getEventsForAudience(targetInstitutionId, category: 'Placement'),
+        _placementService!.getInterviewSlots(),
       ]);
 
       setState(() {
@@ -86,6 +100,10 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
         _drives = results[1] as List<PlacementDriveModel>;
         _applications = results[2] as List<PlacementApplicationModel>;
         _stats = results[3] as Map<String, dynamic>;
+        final allUsers = results[4] as List<UserModel>;
+        _students = allUsers.where((u) => u.role?.toLowerCase() == 'student').toList();
+        _events = results[5] as List<EventModel>;
+        _interviewSlots = results[6] as List<InterviewSlotModel>;
       });
     } catch (e) {
       debugPrint('Error fetching placement data: $e');
@@ -94,7 +112,9 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
 
   Future<void> _handleLogout() async {
     await AuthService.logout();
-    if (mounted) context.go('/login');
+    if (mounted) {
+      context.go('/login');
+    }
   }
 
   @override
@@ -371,6 +391,35 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
   }
 
   Widget _buildActivityLog() {
+    // Generate dynamic activity log
+    List<Widget> activities = [];
+    
+    // Recent applications
+    final recentApps = _applications.reversed.take(2);
+    for (var app in recentApps) {
+      activities.add(_buildActivityItem(
+        '${app.studentName} applied for ${app.companyName}', 
+        'Recently', 
+        Icons.person_add, 
+        Colors.blue
+      ));
+    }
+
+    // Recent drives
+    final recentDrives = _drives.reversed.take(2);
+    for (var drive in recentDrives) {
+      activities.add(_buildActivityItem(
+        'New recruitment drive launched: ${drive.companyName}', 
+        'Recently', 
+        Icons.rocket_launch, 
+        Colors.green
+      ));
+    }
+
+    if (activities.isEmpty) {
+      activities.add(Center(child: Text('No recent activity', style: TextStyle(color: _textSecondary))));
+    }
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -389,10 +438,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
             ],
           ),
           const SizedBox(height: 16),
-          _buildActivityItem('Moved 40 students to Technical Round for Amazon', '2 hours ago', Icons.sync_alt, Colors.blue),
-          _buildActivityItem('New drive launched for Google India', '4 hours ago', Icons.rocket_launch, Colors.green),
-          _buildActivityItem('Sent broadcast email to 150 eligible students', 'Yesterday', Icons.email_outlined, Colors.purple),
-          _buildActivityItem('Approved profile for student Manoj Kumar', 'Yesterday', Icons.verified_user, Colors.orange),
+          ...activities,
         ],
       ),
     );
@@ -454,6 +500,14 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
   }
 
   Widget _buildRecruitmentPipelineChart() {
+    int totalApps = _applications.length;
+    int shortlisted = _applications.where((a) => a.status.toLowerCase() == 'shortlisted').length;
+    int technical = _applications.where((a) => a.currentRound.toLowerCase().contains('technical')).length;
+    int hr = _applications.where((a) => a.currentRound.toLowerCase().contains('hr')).length;
+    int selected = _applications.where((a) => a.status.toLowerCase() == 'selected').length;
+
+    double max = totalApps > 0 ? totalApps.toDouble() : 1.0;
+
     return Container(
       height: 200,
       padding: const EdgeInsets.all(24),
@@ -465,11 +519,11 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildPipelineBar('Applications', 0.9, Colors.blue),
-          _buildPipelineBar('Aptitude', 0.65, Colors.orange),
-          _buildPipelineBar('Technical', 0.4, Colors.purple),
-          _buildPipelineBar('HR Round', 0.25, Colors.green),
-          _buildPipelineBar('Offers', 0.15, Colors.amber),
+          _buildPipelineBar('Applications', totalApps / max, Colors.blue),
+          _buildPipelineBar('Shortlisted', shortlisted / max, Colors.orange),
+          _buildPipelineBar('Technical', technical / max, Colors.purple),
+          _buildPipelineBar('HR Round', hr / max, Colors.green),
+          _buildPipelineBar('Offers', selected / max, Colors.amber),
         ],
       ),
     );
@@ -487,7 +541,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
             ),
             alignment: Alignment.bottomCenter,
             child: FractionallySizedBox(
-              heightFactor: value,
+              heightFactor: value > 0 ? (value > 1.0 ? 1.0 : value) : 0.05,
               child: Container(
                 width: 40,
                 decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
@@ -557,9 +611,10 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
         children: [
           Text('Upcoming Events', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _accentColor)),
           const SizedBox(height: 16),
-          _buildEventItem('Pre-Placement Talk', 'Google', '10:00 AM'),
-          _buildEventItem('Mock Interview', 'Dept CS', '02:00 PM'),
-          _buildEventItem('Coding Contest', 'CodeChef', '06:00 PM'),
+          if (_events.isEmpty)
+             Text('No upcoming placement events', style: TextStyle(color: _textSecondary, fontSize: 13))
+          else
+            ..._events.take(3).map((e) => _buildEventItem(e.title, e.venue, DateFormat('hh:mm a').format(e.startDateTime))),
         ],
       ),
     );
@@ -902,7 +957,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
       builder: (context) => _CreateDriveStepperDialog(
         service: _placementService!,
         companies: _companies,
-        onComplete: _fetchAllData,
+        onComplete: () => _fetchAllData(),
       ),
     );
   }
@@ -1134,17 +1189,17 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
                     columns: const [
                       DataColumn(label: Text('Student Detail')),
                       DataColumn(label: Text('Branch')),
-                      DataColumn(label: Text('CGPA')),
-                      DataColumn(label: Text('Verification')),
+                      DataColumn(label: Text('USN')),
+                      DataColumn(label: Text('Status')),
                       DataColumn(label: Text('Actions')),
                     ],
-                    rows: [
-                      _buildTalentRow('Manoj Kumar', '2RV22CS045', 'CSE', '8.92', true),
-                      _buildTalentRow('Priya Sharma', '2RV22IS012', 'ISE', '9.15', true),
-                      _buildTalentRow('Rahul Singh', '2RV22EC088', 'ECE', '7.45', false),
-                      _buildTalentRow('Ananya Rao', '2RV22CS002', 'CSE', '8.20', true),
-                      _buildTalentRow('Vikram Das', '2RV22ME054', 'ME', '6.80', false),
-                    ],
+                    rows: _students.map((student) => _buildTalentRow(
+                      student.displayName, 
+                      student.usn ?? 'N/A', 
+                      student.programme ?? 'N/A', 
+                      'Active', 
+                      true
+                    )).toList(),
                   ),
                 ),
               ),
@@ -1155,7 +1210,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
     );
   }
 
-  DataRow _buildTalentRow(String name, String usn, String branch, String cgpa, bool verified) {
+  DataRow _buildTalentRow(String name, String usn, String branch, String status, bool verified) {
     return DataRow(cells: [
       DataCell(Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1166,7 +1221,7 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
         ],
       )),
       DataCell(Text(branch)),
-      DataCell(Text(cgpa, style: const TextStyle(fontWeight: FontWeight.bold))),
+      DataCell(Text(usn, style: const TextStyle(fontWeight: FontWeight.bold))),
       DataCell(Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(color: verified ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
@@ -1230,14 +1285,27 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
           Expanded(
             child: Container(
               decoration: BoxDecoration(color: _cardColor, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.withOpacity(0.1))),
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _buildSlotTile('10:00 AM - 10:45 AM', 'Manoj Kumar', 'Amazon - Tech Round 1', 'Panel 1'),
-                  _buildSlotTile('10:45 AM - 11:30 AM', 'Priya Sharma', 'Amazon - Tech Round 1', 'Panel 1'),
-                  _buildSlotTile('11:00 AM - 11:45 AM', 'Ananya Rao', 'Google - HR Round', 'Panel 3'),
-                ],
-              ),
+              child: _interviewSlots.isEmpty 
+                ? Center(child: Text('No upcoming interviews scheduled', style: TextStyle(color: _textSecondary)))
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _interviewSlots.length,
+                    itemBuilder: (context, index) {
+                      final slot = _interviewSlots[index];
+                      String timeStr = 'N/A';
+                      try {
+                        timeStr = DateFormat('hh:mm a').format(DateTime.parse(slot.dateTime));
+                      } catch (e) {
+                        // Keep default 'N/A' if parsing fails
+                      }
+                      return _buildSlotTile(
+                        timeStr, 
+                        slot.studentName, 
+                        '${slot.companyName} - ${slot.roundName}', 
+                        slot.panelName
+                      );
+                    },
+                  ),
             ),
           ),
         ],
@@ -1302,6 +1370,25 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
   }
 
   Widget _buildReports() {
+    // Calculate department stats
+    Map<String, int> deptTotal = {};
+    Map<String, int> deptPlaced = {};
+    
+    for (var student in _students) {
+      String dept = student.programme ?? 'Other';
+      deptTotal[dept] = (deptTotal[dept] ?? 0) + 1;
+    }
+    
+    for (var app in _applications) {
+      if (app.status.toLowerCase() == 'selected') {
+        var student = _students.firstWhere((s) => s.uid == app.studentUid, orElse: () => UserModel(uid: '', email: '', displayName: '', role: ''));
+        if (student.uid.isNotEmpty) {
+          String dept = student.programme ?? 'Other';
+          deptPlaced[dept] = (deptPlaced[dept] ?? 0) + 1;
+        }
+      }
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -1321,18 +1408,23 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
           ),
           const SizedBox(height: 32),
           
-          // Row 1: High Level Department Stats
-          Row(
-            children: [
-              _buildDepartmentStat('CSE', 0.92, Colors.blue),
-              const SizedBox(width: 16),
-              _buildDepartmentStat('ISE', 0.88, Colors.indigo),
-              const SizedBox(width: 16),
-              _buildDepartmentStat('ECE', 0.74, Colors.orange),
-              const SizedBox(width: 16),
-              _buildDepartmentStat('EEE', 0.62, Colors.teal),
-            ],
-          ),
+          // Row 1: Dynamic Department Stats
+          if (deptTotal.isEmpty)
+             Center(child: Text('No department data available', style: TextStyle(color: _textSecondary)))
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: deptTotal.entries.map((entry) {
+                  double percent = entry.value > 0 ? (deptPlaced[entry.key] ?? 0) / entry.value : 0;
+                  return Container(
+                    width: 200,
+                    margin: const EdgeInsets.only(right: 16),
+                    child: _buildDepartmentStat(entry.key, percent, _accentColor),
+                  );
+                }).toList(),
+              ),
+            ),
           const SizedBox(height: 32),
 
           Row(
@@ -1388,6 +1480,28 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
   }
 
   Widget _buildSalaryHeatmap() {
+    int superDream = 0; // > 20
+    int dream = 0;      // 10 - 20
+    int mass = 0;       // 5 - 10
+    int other = 0;      // < 5
+
+    for (var app in _applications) {
+      if (app.status.toLowerCase() == 'selected') {
+        var drive = _drives.firstWhere((d) => d.companyName == app.companyName && d.jobRole == app.jobRole, orElse: () => PlacementDriveModel(id: '', companyId: '', companyName: '', jobRole: '', salaryPackage: 0, date: '', status: '', eligibilityCriteria: '', minCgpa: 0, allowedDepartments: [], recruitmentRounds: []));
+        if (drive.salaryPackage >= 20) {
+          superDream++;
+        } else if (drive.salaryPackage >= 10) {
+          dream++;
+        } else if (drive.salaryPackage >= 5) {
+          mass++;
+        } else {
+          other++;
+        }
+      }
+    }
+
+    int totalPlaced = superDream + dream + mass + other;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(color: _cardColor, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.withOpacity(0.1))),
@@ -1396,16 +1510,16 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
         children: [
           Text('Salary Package Distribution', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textPrimary)),
           const SizedBox(height: 24),
-          _buildSalaryBar('Super Dream (> 20 LPA)', 12, Colors.purple),
-          _buildSalaryBar('Dream (10 - 20 LPA)', 45, Colors.blue),
-          _buildSalaryBar('Mass (5 - 10 LPA)', 120, Colors.green),
-          _buildSalaryBar('Other (< 5 LPA)', 30, Colors.orange),
+          _buildSalaryBar('Super Dream (> 20 LPA)', superDream, Colors.purple, totalPlaced),
+          _buildSalaryBar('Dream (10 - 20 LPA)', dream, Colors.blue, totalPlaced),
+          _buildSalaryBar('Mass (5 - 10 LPA)', mass, Colors.green, totalPlaced),
+          _buildSalaryBar('Other (< 5 LPA)', other, Colors.orange, totalPlaced),
         ],
       ),
     );
   }
 
-  Widget _buildSalaryBar(String label, int count, Color color) {
+  Widget _buildSalaryBar(String label, int count, Color color, int total) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -1419,13 +1533,24 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
             ],
           ),
           const SizedBox(height: 8),
-          LinearProgressIndicator(value: count / 150, backgroundColor: color.withOpacity(0.1), color: color, minHeight: 8, borderRadius: BorderRadius.circular(4)),
+          LinearProgressIndicator(
+            value: total > 0 ? count / total : 0, 
+            backgroundColor: color.withOpacity(0.1), 
+            color: color, 
+            minHeight: 8, 
+            borderRadius: BorderRadius.circular(4)
+          ),
         ],
       ),
     );
   }
 
   Widget _buildRecruitmentFunnel() {
+    int totalEligible = _students.length;
+    int applied = _applications.map((e) => e.studentUid).toSet().length;
+    int shortlisted = _applications.where((a) => a.status.toLowerCase() == 'shortlisted').map((e) => e.studentUid).toSet().length;
+    int offered = _applications.where((a) => a.status.toLowerCase() == 'selected').map((e) => e.studentUid).toSet().length;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(color: _cardColor, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.withOpacity(0.1))),
@@ -1434,10 +1559,10 @@ class _PlacementDashboardScreenState extends State<PlacementDashboardScreen> wit
         children: [
           Text('Recruitment Funnel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textPrimary)),
           const SizedBox(height: 24),
-          _buildFunnelStep('Total Eligible', '1,200', 1.0, Colors.grey),
-          _buildFunnelStep('Applied', '850', 0.7, Colors.blue),
-          _buildFunnelStep('Shortlisted', '320', 0.4, Colors.orange),
-          _buildFunnelStep('Offered', '156', 0.15, Colors.green),
+          _buildFunnelStep('Total Eligible', totalEligible.toString(), 1.0, Colors.grey),
+          _buildFunnelStep('Applied', applied.toString(), totalEligible > 0 ? applied / totalEligible : 0, Colors.blue),
+          _buildFunnelStep('Shortlisted', shortlisted.toString(), applied > 0 ? shortlisted / applied : 0, Colors.orange),
+          _buildFunnelStep('Offered', offered.toString(), shortlisted > 0 ? offered / shortlisted : 0, Colors.green),
         ],
       ),
     );

@@ -3,6 +3,7 @@ package com.example.backend.controller;
 import com.example.backend.models.Company;
 import com.example.backend.models.PlacementDrive;
 import com.example.backend.models.PlacementApplication;
+import com.example.backend.models.InterviewSlot;
 import com.example.backend.service.PlacementService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,26 @@ public class PlacementController {
 
     public PlacementController(PlacementService placementService) {
         this.placementService = placementService;
+    }
+
+    // --- Interviews ---
+
+    @GetMapping("/interviews")
+    public ResponseEntity<List<InterviewSlot>> getInterviews(@PathVariable String institutionId) {
+        try {
+            return ResponseEntity.ok(placementService.getInterviewSlots(institutionId));
+        } catch (ExecutionException | InterruptedException e) {
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @PostMapping("/interviews")
+    public ResponseEntity<InterviewSlot> createInterview(@PathVariable String institutionId, @RequestBody InterviewSlot slot) {
+        try {
+            return ResponseEntity.ok(placementService.createInterviewSlot(institutionId, slot));
+        } catch (ExecutionException | InterruptedException e) {
+            return ResponseEntity.status(500).build();
+        }
     }
 
     // --- Companies ---

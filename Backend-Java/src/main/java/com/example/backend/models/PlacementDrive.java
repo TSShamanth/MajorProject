@@ -2,6 +2,7 @@ package com.example.backend.models;
 
 import com.google.cloud.firestore.annotation.DocumentId;
 import java.util.List;
+import java.util.Map;
 
 public class PlacementDrive {
     @DocumentId
@@ -14,8 +15,13 @@ public class PlacementDrive {
     private String status;
     private String eligibilityCriteria;
     private double minCgpa;
+    private String salaryBreakdown;
+    private int maxBacklogs;
+    private double min10thPercentage;
+    private double min12thPercentage;
     private List<String> allowedDepartments;
     private List<String> recruitmentRounds;
+    private Map<String, Integer> pipelineStats;
 
     public PlacementDrive() {}
 
@@ -46,9 +52,24 @@ public class PlacementDrive {
     public double getMinCgpa() { return minCgpa; }
     public void setMinCgpa(double minCgpa) { this.minCgpa = minCgpa; }
 
+    public String getSalaryBreakdown() { return salaryBreakdown; }
+    public void setSalaryBreakdown(String salaryBreakdown) { this.salaryBreakdown = salaryBreakdown; }
+
+    public int getMaxBacklogs() { return maxBacklogs; }
+    public void setMaxBacklogs(int maxBacklogs) { this.maxBacklogs = maxBacklogs; }
+
+    public double getMin10thPercentage() { return min10thPercentage; }
+    public void setMin10thPercentage(double min10thPercentage) { this.min10thPercentage = min10thPercentage; }
+
+    public double getMin12thPercentage() { return min12thPercentage; }
+    public void setMin12thPercentage(double min12thPercentage) { this.min12thPercentage = min12thPercentage; }
+
     public List<String> getAllowedDepartments() { return allowedDepartments; }
     public void setAllowedDepartments(List<String> allowedDepartments) { this.allowedDepartments = allowedDepartments; }
 
     public List<String> getRecruitmentRounds() { return recruitmentRounds; }
     public void setRecruitmentRounds(List<String> recruitmentRounds) { this.recruitmentRounds = recruitmentRounds; }
+
+    public Map<String, Integer> getPipelineStats() { return pipelineStats; }
+    public void setPipelineStats(Map<String, Integer> pipelineStats) { this.pipelineStats = pipelineStats; }
 }

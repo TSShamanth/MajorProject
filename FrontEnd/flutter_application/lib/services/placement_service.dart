@@ -5,6 +5,7 @@ import '../config/api_config.dart';
 import '../models/company_model.dart';
 import '../models/placement_drive_model.dart';
 import '../models/placement_application_model.dart';
+import '../models/interview_slot_model.dart';
 
 class PlacementService {
   final String institutionId;
@@ -21,6 +22,42 @@ class PlacementService {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
+  }
+
+  // --- Interviews ---
+
+  Future<List<InterviewSlotModel>> getInterviewSlots() async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/placement/interviews'),
+      headers: _getHeaders(token),
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => InterviewSlotModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load interview slots');
+    }
+  }
+
+  Future<InterviewSlotModel> createInterviewSlot(InterviewSlotModel slot) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Not authenticated');
+
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/placement/interviews'),
+      headers: _getHeaders(token),
+      body: jsonEncode(slot.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return InterviewSlotModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to create interview slot');
+    }
   }
 
   // --- Companies ---

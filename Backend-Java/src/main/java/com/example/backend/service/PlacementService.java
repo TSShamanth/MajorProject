@@ -1,5 +1,6 @@
 package com.example.backend.service;
 
+import com.example.backend.models.InterviewSlot;
 import com.example.backend.models.Company;
 import com.example.backend.models.PlacementDrive;
 import com.example.backend.models.PlacementApplication;
@@ -16,6 +17,26 @@ public class PlacementService {
 
     public PlacementService(Firestore firestore) {
         this.firestore = firestore;
+    }
+
+    // --- Interviews ---
+
+    public InterviewSlot createInterviewSlot(String institutionId, InterviewSlot slot) throws ExecutionException, InterruptedException {
+        String id = UUID.randomUUID().toString();
+        slot.setId(id);
+        firestore.collection("Institutions").document(institutionId)
+                .collection("placement_interviews").document(id).set(slot).get();
+        return slot;
+    }
+
+    public List<InterviewSlot> getInterviewSlots(String institutionId) throws ExecutionException, InterruptedException {
+        List<InterviewSlot> slots = new ArrayList<>();
+        QuerySnapshot querySnapshot = firestore.collection("Institutions").document(institutionId)
+                .collection("placement_interviews").get().get();
+        for (QueryDocumentSnapshot doc : querySnapshot.getDocuments()) {
+            slots.add(doc.toObject(InterviewSlot.class));
+        }
+        return slots;
     }
 
     // --- Companies ---
@@ -95,13 +116,19 @@ public class PlacementService {
         long totalOffers = applications.stream().filter(a -> "Selected".equalsIgnoreCase(a.getStatus())).count();
         double maxPackage = drives.stream().mapToDouble(PlacementDrive::getSalaryPackage).max().orElse(0.0);
 
+        // Get total student count to calculate percentage
+        long totalStudents = firestore.collection("Institutions").document(institutionId)
+                .collection("users").whereEqualTo("role", "student").get().get().size();
+
+        double placedPercentage = totalStudents > 0 ? (double) totalOffers / totalStudents * 100 : 0;
+
         stats.put("totalCompanies", companies.size());
         stats.put("activeDrives", activeDrives);
         stats.put("totalOffers", totalOffers);
         stats.put("maxPackage", maxPackage);
-        stats.put("placedPercentage", 78); // Static for now or compute based on total eligible students
-        stats.put("newCompaniesMonth", 3); // Static/Mock
-        stats.put("closingSoon", 4); // Static/Mock
+        stats.put("placedPercentage", Math.round(placedPercentage * 100.0) / 100.0);
+        stats.put("newCompaniesMonth", 3); // Still a bit hard to compute without 'createdAt', but better than nothing
+        stats.put("closingSoon", drives.stream().filter(d -> "Active".equalsIgnoreCase(d.getStatus())).count()); // Placeholder logic
 
         return stats;
     }
