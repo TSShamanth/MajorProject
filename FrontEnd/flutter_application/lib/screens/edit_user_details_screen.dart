@@ -6,6 +6,7 @@ import '../models/department_model.dart';
 import '../services/api_service.dart';
 import '../services/image_service.dart';
 import '../services/session_manager.dart';
+import '../widgets/admin_layout.dart';
 
 class EditUserDetailsScreen extends StatefulWidget {
   final UserModel user;
@@ -40,6 +41,7 @@ class _EditUserDetailsScreenState extends State<EditUserDetailsScreen> {
   Uint8List? _pickedImageBytes;
   String? _photoUrl;
   String? _institutionId;
+  bool _isDarkMode = false;
 
   final ApiService _apiService = ApiService();
   final ImageService _imageService = ImageService();
@@ -73,20 +75,14 @@ class _EditUserDetailsScreenState extends State<EditUserDetailsScreen> {
 
   Future<void> _fetchInstitutionId() async {
     final institutionId = await SessionManager.getInstitutionId();
-    setState(() {
-      _institutionId = institutionId;
-    });
-    if (_institutionId != null) {
-      _fetchDepartments();
-    }
+    if (mounted) setState(() => _institutionId = institutionId);
+    if (institutionId != null) _fetchDepartments();
   }
 
   Future<void> _fetchDepartments() async {
     try {
       final departments = await _apiService.getDepartments(_institutionId!);
-      setState(() {
-        _availableDepartments = departments;
-      });
+      if (mounted) setState(() => _availableDepartments = departments);
     } catch (e) {
       debugPrint('Error fetching departments: $e');
     }
@@ -113,7 +109,6 @@ class _EditUserDetailsScreenState extends State<EditUserDetailsScreen> {
 
   Future<void> _pickAndUploadImage() async {
     final result = await _imageService.pickAndUploadImage();
-
     if (result != null) {
       setState(() {
         _photoUrl = result['downloadUrl'];
@@ -121,29 +116,15 @@ class _EditUserDetailsScreenState extends State<EditUserDetailsScreen> {
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Image uploaded successfully!'), backgroundColor: Colors.green),
-      );
-    } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Image upload failed or was cancelled.'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('Image uploaded successfully!'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
       );
     }
   }
 
   Future<void> _handleUpdateUser() async {
     if (_formKey.currentState!.validate()) {
-      if (_institutionId == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not determine institution. Please log in again.'), backgroundColor: Colors.red),
-          );
-        }
-        return;
-      }
-      setState(() {
-        _isLoading = true;
-      });
+      if (_institutionId == null) return;
+      setState(() => _isLoading = true);
 
       try {
         final response = await _apiService.updateUser(
@@ -168,157 +149,88 @@ class _EditUserDetailsScreenState extends State<EditUserDetailsScreen> {
           departmentId: _selectedDepartmentId,
         );
 
-        if (!mounted) return;
-
-        if (response.statusCode == 200) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User updated successfully!'), backgroundColor: Colors.green),
-          );
-          // Go back to the user details screen and refresh (if possible)
-          context.pop(true); // Pop with a result to indicate success
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${response.body}'), backgroundColor: Colors.red),
-          );
+        if (mounted) {
+          if (response.statusCode == 200) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('User updated successfully!'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
+            );
+            context.pop(true);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: ${response.body}'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+            );
+          }
         }
       } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red),
-        );
-      } finally {
         if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          );
         }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit User Details'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+    _isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
+    final textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
+
+    return AdminLayout(
+      title: 'Edit User',
+      breadcrumbs: [
+        Icon(Icons.chevron_right, size: 16, color: textSecondary),
+        const SizedBox(width: 10),
+        InkWell(
+          onTap: () => context.push('/$_institutionId/admin/user-management'),
+          child: Text('User Management', style: TextStyle(color: textSecondary, fontSize: 13)),
+        ),
+        Icon(Icons.chevron_right, size: 16, color: textSecondary),
+        const SizedBox(width: 10),
+        InkWell(
+          onTap: () => context.push('/$_institutionId/admin/users/details/${widget.user.uid}'),
+          child: Text('Profile', style: TextStyle(color: textSecondary, fontSize: 13)),
+        ),
+        Icon(Icons.chevron_right, size: 16, color: textSecondary),
+        const SizedBox(width: 10),
+        Text('Edit', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.w600, fontSize: 13)),
+      ],
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.grey.shade300,
-                      backgroundImage: _pickedImageBytes != null
-                          ? MemoryImage(_pickedImageBytes!)
-                          : (_photoUrl != null ? NetworkImage(_photoUrl!) : null) as ImageProvider?,
-                      child: _pickedImageBytes == null && _photoUrl == null
-                          ? const Icon(Icons.person_outline, size: 50, color: Colors.white)
-                          : null,
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: CircleAvatar(
-                        radius: 18,
-                        backgroundColor: Theme.of(context).primaryColor,
-                        child: IconButton(
-                          icon: const Icon(Icons.camera_alt_outlined, color: Colors.white, size: 18),
-                          onPressed: _pickAndUploadImage,
+              _buildHeader(textPrimary, textSecondary),
+              const SizedBox(height: 32),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 900;
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isWide) ...[
+                        Expanded(flex: 1, child: _buildPhotoSection(textPrimary, textSecondary)),
+                        const SizedBox(width: 24),
+                        Expanded(flex: 2, child: _buildFormSections(textPrimary, textSecondary)),
+                      ] else ...[
+                        Expanded(
+                          child: Column(
+                            children: [
+                              _buildPhotoSection(textPrimary, textSecondary),
+                              const SizedBox(height: 24),
+                              _buildFormSections(textPrimary, textSecondary),
+                            ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              DropdownButtonFormField<String>(
-                value: _selectedRole,
-                decoration: _inputDecoration('Role', Icons.school_outlined),
-                items: ['student', 'faculty', 'admin', 'placements'].map((String role) {
-                  return DropdownMenuItem<String>(
-                    value: role,
-                    child: Text(role.substring(0, 1).toUpperCase() + role.substring(1)),
+                      ],
+                    ],
                   );
-                }).toList(),
-                onChanged: (newValue) {
-                  setState(() {
-                    _selectedRole = newValue;
-                  });
                 },
-                validator: (value) => value == null ? 'Please select a role' : null,
-              ),
-              const SizedBox(height: 16),
-              if (_availableDepartments.isNotEmpty) ...[
-                DropdownButtonFormField<String>(
-                  value: _selectedDepartmentId,
-                  decoration: _inputDecoration('Department', Icons.business_outlined),
-                  items: _availableDepartments.map((dept) {
-                    return DropdownMenuItem<String>(
-                      value: dept.id,
-                      child: Text(dept.name),
-                    );
-                  }).toList(),
-                  onChanged: (newValue) {
-                    setState(() {
-                      _selectedDepartmentId = newValue;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-              ],
-              _buildTextField(_displayNameController, 'Display Name', Icons.badge_outlined),
-              const SizedBox(height: 16),
-              _buildTextField(_emailController, 'Email', Icons.email_outlined, readOnly: true), // Email usually not editable
-              const SizedBox(height: 16),
-              if (_selectedRole == 'student') ...[
-                _buildTextField(_nameController, 'Full Name', Icons.person_outline),
-                const SizedBox(height: 16),
-                _buildTextField(_usnController, 'USN', Icons.confirmation_number_outlined),
-                const SizedBox(height: 16),
-                _buildTextField(_phoneController, 'Phone Number', Icons.phone_outlined),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(child: _buildTextField(_semController, 'Semester', Icons.format_list_numbered_outlined)),
-                    const SizedBox(width: 16),
-                    Expanded(child: _buildTextField(_mentorController, 'Mentor Name', Icons.supervisor_account_outlined)),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildTextField(_programmeController, 'Programme', Icons.class_outlined),
-                const SizedBox(height: 16),
-                _buildTextField(_schoolController, 'School', Icons.school_outlined),
-                const SizedBox(height: 16),
-                _buildTextField(_addressController, 'Address', Icons.home_outlined),
-                const SizedBox(height: 16),
-                _buildTextField(_dobController, 'Date of Birth', Icons.cake_outlined),
-                const SizedBox(height: 16),
-                _buildTextField(_bloodGroupController, 'Blood Group', Icons.bloodtype_outlined),
-                const SizedBox(height: 16),
-                _buildTextField(_emergencyContactController, 'Emergency Contact', Icons.contact_phone_outlined),
-                const SizedBox(height: 16),
-                _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_outlined),
-              ],
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _isLoading ? null : _handleUpdateUser,
-                icon: _isLoading
-                    ? const SizedBox.shrink()
-                    : const Icon(Icons.save_outlined, color: Colors.white),
-                label: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                    : const Text('Save Changes', style: TextStyle(color: Colors.white)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  minimumSize: const Size(double.infinity, 50),
-                ),
               ),
             ],
           ),
@@ -327,41 +239,208 @@ class _EditUserDetailsScreenState extends State<EditUserDetailsScreen> {
     );
   }
 
+  Widget _buildHeader(Color textPrimary, Color textSecondary) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Edit User Profile',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: textPrimary, letterSpacing: -0.5),
+            ),
+            const SizedBox(height: 4),
+            Text('Modify account details and institutional assignments', style: TextStyle(fontSize: 14, color: textSecondary)),
+          ],
+        ),
+        ElevatedButton.icon(
+          onPressed: _isLoading ? null : _handleUpdateUser,
+          icon: _isLoading ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 18),
+          label: const Text('Save Changes'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF4F46E5),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            elevation: 0,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPhotoSection(Color textPrimary, Color textSecondary) {
+    final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        children: [
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 60,
+                backgroundColor: const Color(0xFF4F46E5).withOpacity(0.1),
+                backgroundImage: _pickedImageBytes != null
+                    ? MemoryImage(_pickedImageBytes!)
+                    : (_photoUrl != null ? NetworkImage(_photoUrl!) : null) as ImageProvider?,
+                child: _pickedImageBytes == null && _photoUrl == null
+                    ? Icon(widget.user.role == 'student' ? Icons.school_rounded : Icons.person_rounded, size: 60, color: const Color(0xFF4F46E5))
+                    : null,
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Material(
+                  color: const Color(0xFF4F46E5),
+                  shape: const CircleBorder(),
+                  elevation: 4,
+                  child: IconButton(
+                    icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
+                    onPressed: _pickAndUploadImage,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text('Profile Photo', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),
+          const SizedBox(height: 4),
+          Text('Allowed: JPG, PNG (Max 5MB)', style: TextStyle(fontSize: 12, color: textSecondary)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormSections(Color textPrimary, Color textSecondary) {
+    return Column(
+      children: [
+        _buildSectionCard(
+          'Account Role & Department',
+          Icons.admin_panel_settings_rounded,
+          const Color(0xFF4F46E5),
+          [
+            DropdownButtonFormField<String>(
+              value: _selectedRole,
+              dropdownColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+              style: TextStyle(color: textPrimary, fontSize: 15),
+              decoration: _inputDecoration('Role', Icons.badge_rounded),
+              items: ['student', 'faculty', 'admin', 'placements'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
+              onChanged: (val) => setState(() => _selectedRole = val),
+            ),
+            const SizedBox(height: 20),
+            if (_availableDepartments.isNotEmpty)
+              DropdownButtonFormField<String>(
+                value: _selectedDepartmentId,
+                dropdownColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+                style: TextStyle(color: textPrimary, fontSize: 15),
+                decoration: _inputDecoration('Department', Icons.business_rounded),
+                items: _availableDepartments.map((d) => DropdownMenuItem(value: d.id, child: Text(d.name))).toList(),
+                onChanged: (val) => setState(() => _selectedDepartmentId = val),
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildSectionCard(
+          'Personal Details',
+          Icons.person_rounded,
+          const Color(0xFF10B981),
+          [
+            _buildTextField(_displayNameController, 'Display Name', Icons.account_circle_rounded),
+            const SizedBox(height: 20),
+            _buildTextField(_emailController, 'Email Address', Icons.email_rounded, readOnly: true),
+            const SizedBox(height: 20),
+            _buildTextField(_phoneController, 'Phone Number', Icons.phone_rounded),
+          ],
+        ),
+        if (_selectedRole == 'student') ...[
+          const SizedBox(height: 24),
+          _buildSectionCard(
+            'Academic Records',
+            Icons.school_rounded,
+            const Color(0xFFF59E0B),
+            [
+              Row(
+                children: [
+                  Expanded(child: _buildTextField(_usnController, 'USN / ID', Icons.tag_rounded)),
+                  const SizedBox(width: 20),
+                  Expanded(child: _buildTextField(_semController, 'Semester', Icons.format_list_numbered_rounded)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _buildTextField(_programmeController, 'Programme', Icons.book_rounded),
+              const SizedBox(height: 20),
+              _buildTextField(_mentorController, 'Mentor Name', Icons.person_pin_rounded),
+            ],
+          ),
+        ],
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+
+  Widget _buildSectionCard(String title, IconData icon, Color color, List<Widget> children) {
+    final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(_isDarkMode ? 0.3 : 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: color, size: 20)),
+                const SizedBox(width: 16),
+                Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _isDarkMode ? Colors.white : const Color(0xFF1F2937))),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(children: children),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool readOnly = false}) {
     return TextFormField(
       controller: controller,
       readOnly: readOnly,
+      style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87, fontSize: 15),
       decoration: _inputDecoration(label, icon),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter a $label';
-        }
-        if (label == 'Email' && !value.contains('@') && !readOnly) {
-          return 'Please enter a valid email';
-        }
-        return null;
-      },
+      validator: (v) => v!.isEmpty ? '$label is required' : null,
     );
   }
 
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon, color: Theme.of(context).primaryColor),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
-      ),
+      labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!),
+      prefixIcon: Icon(icon, color: const Color(0xFF4F46E5).withOpacity(0.7), size: 20),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: _isDarkMode ? const Color(0xFF111827).withOpacity(0.5) : Colors.grey[50]!,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
   }
 }
