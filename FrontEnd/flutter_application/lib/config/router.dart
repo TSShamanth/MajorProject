@@ -491,7 +491,7 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/:institutionId/announcements/manage',
-      builder: (context, state) => const ManageAnnouncementsScreen(),
+      builder: (context, state) => const AnnouncementsListScreen(),
     ),
     GoRoute(
       path: '/:institutionId/announcements/:announcementId',
