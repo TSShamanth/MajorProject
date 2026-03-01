@@ -747,7 +747,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   Widget _buildMobileDrawer() {
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
-      {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
+      {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': '/admin/user-management'},
       {'icon': Icons.supervisor_account_rounded, 'label': 'Mentor Management', 'active': false, 'route': '/admin/mentor-management'},
       {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
       {'icon': Icons.account_balance_wallet_rounded, 'label': 'Fee Management', 'active': false, 'route': '/admin/fee-management'},
@@ -932,7 +932,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   Widget _buildModernSidebar() {
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
-      {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': null},
+      {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': '/admin/user-management'},
       {'icon': Icons.supervisor_account_rounded, 'label': 'Mentor Management', 'active': false, 'route': '/admin/mentor-management'},
       {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
       {'icon': Icons.account_balance_wallet_rounded, 'label': 'Fee Management', 'active': false, 'route': '/admin/fee-management'},

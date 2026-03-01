@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:flutter_application/services/auth_service.dart';
+import 'package:flutter_application/services/api_service.dart';
 
 class AdminLayout extends StatefulWidget {
   final Widget child;
@@ -23,11 +24,14 @@ class _AdminLayoutState extends State<AdminLayout> {
   bool _sidebarExpanded = true;
   bool _isDarkMode = false;
   String? _institutionId;
+  int _notificationCount = 0;
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
     _fetchInstitutionId();
+    _fetchNotificationCount();
   }
 
   Future<void> _fetchInstitutionId() async {
@@ -36,6 +40,19 @@ class _AdminLayoutState extends State<AdminLayout> {
       setState(() {
         _institutionId = id;
       });
+    }
+  }
+
+  Future<void> _fetchNotificationCount() async {
+    try {
+      final list = await _apiService.getNotifications();
+      if (mounted) {
+        setState(() {
+          _notificationCount = list.where((n) => !n.read).length;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching notifications: $e');
     }
   }
 
@@ -49,106 +66,80 @@ class _AdminLayoutState extends State<AdminLayout> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 768;
+        final isMobile = constraints.maxWidth < 1024;
 
         return Scaffold(
           backgroundColor: _bgColor,
           drawer: isMobile ? _buildMobileDrawer() : null,
-          body: isMobile
-              ? _buildMobileLayout()
-              : Row(
+          body: Row(
+            children: [
+              if (!isMobile) _buildModernSidebar(),
+              Expanded(
+                child: Column(
                   children: [
-                    _buildModernSidebar(),
+                    _buildModernTopBar(isMobile: isMobile),
+                    _buildBreadcrumb(),
                     Expanded(
-                      child: Column(
-                        children: [
-                          _buildModernTopBar(),
-                          _buildBreadcrumb(),
-                          Expanded(child: widget.child),
-                        ],
-                      ),
+                      child: widget.child,
                     ),
                   ],
                 ),
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
-  Widget _buildMobileLayout() {
-    return Column(
-      children: [
-        _buildMobileTopBar(),
-        _buildBreadcrumb(),
-        Expanded(child: widget.child),
-      ],
-    );
-  }
-
-  Widget _buildMobileTopBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: _cardColor,
-        border: Border(bottom: BorderSide(color: _borderColor)),
-      ),
-      child: Row(
-        children: [
-          Builder(
-            builder: (context) => IconButton(
-              icon: Icon(Icons.menu_rounded, color: _textPrimary),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text(
-              'AcadWorkHub',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF4F46E5),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-              color: _isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFF4F46E5),
-            ),
-            onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMobileDrawer() {
     return Drawer(
-      backgroundColor: _cardColor,
-      child: _buildSidebarContent(),
+      width: 270,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: _isDarkMode 
+                ? [const Color(0xFF1F2937), const Color(0xFF111827)]
+                : [const Color(0xFF4F46E5), const Color(0xFF4338CA)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: _buildSidebarContent(isMobile: true),
+      ),
     );
   }
 
   Widget _buildModernSidebar() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      width: _sidebarExpanded ? 270 : 80,
+      curve: Curves.easeInOut,
+      width: _sidebarExpanded ? 270 : 0,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: _isDarkMode
+          colors: _isDarkMode 
               ? [const Color(0xFF1F2937), const Color(0xFF111827)]
               : [const Color(0xFF4F46E5), const Color(0xFF4338CA)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        boxShadow: _sidebarExpanded ? [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.3 : 0.15),
+            blurRadius: 20,
+            offset: const Offset(4, 0),
+          ),
+        ] : [],
       ),
-      child: _buildSidebarContent(),
+      child: _sidebarExpanded ? _buildSidebarContent() : const SizedBox.shrink(),
     );
   }
 
-  Widget _buildSidebarContent() {
+  Widget _buildSidebarContent({bool isMobile = false}) {
     final menuItems = [
       {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'route': '/admin/dashboard'},
-      {'icon': Icons.people_rounded, 'label': 'User Management', 'route': '/admin/users/student'},
+      {'icon': Icons.people_rounded, 'label': 'User Management', 'route': '/admin/user-management'},
+      {'icon': Icons.supervisor_account_rounded, 'label': 'Mentor Management', 'route': '/admin/mentor-management'},
       {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'route': '/admin/institution-settings'},
       {'icon': Icons.account_balance_wallet_rounded, 'label': 'Fee Management', 'route': '/admin/fee-management'},
       {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'route': '/admin/timetable/timeslots'},
@@ -156,81 +147,137 @@ class _AdminLayoutState extends State<AdminLayout> {
       {'icon': Icons.grid_on_rounded, 'label': 'Timetable', 'route': '/admin/timetable/generate'},
       {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'route': null},
       {'icon': Icons.approval, 'label': 'Approval', 'route': '/admin/approval'},
+      {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'route': null},
+      {'icon': Icons.event_rounded, 'label': 'Event Management', 'route': '/events'},
       {'icon': Icons.announcement_rounded, 'label': 'Announcements', 'route': '/announcements/manage'},
+      {'icon': Icons.bar_chart_rounded, 'label': 'Analytics & Reports', 'route': null},
+      {'icon': Icons.article_rounded, 'label': 'Content Management', 'route': null},
       {'icon': Icons.settings_rounded, 'label': 'System Settings', 'route': null},
     ];
 
-    final currentPath = GoRouterState.of(context).uri.toString();
+    final currentPath = GoRouterState.of(context).matchedLocation;
 
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
+                width: 1,
+              ),
+            ),
+          ),
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                child: Center(
+                child: const Center(
                   child: Text(
                     'A',
                     style: TextStyle(
-                      color: const Color(0xFF4F46E5),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
+                      color: Color(0xFF4F46E5),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 22,
                     ),
                   ),
                 ),
               ),
-              if (_sidebarExpanded) ...[
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'AcadWorkHub',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Text(
+                  'AcadWorkHub',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
                   ),
                 ),
-              ],
+              ),
+              if (!isMobile)
+                IconButton(
+                  icon: const Icon(Icons.chevron_left_rounded, color: Colors.white),
+                  onPressed: () => setState(() => _sidebarExpanded = false),
+                )
+              else
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
             ],
           ),
         ),
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             children: menuItems.map((item) {
               final route = item['route'] as String?;
               final bool isActive = route != null && currentPath.contains(route);
               
-              return ListTile(
-                leading: Icon(
-                  item['icon'] as IconData,
-                  color: Colors.white.withOpacity(isActive ? 1.0 : 0.7),
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      if (isMobile) Navigator.pop(context);
+                      if (route != null && _institutionId != null) {
+                        context.go('/$_institutionId$route');
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: isActive 
+                            ? Colors.white.withOpacity(_isDarkMode ? 0.1 : 0.15) 
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        border: isActive 
+                            ? Border.all(
+                                color: Colors.white.withOpacity(_isDarkMode ? 0.2 : 0.3),
+                                width: 1,
+                              )
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            item['icon'] as IconData,
+                            color: Colors.white.withOpacity(isActive ? 1.0 : 0.7),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              item['label'] as String,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(isActive ? 1.0 : 0.8),
+                                fontSize: 15,
+                                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-                title: _sidebarExpanded
-                    ? Text(
-                        item['label'] as String,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(isActive ? 1.0 : 0.8),
-                          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      )
-                    : null,
-                onTap: () {
-                  if (route != null && _institutionId != null) {
-                    context.go('/$_institutionId$route');
-                  }
-                },
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                selected: isActive,
-                selectedTileColor: Colors.white.withOpacity(0.1),
               );
             }).toList(),
           ),
@@ -239,54 +286,149 @@ class _AdminLayoutState extends State<AdminLayout> {
     );
   }
 
-  Widget _buildModernTopBar() {
+  Widget _buildModernTopBar({bool isMobile = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
       decoration: BoxDecoration(
         color: _cardColor,
         border: Border(bottom: BorderSide(color: _borderColor)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          IconButton(
-            icon: Icon(_sidebarExpanded ? Icons.menu_open : Icons.menu, color: _textPrimary),
-            onPressed: () => setState(() => _sidebarExpanded = !_sidebarExpanded),
-          ),
-          const SizedBox(width: 16),
-          Text(
-            widget.title,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: _textPrimary,
+          if (isMobile)
+            IconButton(
+              icon: Icon(Icons.menu_rounded, color: _textPrimary),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            )
+          else if (!_sidebarExpanded)
+            IconButton(
+              icon: Icon(Icons.menu_rounded, color: _textPrimary),
+              onPressed: () => setState(() => _sidebarExpanded = true),
             ),
-          ),
-          const Spacer(),
+          
+          if (!isMobile) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: Container(
+                height: 46,
+                decoration: BoxDecoration(
+                  color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _borderColor),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 18),
+                    Icon(Icons.search_rounded, color: _textSecondary, size: 22),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: 'Search...',
+                          hintStyle: TextStyle(color: _textSecondary, fontSize: 15),
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
+                        style: TextStyle(color: _textPrimary, fontSize: 15),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
+          const SizedBox(width: 20),
+          
           IconButton(
             icon: Icon(
               _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-              color: _textPrimary,
+              color: _isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFF4F46E5),
             ),
             onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
           ),
-          const SizedBox(width: 16),
-          CircleAvatar(
-            backgroundColor: const Color(0xFF4F46E5),
-            child: const Text('AD', style: TextStyle(color: Colors.white)),
-          ),
-          PopupMenuButton(
-            icon: Icon(Icons.arrow_drop_down, color: _textSecondary),
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                child: const Text('Logout'),
-                onTap: () async {
-                  await SessionManager.clearSession();
-                  await AuthService.logout();
-                  if (mounted) context.go('/login');
+
+          Stack(
+            children: [
+              IconButton(
+                icon: Icon(Icons.notifications_rounded, color: _textPrimary),
+                onPressed: () {
+                  if (_institutionId != null) {
+                    context.push('/$_institutionId/notifications');
+                  }
                 },
               ),
+              if (_notificationCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                    child: Text(
+                      '$_notificationCount',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
             ],
           ),
+
+          const SizedBox(width: 16),
+          
+          if (!isMobile) ...[
+            Container(
+              padding: const EdgeInsets.only(left: 20),
+              decoration: BoxDecoration(
+                border: Border(left: BorderSide(color: _borderColor)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)]),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Text('AD', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Admin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _textPrimary)),
+                      Text('Administrator', style: TextStyle(fontSize: 12, color: _textSecondary)),
+                    ],
+                  ),
+                  PopupMenuButton(
+                    icon: Icon(Icons.arrow_drop_down, color: _textSecondary),
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        child: const Text('Logout'),
+                        onTap: () async {
+                          final router = GoRouter.of(context);
+                          await SessionManager.clearSession();
+                          await AuthService.logout();
+                          router.go('/login');
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

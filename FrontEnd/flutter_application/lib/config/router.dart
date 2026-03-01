@@ -19,6 +19,7 @@ import 'package:flutter_application/screens/user_list_screen.dart';
 import 'package:flutter_application/screens/working_day_management_screen.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/admin_dashboard_screen.dart';
+import '../screens/admin_user_management_screen.dart';
 import '../screens/auth_wrapper.dart';
 import '../screens/faculty_dashboard_screen.dart';
 import '../screens/login_screen.dart';
@@ -175,6 +176,10 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/admin/dashboard',
       builder: (context, state) => const AdminDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/user-management',
+      builder: (context, state) => const AdminUserManagementScreen(),
     ),
     GoRoute(
       path: '/:institutionId/admin/mentor-management',
