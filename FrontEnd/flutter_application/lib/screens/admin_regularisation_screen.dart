@@ -79,7 +79,7 @@ class _AdminRegularisationScreenState extends State<AdminRegularisationScreen> {
   Widget build(BuildContext context) {
     _isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
-    final textSecondary = _isDarkMode ? Colors.grey[400] : Colors.grey[600];
+    final textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
 
     return AdminLayout(
       title: 'Regularisation Requests',
@@ -196,7 +196,7 @@ class _AdminRegularisationScreenState extends State<AdminRegularisationScreen> {
             subtitle,
             style: TextStyle(
               fontSize: 14,
-              color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+              color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!,
             ),
           ),
         ],
@@ -208,7 +208,7 @@ class _AdminRegularisationScreenState extends State<AdminRegularisationScreen> {
     final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
     final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
     final textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
-    final textSecondary = _isDarkMode ? Colors.grey[400] : Colors.grey[600];
+    final textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -286,7 +286,7 @@ class _AdminRegularisationScreenState extends State<AdminRegularisationScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _isDarkMode ? const Color(0xFF111827) : Colors.grey[50],
+                color: _isDarkMode ? const Color(0xFF111827) : Colors.grey[50]!,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: borderColor.withOpacity(0.5)),
               ),
@@ -344,7 +344,7 @@ class _AdminRegularisationScreenState extends State<AdminRegularisationScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 11, color: _isDarkMode ? Colors.grey[500] : Colors.grey[500])),
+        Text(label, style: TextStyle(fontSize: 11, color: _isDarkMode ? Colors.grey[500]! : Colors.grey[500]!)),
         const SizedBox(height: 2),
         Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _isDarkMode ? Colors.white : const Color(0xFF1F2937))),
       ],

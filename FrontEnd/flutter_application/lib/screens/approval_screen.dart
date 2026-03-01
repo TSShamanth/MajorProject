@@ -33,7 +33,7 @@ class _ApprovalScreenState extends State<ApprovalScreen> {
   Widget build(BuildContext context) {
     _isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
-    final textSecondary = _isDarkMode ? Colors.grey[400] : Colors.grey[600];
+    final textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
 
     return AdminLayout(
       title: 'Approvals',
@@ -205,7 +205,7 @@ class _ApprovalScreenState extends State<ApprovalScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!,
               ),
             ),
             const SizedBox(height: 16),
@@ -214,7 +214,7 @@ class _ApprovalScreenState extends State<ApprovalScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: count == '0 Pending' ? Colors.grey[500] : Colors.redAccent,
+                color: count == '0 Pending' ? Colors.grey[500]! : Colors.redAccent,
               ),
             ),
           ],

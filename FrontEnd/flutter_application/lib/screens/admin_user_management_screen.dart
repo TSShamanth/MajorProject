@@ -44,7 +44,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               'Manage your institution users',
               style: TextStyle(
                 fontSize: 16,
-                color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!,
               ),
             ),
             const SizedBox(height: 32),
@@ -161,7 +161,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!,
               ),
             ),
           ],

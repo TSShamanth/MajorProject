@@ -92,7 +92,7 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
                 style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87),
                 decoration: InputDecoration(
                   labelText: 'Department Name',
-                  labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                  labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!),
                   enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _isDarkMode ? Colors.grey[700]! : Colors.grey[300]!)),
                 ),
               ),
@@ -101,7 +101,7 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
                 style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87),
                 decoration: InputDecoration(
                   labelText: 'Short Name (e.g., CSE)',
-                  labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                  labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!),
                   enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _isDarkMode ? Colors.grey[700]! : Colors.grey[300]!)),
                 ),
               ),
@@ -176,7 +176,7 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
           return AlertDialog(
             backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
             title: Text('Confirm Deletion', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87)),
-            content: Text('Are you sure you want to delete this department?', style: TextStyle(color: _isDarkMode ? Colors.grey[300] : Colors.black54)),
+            content: Text('Are you sure you want to delete this department?', style: TextStyle(color: _isDarkMode ? Colors.grey[300]! : Colors.black54)),
             actions: [
                TextButton(
                 child: const Text('Cancel'),
@@ -229,7 +229,7 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
   Widget build(BuildContext context) {
     _isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
-    final textSecondary = _isDarkMode ? Colors.grey[400] : Colors.grey[600];
+    final textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
 
     return AdminLayout(
       title: 'Institution Setup',
@@ -441,7 +441,7 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _isDarkMode ? Colors.white : const Color(0xFF1F2937))),
-                      Text(subtitle, style: TextStyle(fontSize: 13, color: _isDarkMode ? Colors.grey[400] : Colors.grey[600])),
+                      Text(subtitle, style: TextStyle(fontSize: 13, color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!)),
                     ],
                   ),
                 ),
@@ -465,10 +465,10 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
       style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87, fontSize: 15),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+        labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!),
         prefixIcon: Icon(icon, color: const Color(0xFF4F46E5).withOpacity(0.7), size: 20),
         filled: true,
-        fillColor: _isDarkMode ? const Color(0xFF111827).withOpacity(0.5) : Colors.grey[50],
+        fillColor: _isDarkMode ? const Color(0xFF111827).withOpacity(0.5) : Colors.grey[50]!,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5)),
@@ -485,15 +485,15 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: _isDarkMode ? const Color(0xFF111827).withOpacity(0.5) : Colors.grey[50],
+            color: _isDarkMode ? const Color(0xFF111827).withOpacity(0.5) : Colors.grey[50]!,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: _isDarkMode ? Colors.grey[800]! : Colors.grey[200]!),
           ),
           child: Row(
             children: [
-              Icon(icon, size: 20, color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+              Icon(icon, size: 20, color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!),
               const SizedBox(width: 12),
-              Expanded(child: Text(label, style: TextStyle(color: _isDarkMode ? Colors.grey[300] : Colors.grey[700], fontSize: 14))),
+              Expanded(child: Text(label, style: TextStyle(color: _isDarkMode ? Colors.grey[300]! : Colors.grey[700]!, fontSize: 14))),
               trailing,
             ],
           ),
