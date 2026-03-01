@@ -170,7 +170,7 @@ class _AlumniJobBoardScreenState extends State<AlumniJobBoardScreen> {
                       ),
                       const SizedBox(width: 14),
                       const Expanded(
-                        child: Text('AcadWorkHub',
+                        child: Text('Acadexa',
                             style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
                       ),
                       Container(
@@ -279,7 +279,7 @@ class _AlumniJobBoardScreenState extends State<AlumniJobBoardScreen> {
                   child: const Center(child: Text('A', style: TextStyle(color: _accent, fontWeight: FontWeight.w900, fontSize: 22))),
                 ),
                 const SizedBox(width: 14),
-                const Text('AcadWorkHub', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700)),
+                const Text('Acadexa', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700)),
               ],
             ),
           ),

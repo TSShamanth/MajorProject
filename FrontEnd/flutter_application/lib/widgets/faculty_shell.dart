@@ -322,7 +322,7 @@ class _FacultyShellState extends State<FacultyShell> {
                   ),
                 ),
                 const SizedBox(width: 14),
-                const Expanded(child: Text('AcadWorkHub', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700))),
+                const Expanded(child: Text('Acadexa', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700))),
                 IconButton(
                   icon: const Icon(Icons.chevron_left_rounded, color: Colors.white),
                   onPressed: () => setState(() => _sidebarExpanded = false),

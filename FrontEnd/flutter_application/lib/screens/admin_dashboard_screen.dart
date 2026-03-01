@@ -798,7 +798,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                 const SizedBox(width: 14),
                 const Expanded(
                   child: Text(
-                    'AcadWorkHub',
+                    'Acadexa',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 19,
@@ -869,7 +869,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
           const SizedBox(width: 8),
           const Expanded(
             child: Text(
-              'AcadWorkHub',
+              'Acadexa',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -939,14 +939,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'active': false, 'route': '/admin/timetable/timeslots'},
       {'icon': Icons.calendar_today_rounded, 'label': 'Working Days', 'active': false, 'route': '/admin/timetable/working-days'},
       {'icon': Icons.grid_on_rounded, 'label': 'Timetable', 'active': false, 'route': '/admin/timetable/generate'},
-      {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
       {'icon': Icons.approval, 'label': 'Approval', 'active': false, 'route': '/admin/approval'},
-      {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
       {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': '/events'},
       {'icon': Icons.announcement_rounded, 'label': 'Announcements', 'active': false, 'route': '/announcements/manage'},
-      {'icon': Icons.bar_chart_rounded, 'label': 'Analytics & Reports', 'active': false, 'route': null},
-      {'icon': Icons.article_rounded, 'label': 'Content Management', 'active': false, 'route': null},
-      {'icon': Icons.settings_rounded, 'label': 'System Settings', 'active': false, 'route': null},
     ];
 
     return AnimatedContainer(
@@ -1011,7 +1006,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                 const SizedBox(width: 14),
                 const Expanded(
                   child: Text(
-                    'AcadWorkHub',
+                    'Acadexa',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 19,

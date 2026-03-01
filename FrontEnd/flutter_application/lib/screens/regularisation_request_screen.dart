@@ -379,7 +379,7 @@ class _RegularisationRequestScreenState
                       const SizedBox(width: 14),
                       const Expanded(
                         child: Text(
-                          'AcadWorkHub',
+                          'Acadexa',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 19,
@@ -553,7 +553,7 @@ class _RegularisationRequestScreenState
                   ),
                 ),
                 const SizedBox(width: 14),
-                const Text('AcadWorkHub',
+                const Text('Acadexa',
                     style: TextStyle(
                         color: Colors.white,
                         fontSize: 19,

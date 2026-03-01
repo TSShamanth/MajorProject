@@ -490,7 +490,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                   ),
                 ),
                 const SizedBox(width: 14),
-                const Text('AcadWorkHub',
+                const Text('Acadexa',
                     style: TextStyle(
                         color: Colors.white,
                         fontSize: 19,
@@ -561,7 +561,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
               const SizedBox(width: 4),
               const Expanded(
                 child: Text(
-                  'AcadWorkHub',
+                  'Acadexa',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -692,7 +692,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
                       const SizedBox(width: 14),
                       const Expanded(
                         child: Text(
-                          'AcadWorkHub',
+                          'Acadexa',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 19,

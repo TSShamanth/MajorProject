@@ -133,7 +133,7 @@ class _AlumniDashboardScreenState extends State<AlumniDashboardScreen> {
                       ),
                       const SizedBox(width: 14),
                       const Expanded(
-                        child: Text('AcadWorkHub',
+                        child: Text('Acadexa',
                             style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700)),
                       ),
                       IconButton(

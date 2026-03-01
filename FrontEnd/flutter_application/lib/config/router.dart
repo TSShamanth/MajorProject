@@ -63,7 +63,6 @@ import '../screens/exam_management_screen.dart';
 import '../screens/announcements_list_screen.dart';
 import '../screens/announcement_detail_screen.dart';
 import '../screens/create_edit_announcement_screen.dart';
-import '../screens/manage_announcements_screen.dart';
 import '../models/event_model.dart';
 import '../screens/events_list_screen.dart';
 import '../screens/event_detail_screen.dart';

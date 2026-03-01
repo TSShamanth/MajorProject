@@ -145,14 +145,9 @@ class _AdminLayoutState extends State<AdminLayout> {
       {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'route': '/admin/timetable/timeslots'},
       {'icon': Icons.calendar_today_rounded, 'label': 'Working Days', 'route': '/admin/timetable/working-days'},
       {'icon': Icons.grid_on_rounded, 'label': 'Timetable', 'route': '/admin/timetable/generate'},
-      {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'route': null},
       {'icon': Icons.approval, 'label': 'Approval', 'route': '/admin/approval'},
-      {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'route': null},
       {'icon': Icons.event_rounded, 'label': 'Event Management', 'route': '/events'},
       {'icon': Icons.announcement_rounded, 'label': 'Announcements', 'route': '/announcements/manage'},
-      {'icon': Icons.bar_chart_rounded, 'label': 'Analytics & Reports', 'route': null},
-      {'icon': Icons.article_rounded, 'label': 'Content Management', 'route': null},
-      {'icon': Icons.settings_rounded, 'label': 'System Settings', 'route': null},
     ];
 
     final currentPath = GoRouterState.of(context).matchedLocation;
@@ -199,7 +194,7 @@ class _AdminLayoutState extends State<AdminLayout> {
               const SizedBox(width: 14),
               const Expanded(
                 child: Text(
-                  'AcadWorkHub',
+                  'Acadexa',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 19,
