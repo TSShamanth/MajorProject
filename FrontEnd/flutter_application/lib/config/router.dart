@@ -3,6 +3,7 @@ import 'package:flutter_application/models/fee_structure_model.dart';
 import 'package:flutter_application/screens/admin_mentor_management_screen.dart';
 import 'package:flutter_application/screens/faculty_exam_timetable_screen.dart';
 import 'package:flutter_application/screens/faculty_mentee_dashboard_screen.dart';
+import 'package:flutter_application/screens/form_fill_screen.dart';
 import 'package:flutter_application/screens/mentee_detail_screen.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
@@ -15,6 +16,7 @@ import 'package:flutter_application/screens/student_shell.dart';
 import 'package:flutter_application/screens/student_timetable_screen.dart';
 import 'package:flutter_application/screens/time_slot_management_screen.dart';
 import 'package:flutter_application/screens/timetable_generation_screen.dart';
+import 'package:flutter_application/screens/user_form_list_screen.dart';
 import 'package:flutter_application/screens/user_list_screen.dart';
 import 'package:flutter_application/screens/working_day_management_screen.dart';
 import 'package:go_router/go_router.dart';
@@ -335,12 +337,37 @@ final router = GoRouter(
       builder: (context, state) => const FormBuilderDashboardScreen(),
     ),
     GoRoute(
-      path: '/:institutionId/admin/form-editor',
-      builder: (context, state) => const FormEditorScreen(),
+      path: '/:institutionId/admin/form-builder/:formId/edit',
+      builder: (context, state) {
+        final formId = state.pathParameters['formId'];
+        return FormEditorScreen(formId: formId);
+      },
     ),
     GoRoute(
-      path: '/:institutionId/admin/form-responses',
-      builder: (context, state) => const FormResponsesScreen(),
+      path: '/:institutionId/admin/form-builder/new',
+      builder: (context, state) => const FormEditorScreen(formId: 'new'),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/form-builder/:formId/responses',
+      builder: (context, state) {
+        final formId = state.pathParameters['formId']!;
+        return FormResponsesScreen(formId: formId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/forms/:formId/fill',
+      builder: (context, state) {
+        final formId = state.pathParameters['formId']!;
+        return FormFillScreen(formId: formId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/student/forms',
+      builder: (context, state) => const UserFormListScreen(role: 'STUDENT'),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/forms',
+      builder: (context, state) => const UserFormListScreen(role: 'FACULTY'),
     ),
     GoRoute(
       path: '/:institutionId/admin/alumni-dashboard',

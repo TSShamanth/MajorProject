@@ -397,6 +397,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       {'icon': Icons.assignment_outlined, 'label': 'Mark Attendance', 'active': false, 'route': '/faculty/mark-attendance'},
       {'icon': Icons.history_outlined, 'label': 'Clock-in History', 'active': false, 'route': '/faculty/attendance-history'},
       {'icon': Icons.announcement_outlined, 'label': 'Announcements', 'active': false, 'route': '/announcements'},
+      {'icon': Icons.description_outlined, 'label': 'Surveys & Forms', 'active': false, 'route': '/faculty/forms'},
     ];
   }
 
@@ -1993,6 +1994,7 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen>
       {'label': 'Approve Leaves', 'color': const Color(0xFF64748B), 'icon': Icons.check_circle_outline, 'route': '/faculty/leave-approval'},
       {'label': 'Marks Entry', 'color': const Color(0xFFF59E0B), 'icon': Icons.grade_outlined, 'route': '/faculty/marks-entry'},
       {'label': 'View Payroll', 'color': const Color(0xFF0EA5E9), 'icon': Icons.account_balance_wallet_rounded, 'route': '/faculty/payroll'},
+      {'label': 'Surveys & Forms', 'color': const Color(0xFF4F46E5), 'icon': Icons.description_outlined, 'route': '/faculty/forms'},
     ];
 
     return _cardContainer(

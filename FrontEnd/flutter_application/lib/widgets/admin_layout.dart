@@ -145,9 +145,13 @@ class _AdminLayoutState extends State<AdminLayout> {
       {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'route': '/admin/timetable/timeslots'},
       {'icon': Icons.calendar_today_rounded, 'label': 'Working Days', 'route': '/admin/timetable/working-days'},
       {'icon': Icons.grid_on_rounded, 'label': 'Timetable', 'route': '/admin/timetable/generate'},
+      {'icon': Icons.school_rounded, 'label': 'Examinations', 'route': '/admin/exam-dashboard'},
+      {'icon': Icons.inventory_2_rounded, 'label': 'Inventory', 'route': '/admin/inventory'},
+      {'icon': Icons.build_rounded, 'label': 'Form Builder', 'route': '/admin/form-builder'},
       {'icon': Icons.approval, 'label': 'Approval', 'route': '/admin/approval'},
       {'icon': Icons.event_rounded, 'label': 'Event Management', 'route': '/events'},
       {'icon': Icons.announcement_rounded, 'label': 'Announcements', 'route': '/announcements/manage'},
+      {'icon': Icons.groups_rounded, 'label': 'Alumni Network', 'route': '/admin/alumni-dashboard'},
     ];
 
     final currentPath = GoRouterState.of(context).matchedLocation;
@@ -221,7 +225,7 @@ class _AdminLayoutState extends State<AdminLayout> {
             padding: const EdgeInsets.symmetric(vertical: 12),
             children: menuItems.map((item) {
               final route = item['route'] as String?;
-              final bool isActive = route != null && currentPath.contains(route);
+              final bool isActive = route != null && (currentPath == route || currentPath.startsWith('$route/'));
               
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
@@ -277,7 +281,49 @@ class _AdminLayoutState extends State<AdminLayout> {
             }).toList(),
           ),
         ),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSidebarFooterItem(Icons.help_outline_rounded, 'Help & Support'),
+              const SizedBox(height: 4),
+              _buildSidebarFooterItem(Icons.description_outlined, 'Documentation'),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildSidebarFooterItem(IconData icon, String label) {
+    return InkWell(
+      onTap: () {},
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: Colors.white.withOpacity(0.6)),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -303,9 +349,23 @@ class _AdminLayoutState extends State<AdminLayout> {
               onPressed: () => Scaffold.of(context).openDrawer(),
             )
           else if (!_sidebarExpanded)
-            IconButton(
-              icon: Icon(Icons.menu_rounded, color: _textPrimary),
-              onPressed: () => setState(() => _sidebarExpanded = true),
+            Container(
+              margin: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                color: _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: (_isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5)).withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.menu_rounded, color: Colors.white),
+                onPressed: () => setState(() => _sidebarExpanded = true),
+              ),
             ),
           
           if (!isMobile) ...[
@@ -408,9 +468,16 @@ class _AdminLayoutState extends State<AdminLayout> {
                   ),
                   PopupMenuButton(
                     icon: Icon(Icons.arrow_drop_down, color: _textSecondary),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     itemBuilder: (_) => [
                       PopupMenuItem(
-                        child: const Text('Logout'),
+                        child: Row(
+                          children: [
+                            Icon(Icons.logout_rounded, size: 18, color: Colors.red),
+                            const SizedBox(width: 10),
+                            const Text('Logout', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
                         onTap: () async {
                           final router = GoRouter.of(context);
                           await SessionManager.clearSession();
@@ -444,7 +511,9 @@ class _AdminLayoutState extends State<AdminLayout> {
             },
             child: Text('Home', style: TextStyle(color: _textSecondary, fontSize: 13)),
           ),
-          Icon(Icons.chevron_right, size: 16, color: _textSecondary),
+          const SizedBox(width: 8),
+          Icon(Icons.chevron_right_rounded, size: 16, color: _textSecondary),
+          const SizedBox(width: 8),
           InkWell(
             onTap: () {
               if (_institutionId != null) context.go('/$_institutionId/admin/dashboard');

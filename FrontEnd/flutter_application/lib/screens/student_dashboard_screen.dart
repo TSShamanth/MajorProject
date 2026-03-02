@@ -233,7 +233,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       'Messages': '/$institutionId/student/messages',
       'Fees': '/$institutionId/student/fees',
       'Study Planner': '/$institutionId/student/study-planner',
-      'Notes': '/$institutionId/student/notes'
+      'Notes': '/$institutionId/student/notes',
+      'Surveys & Forms': '/$institutionId/student/forms'
     };
     if (routes.containsKey(label)) {
       // when opening notifications, clear the badge immediately
@@ -319,7 +320,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
       {'icon': Icons.message_rounded, 'label': 'Messages'},
       {'icon': Icons.payment_rounded, 'label': 'Fees'},
       {'icon': Icons.edit_note_rounded, 'label': 'Study Planner'},
-      {'icon': Icons.notes_rounded, 'label': 'Notes'}
+      {'icon': Icons.notes_rounded, 'label': 'Notes'},
+      {'icon': Icons.description_outlined, 'label': 'Surveys & Forms'}
     ];
 
     return Column(

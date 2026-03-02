@@ -234,8 +234,9 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
     return AdminLayout(
       title: 'Institution Setup',
       breadcrumbs: [
-        Icon(Icons.chevron_right, size: 16, color: textSecondary),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
+        Icon(Icons.chevron_right_rounded, size: 16, color: textSecondary),
+        const SizedBox(width: 8),
         Text('Institution Setup', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.w600, fontSize: 13)),
       ],
       child: SingleChildScrollView(
@@ -410,13 +411,13 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(_isDarkMode ? 0.3 : 0.05),
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -459,19 +460,20 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
   }
 
   Widget _buildModernTextField(TextEditingController controller, String label, IconData icon, {bool readOnly = false}) {
+    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
     return TextFormField(
       controller: controller,
       readOnly: readOnly,
       style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87, fontSize: 15),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!),
+        labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!, fontSize: 14),
         prefixIcon: Icon(icon, color: const Color(0xFF4F46E5).withOpacity(0.7), size: 20),
         filled: true,
         fillColor: _isDarkMode ? const Color(0xFF111827).withOpacity(0.5) : Colors.grey[50]!,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: borderColor)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: borderColor)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
