@@ -572,7 +572,7 @@ class _FeeManagementDashboardScreenState
                 if (amount <= 0) return;
                 if (_institutionId != null) {
                   await _feeService.recordPayment(_institutionId!, fee.id, amount, selectedPaymentMethod, transactionId: transactionIdController.text.isNotEmpty ? transactionIdController.text : null);
-                  if (mounted) Navigator.pop(dialogContext);
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
                   _loadData();
                 }
               },
