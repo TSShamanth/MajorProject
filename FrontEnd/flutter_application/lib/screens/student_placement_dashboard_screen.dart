@@ -6,6 +6,7 @@ import '../services/placement_service.dart';
 import '../models/placement_drive_model.dart';
 import '../models/placement_application_model.dart';
 import '../models/placement_registration_model.dart';
+import '../widgets/student_layout.dart';
 
 class StudentPlacementDashboardScreen extends StatefulWidget {
   final String institutionId;
@@ -78,7 +79,7 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
       await _placementService.applyForDrive(_currentUser!.uid, _currentUser!.displayName, drive.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Successfully applied for ${drive.companyName}!')),
+        SnackBar(content: Text('Successfully applied for ${drive.companyName}!'), backgroundColor: Colors.green),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -89,40 +90,89 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Placements', style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history_rounded),
-            onPressed: () => context.push('/${widget.institutionId}/placement/history'),
-            tooltip: 'Placement History',
-          ),
-          IconButton(
-            icon: const Icon(Icons.description_rounded),
-            onPressed: () => context.push('/${widget.institutionId}/placement/resume-builder'),
-            tooltip: 'Resume Builder',
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildRegistrationPrompt(),
-          _buildFilters(),
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 3, child: _buildDrivesList()),
-                Expanded(flex: 2, child: _buildApplicationTracker()),
-              ],
+    return StudentLayout(
+      title: 'Placements Dashboard',
+      breadcrumbs: [
+        Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text('Placements', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+      ],
+      child: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 24),
+                  _buildRegistrationPrompt(),
+                  const SizedBox(height: 24),
+                  _buildFilters(),
+                  const SizedBox(height: 32),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (constraints.maxWidth > 1100) {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(flex: 2, child: _buildDrivesList()),
+                            const SizedBox(width: 24),
+                            Expanded(child: _buildApplicationTracker()),
+                          ],
+                        );
+                      }
+                      return Column(
+                        children: [
+                          _buildDrivesList(),
+                          const SizedBox(height: 32),
+                          _buildApplicationTracker(),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+    );
+  }
+
+  Widget _buildHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Career Opportunities', 
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Color(0xFF1F2937), letterSpacing: -0.5)),
+            const SizedBox(height: 4),
+            Text('Manage your applications and explore upcoming placement drives', 
+              style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+          ],
+        ),
+        Row(
+          children: [
+            _buildHeaderAction(Icons.history_rounded, 'History', () => context.push('/${widget.institutionId}/placement/history')),
+            const SizedBox(width: 12),
+            _buildHeaderAction(Icons.description_rounded, 'Resume', () => context.push('/${widget.institutionId}/placement/resume-builder')),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderAction(IconData icon, String label, VoidCallback onTap) {
+    return ElevatedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 18),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF4F46E5),
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE5E7EB))),
       ),
     );
   }
@@ -131,26 +181,33 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
     if (_registration != null) return const SizedBox.shrink();
 
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.amber.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.withOpacity(0.3)),
+        color: const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFDE68A)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.amber),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: const BoxDecoration(color: Color(0xFFF59E0B), shape: BoxShape.circle),
+            child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+          ),
           const SizedBox(width: 16),
           const Expanded(
-            child: Text(
-              "You haven't registered for the current placement season yet.",
-              style: TextStyle(fontWeight: FontWeight.bold),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Placement Registration Pending", style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF92400E), fontSize: 15)),
+                Text("You haven't registered for the current season yet. Register now to apply for drives.", 
+                  style: TextStyle(color: Color(0xFF92400E), fontSize: 13)),
+              ],
             ),
           ),
           ElevatedButton(
             onPressed: () => context.push('/${widget.institutionId}/placement/registration'),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
             child: const Text('Register Now'),
           ),
         ],
@@ -160,18 +217,27 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
 
   Widget _buildFilters() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.white,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text('Search & Filters', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
+          const SizedBox(height: 20),
           Row(
             children: [
               Expanded(
+                flex: 2,
                 child: TextField(
                   decoration: InputDecoration(
-                    hintText: 'Search companies or roles...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    hintText: 'Search companies, roles...',
+                    prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
                   onChanged: (val) {
@@ -181,34 +247,48 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
                 ),
               ),
               const SizedBox(width: 16),
-              DropdownButton<String>(
-                value: _selectedRole,
-                items: _roles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-                onChanged: (val) {
-                  setState(() => _selectedRole = val!);
-                  _applyFilters();
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Text('Min Salary: ', style: TextStyle(fontWeight: FontWeight.bold)),
               Expanded(
-                child: Slider(
-                  value: _minSalary,
-                  min: 0,
-                  max: 50,
-                  divisions: 10,
-                  label: '${_minSalary.toInt()} LPA',
+                child: DropdownButtonFormField<String>(
+                  value: _selectedRole,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  items: _roles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
                   onChanged: (val) {
-                    setState(() => _minSalary = val);
+                    setState(() => _selectedRole = val!);
                     _applyFilters();
                   },
                 ),
               ),
-              Text('${_minSalary.toInt()} LPA'),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              const Text('Min Salary:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF4B5563))),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(activeTrackColor: const Color(0xFF4F46E5), thumbColor: const Color(0xFF4F46E5)),
+                  child: Slider(
+                    value: _minSalary,
+                    min: 0,
+                    max: 50,
+                    divisions: 10,
+                    onChanged: (val) {
+                      setState(() => _minSalary = val);
+                      _applyFilters();
+                    },
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(8)),
+                child: Text('${_minSalary.toInt()} LPA+', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF4F46E5), fontSize: 12)),
+              ),
             ],
           ),
         ],
@@ -218,72 +298,90 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
 
   Widget _buildDrivesList() {
     if (_filteredDrives.isEmpty) {
-      return const Center(child: Text('No active drives matching your criteria.'));
+      return Container(
+        height: 300,
+        width: double.infinity,
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE5E7EB))),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off_rounded, size: 48, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('No active drives matching your criteria.', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _filteredDrives.length,
-      itemBuilder: (context, index) => _buildDriveCard(_filteredDrives[index]),
+    return Column(
+      children: _filteredDrives.map((drive) => _buildDriveCard(drive)).toList(),
     );
   }
 
   Widget _buildDriveCard(PlacementDriveModel drive) {
     bool isEligible = _registration != null && 
                      _registration!.cgpa >= drive.minCgpa && 
-                     _registration!.backlogCount <= 0; // Assuming 0 backlogs required for now
+                     _registration!.backlogCount <= 0;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(drive.companyName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  Text(drive.jobRole, style: TextStyle(color: Colors.grey[600], fontSize: 16)),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(drive.companyName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1F2937))),
+                    const SizedBox(height: 4),
+                    Text(drive.jobRole, style: const TextStyle(color: Color(0xFF4F46E5), fontSize: 16, fontWeight: FontWeight.w600)),
+                  ],
+                ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: Colors.indigo.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                child: Text('${drive.salaryPackage} LPA', style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.1))),
+                child: Text('${drive.salaryPackage} LPA', style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.w800, fontSize: 15)),
               ),
             ],
           ),
-          const Divider(height: 32),
-          Row(
+          const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Divider(height: 1)),
+          Wrap(
+            spacing: 24,
+            runSpacing: 12,
             children: [
-              _buildInfoChip(Icons.calendar_today, 'Date: ${drive.date}'),
-              const SizedBox(width: 16),
-              _buildInfoChip(Icons.location_on, 'Location: On-Campus'),
+              _buildIconInfo(Icons.calendar_today_rounded, drive.date),
+              _buildIconInfo(Icons.location_on_rounded, 'On-Campus'),
+              _buildIconInfo(Icons.assignment_ind_rounded, '${drive.minCgpa}+ CGPA Required'),
             ],
           ),
-          const SizedBox(height: 12),
-          _buildInfoChip(Icons.assignment_ind, 'Eligibility: ${drive.minCgpa}+ CGPA, 0 Backlogs'),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           Row(
             children: [
               Expanded(
                 child: ElevatedButton(
                   onPressed: isEligible ? () => _applyForDrive(drive) : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo,
+                    backgroundColor: const Color(0xFF4F46E5),
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey.shade100,
+                    disabledForegroundColor: Colors.grey.shade400,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    elevation: 0,
                   ),
-                  child: Text(isEligible ? 'Apply Now' : 'Not Eligible'),
+                  child: Text(isEligible ? 'Apply for Position' : 'Not Eligible', style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -291,20 +389,27 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
                 onPressed: () => _showDriveDetails(drive),
                 style: OutlinedButton.styleFrom(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  side: const BorderSide(color: Color(0xFFE5E7EB)),
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                 ),
-                child: const Text('Details'),
+                child: const Icon(Icons.info_outline_rounded, color: Color(0xFF4B5563)),
               ),
             ],
           ),
           if (!isEligible && _registration != null)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                _registration!.cgpa < drive.minCgpa 
-                  ? 'Criteria unmet: Your CGPA (${_registration!.cgpa}) is lower than ${drive.minCgpa}'
-                  : 'Criteria unmet: 0 backlogs required.',
-                style: const TextStyle(color: Colors.red, fontSize: 12),
+              padding: const EdgeInsets.only(top: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 14, color: Color(0xFFEF4444)),
+                  const SizedBox(width: 6),
+                  Text(
+                    _registration!.cgpa < drive.minCgpa 
+                      ? 'Eligibility: Your CGPA (${_registration!.cgpa}) is below the required ${drive.minCgpa}'
+                      : 'Eligibility: 0 active backlogs required.',
+                    style: const TextStyle(color: Color(0xFFEF4444), fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
+                ],
               ),
             ),
         ],
@@ -312,47 +417,55 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String label) {
+  Widget _buildIconInfo(IconData icon, String label) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: Colors.grey[600]),
-        const SizedBox(width: 6),
-        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        Icon(icon, size: 16, color: const Color(0xFF6B7280)),
+        const SizedBox(width: 8),
+        Text(label, style: const TextStyle(color: Color(0xFF4B5563), fontSize: 13, fontWeight: FontWeight.w500)),
       ],
     );
   }
 
   Widget _buildApplicationTracker() {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Application Status', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Expanded(
-            child: StreamBuilder<List<PlacementApplicationModel>>(
-              stream: _placementService.streamStudentApplications(_currentUser!.uid),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final apps = snapshot.data ?? [];
-                if (apps.isEmpty) {
-                  return const Center(child: Text('No applications yet.', style: TextStyle(color: Colors.grey)));
-                }
-                return ListView.builder(
-                  itemCount: apps.length,
-                  itemBuilder: (context, index) => _buildApplicationStatusTile(apps[index]),
+          const Text('Application Tracker', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1F2937), letterSpacing: -0.5)),
+          const SizedBox(height: 20),
+          StreamBuilder<List<PlacementApplicationModel>>(
+            stream: _placementService.streamStudentApplications(_currentUser!.uid),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final apps = snapshot.data ?? [];
+              if (apps.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      children: [
+                        Icon(Icons.assignment_outlined, size: 40, color: Colors.grey[300]),
+                        const SizedBox(height: 12),
+                        const Text('No active applications', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                      ],
+                    ),
+                  ),
                 );
-              },
-            ),
+              }
+              return Column(
+                children: apps.map((app) => _buildApplicationStatusTile(app)).toList(),
+              );
+            },
           ),
         ],
       ),
@@ -361,19 +474,21 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
 
   Widget _buildApplicationStatusTile(PlacementApplicationModel app) {
     Color statusColor;
+    IconData statusIcon;
     switch (app.status.toLowerCase()) {
-      case 'selected': statusColor = Colors.green; break;
-      case 'rejected': statusColor = Colors.red; break;
-      case 'shortlisted': statusColor = Colors.blue; break;
-      default: statusColor = Colors.orange;
+      case 'selected': statusColor = const Color(0xFF10B981); statusIcon = Icons.check_circle_rounded; break;
+      case 'rejected': statusColor = const Color(0xFFEF4444); statusIcon = Icons.cancel_rounded; break;
+      case 'shortlisted': statusColor = const Color(0xFF4F46E5); statusIcon = Icons.stars_rounded; break;
+      default: statusColor = const Color(0xFFF59E0B); statusIcon = Icons.pending_rounded;
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[200]!),
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -381,22 +496,30 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(app.companyName, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(app.companyName, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1F2937))),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                child: Text(app.status, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(statusIcon, size: 12, color: statusColor),
+                    const SizedBox(width: 6),
+                    Text(app.status.toUpperCase(), style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w800)),
+                  ],
+                ),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(app.jobRole, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-          const SizedBox(height: 8),
+          Text(app.jobRole, style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w500)),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
           Row(
             children: [
-              const Icon(Icons.layers_outlined, size: 14, color: Colors.grey),
-              const SizedBox(width: 4),
-              Text('Round: ${app.currentRound}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              Icon(Icons.account_tree_outlined, size: 14, color: Colors.grey[400]),
+              const SizedBox(width: 8),
+              Text('Current Stage: ', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+              Text(app.currentRound, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5))),
             ],
           ),
         ],
@@ -408,44 +531,68 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) => SingleChildScrollView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(24),
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 32),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(drive.companyName, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Color(0xFF1F2937), letterSpacing: -1)),
+                        Text(drive.jobRole, style: const TextStyle(fontSize: 18, color: Color(0xFF4F46E5), fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(16)),
+                    child: const Icon(Icons.business_rounded, color: Color(0xFF4F46E5), size: 32),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              _buildDetailSection('About Eligibility', drive.eligibilityCriteria),
               const SizedBox(height: 24),
-              Text(drive.companyName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              Text(drive.jobRole, style: TextStyle(fontSize: 18, color: Colors.grey[700])),
-              const SizedBox(height: 24),
-              _buildDetailSection('About the Role', drive.eligibilityCriteria), // Reuse field for description if needed
-              const SizedBox(height: 24),
-              _buildDetailSection('Salary Details', '${drive.salaryPackage} LPA Fixed + Performance Bonus'),
-              const SizedBox(height: 24),
-              const Text('Selection Process', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              ...drive.recruitmentRounds.map((round) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+              _buildDetailSection('Compensation', '${drive.salaryPackage} LPA (Standard Package)'),
+              const SizedBox(height: 32),
+              const Text('Recruitment Rounds', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1F2937))),
+              const SizedBox(height: 16),
+              ...drive.recruitmentRounds.asMap().entries.map((entry) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
-                    const SizedBox(width: 12),
-                    Text(round, style: const TextStyle(fontSize: 16)),
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: const BoxDecoration(color: Color(0xFFEEF2FF), shape: BoxShape.circle),
+                      child: Center(child: Text('${entry.key + 1}', style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.bold, fontSize: 12))),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(entry.value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF4B5563))),
                   ],
                 ),
               )),
-              const SizedBox(height: 32),
+              const SizedBox(height: 48),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF3F4F6), foregroundColor: const Color(0xFF1F2937), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
+                  child: const Text('Close Details', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ),
             ],
@@ -459,9 +606,9 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1F2937))),
         const SizedBox(height: 8),
-        Text(content, style: TextStyle(fontSize: 16, color: Colors.grey[800])),
+        Text(content, style: const TextStyle(fontSize: 14, color: Color(0xFF4B5563), height: 1.6)),
       ],
     );
   }

@@ -63,7 +63,6 @@ class _StudentLayoutState extends State<StudentLayout> {
       {'icon': Icons.calendar_today_rounded, 'label': 'Events & Calendar', 'route': '/events'},
       {'icon': Icons.business_center_rounded, 'label': 'Placements', 'route': '/student/placement'},
       {'icon': Icons.campaign_rounded, 'label': 'Announcements', 'route': '/announcements'},
-      {'icon': Icons.message_rounded, 'label': 'Messages', 'route': '/student/messages'},
       {'icon': Icons.payment_rounded, 'label': 'Fees', 'route': '/student/fees'},
       {'icon': Icons.edit_note_rounded, 'label': 'Study Planner', 'route': '/student/study-planner'},
       {'icon': Icons.notes_rounded, 'label': 'Notes', 'route': '/student/notes'},

@@ -5,6 +5,7 @@ import '../models/mentor_meeting_model.dart';
 import '../models/mentee_concern_model.dart';
 import '../services/mentorship_service.dart';
 import '../services/session_manager.dart';
+import '../widgets/student_layout.dart';
 
 class StudentMentorDashboardScreen extends StatefulWidget {
   const StudentMentorDashboardScreen({super.key});
@@ -71,22 +72,32 @@ class _StudentMentorDashboardScreenState extends State<StudentMentorDashboardScr
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Request Meeting'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Request Meeting', style: TextStyle(fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: topicController, decoration: const InputDecoration(labelText: 'Meeting Topic')),
+              TextField(
+                controller: topicController, 
+                decoration: InputDecoration(
+                  labelText: 'Meeting Topic',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.topic_rounded),
+                ),
+              ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: selectedMode,
-                decoration: const InputDecoration(labelText: 'Preferred Mode'),
+                decoration: InputDecoration(
+                  labelText: 'Preferred Mode',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.videocam_rounded),
+                ),
                 items: ['Offline', 'Online'].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
                 onChanged: (val) => setDialogState(() => selectedMode = val!),
               ),
               const SizedBox(height: 16),
-              ListTile(
-                title: Text('Date: ${selectedDate.day}/${selectedDate.month}'),
-                trailing: const Icon(Icons.calendar_today),
+              InkWell(
                 onTap: () async {
                   final picked = await showDatePicker(
                     context: context,
@@ -96,6 +107,21 @@ class _StudentMentorDashboardScreenState extends State<StudentMentorDashboardScr
                   );
                   if (picked != null) setDialogState(() => selectedDate = picked);
                 },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade400),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today_rounded, size: 20, color: Color(0xFF4F46E5)),
+                      const SizedBox(width: 12),
+                      Text('Date: ${selectedDate.day}/${selectedDate.month}/${selectedDate.year}', 
+                        style: const TextStyle(fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -128,6 +154,11 @@ class _StudentMentorDashboardScreenState extends State<StudentMentorDashboardScr
                   }
                 }
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4F46E5),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
               child: const Text('Request'),
             ),
           ],
@@ -145,13 +176,17 @@ class _StudentMentorDashboardScreenState extends State<StudentMentorDashboardScr
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Raise Concern to Mentor'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Raise Concern to Mentor', style: TextStyle(fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
                 value: selectedType,
-                decoration: const InputDecoration(labelText: 'Category'),
+                decoration: InputDecoration(
+                  labelText: 'Category',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 items: ['Academic', 'Personal', 'Placement', 'Attendance']
                     .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                     .toList(),
@@ -160,7 +195,10 @@ class _StudentMentorDashboardScreenState extends State<StudentMentorDashboardScr
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: selectedPriority,
-                decoration: const InputDecoration(labelText: 'Priority'),
+                decoration: InputDecoration(
+                  labelText: 'Priority',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 items: ['Low', 'Medium', 'High']
                     .map((p) => DropdownMenuItem(value: p, child: Text(p)))
                     .toList(),
@@ -169,9 +207,9 @@ class _StudentMentorDashboardScreenState extends State<StudentMentorDashboardScr
               const SizedBox(height: 16),
               TextField(
                 controller: descriptionController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Describe your concern',
-                  border: OutlineInputBorder(),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 maxLines: 4,
               ),
@@ -209,6 +247,11 @@ class _StudentMentorDashboardScreenState extends State<StudentMentorDashboardScr
                   }
                 }
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
               child: const Text('Submit'),
             ),
           ],
@@ -219,55 +262,79 @@ class _StudentMentorDashboardScreenState extends State<StudentMentorDashboardScr
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      appBar: AppBar(
-        title: const Text('My Mentor'),
-        backgroundColor: const Color(0xFF4F46E5),
-        foregroundColor: Colors.white,
-      ),
-      body: _mentor == null 
-        ? const Center(child: Text('No mentor assigned yet.'))
-        : RefreshIndicator(
-            onRefresh: _loadData,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildMentorProfile(),
-                  const SizedBox(height: 24),
-                  _buildActionButtons(),
-                  const SizedBox(height: 24),
-                  _buildConcernsHistory(),
-                  const SizedBox(height: 24),
-                  _buildMeetingHistory(),
-                ],
+    return StudentLayout(
+      title: 'Mentorship Dashboard',
+      breadcrumbs: [
+        Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text('My Mentor', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+      ],
+      child: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : _mentor == null 
+          ? _buildNoMentorState()
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              color: const Color(0xFF4F46E5),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMentorProfileHeader(),
+                    const SizedBox(height: 32),
+                    const Text('Quick Actions', 
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1F2937), letterSpacing: -0.5)),
+                    const SizedBox(height: 16),
+                    _buildActionButtons(),
+                    const SizedBox(height: 32),
+                    _buildConcernsHistory(),
+                    const SizedBox(height: 32),
+                    _buildMeetingHistory(),
+                  ],
+                ),
               ),
             ),
-          ),
     );
   }
 
-  Widget _buildMentorProfile() {
+  Widget _buildNoMentorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.05),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.person_off_rounded, size: 64, color: Colors.orange),
+          ),
+          const SizedBox(height: 24),
+          const Text('No Mentor Assigned', 
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1F2937))),
+          const SizedBox(height: 8),
+          const Text('Please contact your department head to assign a mentor.',
+            style: TextStyle(color: Color(0xFF6B7280))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMentorProfileHeader() {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFE5E7EB)),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
-      child: Column(
+      child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(4),
@@ -276,41 +343,106 @@ class _StudentMentorDashboardScreenState extends State<StudentMentorDashboardScr
               border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.2), width: 2),
             ),
             child: CircleAvatar(
-              radius: 48,
+              radius: 44,
               backgroundColor: const Color(0xFFEEF2FF),
               backgroundImage: _mentor?.photoUrl != null ? NetworkImage(_mentor!.photoUrl!) : null,
-              child: _mentor?.photoUrl == null ? const Icon(Icons.person, size: 48, color: Color(0xFF4F46E5)) : null,
+              child: _mentor?.photoUrl == null ? const Icon(Icons.person_rounded, size: 40, color: Color(0xFF4F46E5)) : null,
             ),
           ),
-          const SizedBox(height: 16),
-          Text(_mentor?.displayName ?? 'N/A', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
-          Text(_mentor?.programme ?? 'Faculty', style: const TextStyle(color: Color(0xFF6B7280), fontSize: 14, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 24),
-          _buildInfoRow(Icons.email_outlined, 'Email', _mentor?.email ?? 'N/A'),
-          const SizedBox(height: 16),
-          _buildInfoRow(Icons.phone_outlined, 'Phone', _mentor?.phone ?? 'N/A'),
-          const SizedBox(height: 16),
-          _buildInfoRow(Icons.business_outlined, 'School', _mentor?.school ?? 'N/A'),
+          const SizedBox(width: 24),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_mentor?.displayName ?? 'N/A', 
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF1F2937), letterSpacing: -0.5)),
+                Text(_mentor?.programme ?? 'Academic Mentor', 
+                  style: const TextStyle(color: Color(0xFF6B7280), fontSize: 14, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _buildHeaderInfoChip(Icons.email_outlined, _mentor?.email ?? 'N/A'),
+                    _buildHeaderInfoChip(Icons.phone_outlined, _mentor?.phone ?? 'N/A'),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildHeaderInfoChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: const Color(0xFF4B5563)),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
     return Row(
       children: [
-        Icon(icon, size: 20, color: const Color(0xFF4F46E5)),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(color: Color(0xFF6B7280), fontSize: 11)),
-            Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF1F2937))),
-          ],
+        Expanded(
+          child: _buildModernActionButton(
+            Icons.calendar_today_rounded, 
+            'Request Meeting', 
+            const Color(0xFF4F46E5), 
+            _showRequestMeetingDialog
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildModernActionButton(
+            Icons.report_problem_rounded, 
+            'Raise Concern', 
+            const Color(0xFFEF4444), 
+            _showRaiseConcernDialog
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildModernActionButton(IconData icon, String label, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.1)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 12),
+            Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 14)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -322,62 +454,62 @@ class _StudentMentorDashboardScreenState extends State<StudentMentorDashboardScr
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('My Concerns', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            ...snapshot.data!.map((c) => Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: ListTile(
-                title: Text(c.concernType, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text(c.mentorRemarks ?? 'Awaiting mentor response...'),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: c.status == 'Resolved' ? Colors.green.shade50 : Colors.blue.shade50, 
-                    borderRadius: BorderRadius.circular(6)
-                  ),
-                  child: Text(c.status, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: c.status == 'Resolved' ? Colors.green : Colors.blue)),
-                ),
-              ),
-            )),
+            const Text('Recent Concerns', 
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1F2937), letterSpacing: -0.5)),
+            const SizedBox(height: 16),
+            ...snapshot.data!.map((c) => _buildConcernCard(c)),
           ],
         );
       }
     );
   }
 
-  Widget _buildActionButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildActionButton(Icons.calendar_month, 'Request Meeting', const Color(0xFF4F46E5), _showRequestMeetingDialog),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildActionButton(Icons.report_problem_outlined, 'Raise Concern', Colors.redAccent, _showRaiseConcernDialog),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton(IconData icon, String label, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.2)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 12),
-            Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
-          ],
-        ),
+  Widget _buildConcernCard(MenteeConcern concern) {
+    final isResolved = concern.status == 'Resolved';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: (isResolved ? Colors.green : Colors.orange).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isResolved ? Icons.check_circle_rounded : Icons.pending_rounded, 
+              color: isResolved ? Colors.green : Colors.orange, 
+              size: 20
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(concern.concernType, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF1F2937))),
+                const SizedBox(height: 2),
+                Text(concern.mentorRemarks ?? 'Awaiting mentor response...', 
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: (isResolved ? Colors.green : Colors.orange).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(concern.status.toUpperCase(), 
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: isResolved ? Colors.green : Colors.orange)),
+          ),
+        ],
       ),
     );
   }
@@ -390,15 +522,28 @@ class _StudentMentorDashboardScreenState extends State<StudentMentorDashboardScr
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (upcoming.isNotEmpty) ...[
-          const Text('Upcoming Meetings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5))),
-          const SizedBox(height: 12),
+          const Text('Upcoming Meetings', 
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF4F46E5), letterSpacing: -0.5)),
+          const SizedBox(height: 16),
           ...upcoming.map((m) => _buildMeetingCard(m)),
           const SizedBox(height: 24),
         ],
-        const Text('Meeting History', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
+        const Text('Meeting History', 
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1F2937), letterSpacing: -0.5)),
+        const SizedBox(height: 16),
         past.isEmpty 
-          ? const Text('No past meetings recorded.')
+          ? Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE5E7EB))),
+              child: Column(
+                children: [
+                  Icon(Icons.history_rounded, size: 40, color: Colors.grey[300]),
+                  const SizedBox(height: 12),
+                  const Text('No past meetings recorded.', style: TextStyle(color: Color(0xFF6B7280))),
+                ],
+              ),
+            )
           : Column(children: past.map((m) => _buildMeetingCard(m)).toList()),
       ],
     );
@@ -426,75 +571,96 @@ class _StudentMentorDashboardScreenState extends State<StudentMentorDashboardScr
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE5E7EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
-      child: ExpansionTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: statusColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(statusIcon, color: statusColor, size: 20),
           ),
-          child: Icon(statusIcon, color: statusColor, size: 20),
-        ),
-        title: Text(meeting.notes.isEmpty ? 'Meeting' : meeting.notes, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${meeting.date.day}/${meeting.date.month}/${meeting.date.year} - ${meeting.status}', 
-              style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11)),
-            Text('Mode: ${meeting.mode}', style: TextStyle(color: Colors.grey.shade600, fontSize: 10)),
-          ],
-        ),
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          title: Text(meeting.notes.isEmpty ? 'Meeting' : meeting.notes, 
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF1F2937))),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
               children: [
-                if (meeting.status == 'Completed') ...[
-                  const Text('Mentor Notes:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  Text(meeting.notes.isEmpty ? 'No notes provided.' : meeting.notes, style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563))),
-                  if (meeting.followUpAction.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const Text('Follow-up:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    const SizedBox(height: 4),
-                    Text(meeting.followUpAction, style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563))),
-                  ],
-                  if (meeting.attachments.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const Text('Attachments:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: meeting.attachments.map((link) => ActionChip(
-                        label: const Text('View Resource', style: TextStyle(fontSize: 11)),
-                        backgroundColor: const Color(0xFFEEF2FF),
-                        side: const BorderSide(color: Color(0xFF4F46E5), width: 0.5),
-                        avatar: const Icon(Icons.link, size: 14, color: Color(0xFF4F46E5)),
-                        onPressed: () => _launchURL(link),
-                      )).toList(),
-                    ),
-                  ],
-                ] else
-                  Text(
-                    meeting.status == 'Requested' ? 'Waiting for mentor to approve this request.' : 'Meeting scheduled. Discussion notes will appear here after the meeting.',
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280), fontStyle: FontStyle.italic),
-                  ),
+                Text('${meeting.date.day}/${meeting.date.month}/${meeting.date.year}', 
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w500)),
+                const SizedBox(width: 8),
+                Text('•', style: TextStyle(color: Colors.grey[400])),
+                const SizedBox(width: 8),
+                Text(meeting.mode, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
               ],
             ),
           ),
-        ],
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(meeting.status.toUpperCase(), 
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: statusColor)),
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  if (meeting.status == 'Completed') ...[
+                    _buildExpandedDetail('Mentor Notes', meeting.notes.isEmpty ? 'No notes provided.' : meeting.notes),
+                    if (meeting.followUpAction.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      _buildExpandedDetail('Follow-up Action', meeting.followUpAction),
+                    ],
+                    if (meeting.attachments.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      const Text('Resources & Attachments', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF1F2937))),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: meeting.attachments.map((link) => ActionChip(
+                          label: const Text('View Resource', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                          backgroundColor: const Color(0xFFEEF2FF),
+                          side: const BorderSide(color: Color(0xFF4F46E5), width: 0.5),
+                          avatar: const Icon(Icons.link_rounded, size: 14, color: Color(0xFF4F46E5)),
+                          onPressed: () => _launchURL(link),
+                        )).toList(),
+                      ),
+                    ],
+                  ] else
+                    Text(
+                      meeting.status == 'Requested' ? 'Waiting for mentor to approve this request.' : 'Meeting scheduled. Discussion notes will appear here after the meeting.',
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280), fontStyle: FontStyle.italic),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildExpandedDetail(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF1F2937))),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563), height: 1.5)),
+      ],
     );
   }
 }

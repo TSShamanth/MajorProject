@@ -415,8 +415,8 @@ class _FacultyShellState extends State<FacultyShell> {
         children: [
           if (!_sidebarExpanded)
             IconButton(icon: const Icon(Icons.menu_rounded), onPressed: () => setState(() => _sidebarExpanded = true)),
-          const Text('Dashboard', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-          const SizedBox(width: 20),
+          Text(widget.title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _textPrimary, letterSpacing: -0.5)),
+          const SizedBox(width: 24),
           Expanded(
             child: GlobalSearchBar(
               isDarkMode: _isDarkMode,

@@ -367,7 +367,16 @@ class _AppLayoutState extends State<AppLayout> {
             ),
           
           if (!isMobile) ...[
-            const SizedBox(width: 8),
+            Text(
+              widget.title,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: _textPrimary,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(width: 24),
             Expanded(
               child: Container(
                 height: 46,

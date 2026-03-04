@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application/models/fee_structure_model.dart';
+import 'package:flutter_application/models/student_fee_model.dart';
 import 'package:flutter_application/screens/admin_mentor_management_screen.dart';
 import 'package:flutter_application/screens/faculty_exam_timetable_screen.dart';
 import 'package:flutter_application/screens/faculty_mentee_dashboard_screen.dart';
@@ -19,6 +20,8 @@ import 'package:flutter_application/screens/timetable_generation_screen.dart';
 import 'package:flutter_application/screens/user_form_list_screen.dart';
 import 'package:flutter_application/screens/user_list_screen.dart';
 import 'package:flutter_application/screens/working_day_management_screen.dart';
+import 'package:flutter_application/widgets/faculty_shell.dart';
+import 'package:flutter_application/widgets/student_layout.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/admin_dashboard_screen.dart';
 import '../screens/admin_user_management_screen.dart';
@@ -84,6 +87,8 @@ import '../screens/exam_hall_tickets_screen.dart';
 import '../screens/hall_ticket_viewer_screen.dart';
 import '../screens/student/student_leave_screen.dart';
 import '../screens/student/leave_history_screen.dart';
+import '../screens/student/student_fees_screen.dart';
+import '../screens/student/student_fee_detail_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/coming_soon_screen.dart';
 
@@ -139,6 +144,25 @@ final router = GoRouter(
         GoRoute(
           path: '/:institutionId/student/academics',
           builder: (context, state) => const StudentAcademicsScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/fees',
+          builder: (context, state) => const StudentFeesScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/fees/:feeId',
+          builder: (context, state) {
+            final fee = state.extra as StudentFee;
+            return StudentFeeDetailScreen(fee: fee);
+          },
+        ),
+        GoRoute(
+          path: '/:institutionId/student/study-planner',
+          builder: (context, state) => const StudentLayout(title: 'Study Planner', child: ComingSoonScreen(title: 'Study Planner')),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/notes',
+          builder: (context, state) => const StudentLayout(title: 'Notes', child: ComingSoonScreen(title: 'Notes')),
         ),
         GoRoute(
           path: '/:institutionId/student/my-mentors',
@@ -579,15 +603,15 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/:institutionId/faculty/profile',
-      builder: (context, state) => const ComingSoonScreen(title: 'Faculty Profile'),
+      builder: (context, state) => const FacultyShell(title: 'Faculty Profile', child: ComingSoonScreen(title: 'Faculty Profile')),
     ),
     GoRoute(
       path: '/:institutionId/faculty/leave',
-      builder: (context, state) => const ComingSoonScreen(title: 'Leave Application'),
+      builder: (context, state) => const FacultyShell(title: 'Leave Application', child: ComingSoonScreen(title: 'Leave Application')),
     ),
     GoRoute(
       path: '/:institutionId/faculty/payroll',
-      builder: (context, state) => const ComingSoonScreen(title: 'Payroll'),
+      builder: (context, state) => const FacultyShell(title: 'Payroll', child: ComingSoonScreen(title: 'Payroll')),
     ),
     GoRoute(
       path: '/',

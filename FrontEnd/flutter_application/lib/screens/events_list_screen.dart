@@ -5,7 +5,7 @@ import '../services/event_service.dart';
 import '../services/session_manager.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
-import '../widgets/admin_layout.dart';
+import '../widgets/student_layout.dart';
 
 class EventsListScreen extends StatefulWidget {
   const EventsListScreen({super.key});
@@ -25,7 +25,6 @@ class _EventsListScreenState extends State<EventsListScreen> with TickerProvider
   String? _selectedCategory;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
-  bool _isDarkMode = false;
 
   final List<String> _categories = [
     'all',
@@ -137,18 +136,15 @@ class _EventsListScreenState extends State<EventsListScreen> with TickerProvider
 
   @override
   Widget build(BuildContext context) {
-    _isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
-    final textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
     final isStudent = _currentUser?.role == 'student';
     final filteredEvents = _getFilteredEvents();
 
-    return AdminLayout(
-      title: 'Events',
+    return StudentLayout(
+      title: 'Events Explorer',
       breadcrumbs: [
-        Icon(Icons.chevron_right, size: 16, color: textSecondary),
-        const SizedBox(width: 10),
-        Text('Events', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.w600, fontSize: 13)),
+        Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text('Events', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
       ],
       child: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -157,55 +153,22 @@ class _EventsListScreenState extends State<EventsListScreen> with TickerProvider
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Event Explorer',
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              color: textPrimary,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Discover and manage institutional events',
-                            style: TextStyle(fontSize: 14, color: textSecondary),
-                          ),
-                        ],
-                      ),
-                      if (!isStudent)
-                        ElevatedButton.icon(
-                          onPressed: () => context.push('/$_institutionId/events/create'),
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text('Create Event'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4F46E5),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                        ),
-                    ],
-                  ),
+                  _buildHeader(isStudent),
                   const SizedBox(height: 24),
                   
                   // Modern Tab Bar
                   Container(
                     decoration: BoxDecoration(
-                      border: Border(bottom: BorderSide(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB))),
+                      border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
                     ),
                     child: TabBar(
                       controller: _tabController,
                       labelColor: const Color(0xFF4F46E5),
-                      unselectedLabelColor: textSecondary,
+                      unselectedLabelColor: Colors.grey[600],
                       indicatorColor: const Color(0xFF4F46E5),
                       indicatorWeight: 3,
+                      tabAlignment: TabAlignment.start,
+                      isScrollable: true,
                       onTap: (index) {
                         setState(() {
                           _selectedTabIndex = index;
@@ -213,8 +176,8 @@ class _EventsListScreenState extends State<EventsListScreen> with TickerProvider
                         _fetchEvents();
                       },
                       tabs: [
-                        const Tab(text: 'Upcoming Events'),
-                        Tab(text: isStudent ? 'My Registrations' : 'Management'),
+                        const Tab(text: 'All Upcoming Events'),
+                        Tab(text: isStudent ? 'My Registrations' : 'My Managed Events'),
                       ],
                     ),
                   ),
@@ -228,27 +191,25 @@ class _EventsListScreenState extends State<EventsListScreen> with TickerProvider
                         child: Container(
                           height: 46,
                           decoration: BoxDecoration(
-                            color: _isDarkMode ? const Color(0xFF111827) : Colors.grey[50]!,
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
                           ),
                           child: TextField(
                             controller: _searchController,
                             onChanged: (value) => setState(() => _searchQuery = value),
-                            style: TextStyle(color: textPrimary, fontSize: 14),
-                            decoration: InputDecoration(
-                              hintText: 'Search events...',
-                              hintStyle: TextStyle(color: textSecondary, fontSize: 14),
-                              prefixIcon: Icon(Icons.search_rounded, color: textSecondary, size: 20),
+                            decoration: const InputDecoration(
+                              hintText: 'Search by title or description...',
+                              hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+                              prefixIcon: Icon(Icons.search_rounded, color: Color(0xFF9CA3AF), size: 20),
                               border: InputBorder.none,
                               isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                              contentPadding: EdgeInsets.symmetric(vertical: 12),
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 16),
-                      // Category scroll
                       Expanded(
                         flex: 2,
                         child: SingleChildScrollView(
@@ -264,16 +225,16 @@ class _EventsListScreenState extends State<EventsListScreen> with TickerProvider
                                   onSelected: (selected) {
                                     setState(() => _selectedCategory = cat);
                                   },
-                                  selectedColor: const Color(0xFF4F46E5).withOpacity(0.2),
+                                  selectedColor: const Color(0xFF4F46E5).withOpacity(0.1),
                                   checkmarkColor: const Color(0xFF4F46E5),
                                   labelStyle: TextStyle(
-                                    color: isSelected ? const Color(0xFF4F46E5) : textSecondary,
+                                    color: isSelected ? const Color(0xFF4F46E5) : Colors.grey[600],
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                     fontSize: 13,
                                   ),
-                                  backgroundColor: Colors.transparent,
+                                  backgroundColor: Colors.white,
                                   side: BorderSide(
-                                    color: isSelected ? const Color(0xFF4F46E5) : (_isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
+                                    color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFFE5E7EB),
                                   ),
                                 ),
                               );
@@ -286,7 +247,7 @@ class _EventsListScreenState extends State<EventsListScreen> with TickerProvider
                   
                   const SizedBox(height: 32),
                   
-                  // Events Grid/List
+                  // Events Grid
                   filteredEvents.isEmpty
                       ? _buildEmptyState()
                       : GridView.builder(
@@ -309,39 +270,57 @@ class _EventsListScreenState extends State<EventsListScreen> with TickerProvider
     );
   }
 
+  Widget _buildHeader(bool isStudent) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Events Explorer',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Color(0xFF1F2937), letterSpacing: -0.5),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Discover workshops, cultural fests, and placement drives',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        if (!isStudent)
+          ElevatedButton.icon(
+            onPressed: () => context.push('/$_institutionId/events/create'),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Create Event'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4F46E5),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 80),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4F46E5).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: const Color(0xFF4F46E5).withOpacity(0.05), shape: BoxShape.circle),
               child: const Icon(Icons.event_busy_rounded, color: Color(0xFF4F46E5), size: 64),
             ),
             const SizedBox(height: 24),
-            Text(
-              'No events found',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: _isDarkMode ? Colors.white : const Color(0xFF1F2937),
-              ),
-            ),
+            const Text('No events found', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1F2937))),
             const SizedBox(height: 8),
-            Text(
-              'Try adjusting your search or filters to find what you\'re looking for.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!,
-              ),
-            ),
+            Text('Try adjusting your search or filters to discover more events.', 
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
           ],
         ),
       ),
@@ -349,33 +328,25 @@ class _EventsListScreenState extends State<EventsListScreen> with TickerProvider
   }
 
   Widget _buildEventCard(EventModel event) {
-    final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
-    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
-    final textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
-    final textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
     final categoryColor = _getCategoryColor(event.category);
 
     return Container(
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(_isDarkMode ? 0.2 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 8)),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         child: InkWell(
           onTap: () => context.push('/$_institutionId/events/${event.id}', extra: event),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header/Image Placeholder
+              // Event Banner Placeholder
               Container(
                 height: 160,
                 width: double.infinity,
@@ -389,22 +360,10 @@ class _EventsListScreenState extends State<EventsListScreen> with TickerProvider
                 child: Stack(
                   children: [
                     Center(
-                      child: Icon(
-                        _getCategoryIcon(event.category),
-                        size: 64,
-                        color: Colors.white.withOpacity(0.9),
-                      ),
+                      child: Icon(_getCategoryIcon(event.category), size: 64, color: Colors.white.withOpacity(0.9)),
                     ),
-                    Positioned(
-                      top: 16,
-                      left: 16,
-                      child: _buildCategoryChip(event.category),
-                    ),
-                    Positioned(
-                      top: 16,
-                      right: 16,
-                      child: _buildStatusChip(event.status),
-                    ),
+                    Positioned(top: 16, left: 16, child: _buildCategoryChip(event.category)),
+                    Positioned(top: 16, right: 16, child: _buildStatusChip(event.status)),
                   ],
                 ),
               ),
@@ -418,62 +377,27 @@ class _EventsListScreenState extends State<EventsListScreen> with TickerProvider
                       event.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: textPrimary,
-                        letterSpacing: -0.5,
-                      ),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1F2937), letterSpacing: -0.5),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(Icons.calendar_today_rounded, size: 16, color: textSecondary),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${event.formattedDate} • ${event.formattedTime}',
-                          style: TextStyle(color: textSecondary, fontSize: 13),
-                        ),
-                      ],
-                    ),
+                    const SizedBox(height: 16),
+                    _buildIconText(Icons.calendar_today_rounded, '${event.formattedDate} • ${event.formattedTime}'),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.location_on_rounded, size: 16, color: textSecondary),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            event.venue,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: textSecondary, fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Divider(height: 1),
-                    ),
+                    _buildIconText(Icons.location_on_rounded, event.venue),
+                    const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Divider(height: 1)),
                     Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4F46E5).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          decoration: BoxDecoration(color: const Color(0xFF4F46E5).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
                           child: const Icon(Icons.people_rounded, size: 18, color: Color(0xFF4F46E5)),
                         ),
                         const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '${event.currentParticipants} / ${event.capacityLimit == 0 ? "∞" : event.capacityLimit}',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 14),
-                            ),
-                            Text('Registered', style: TextStyle(color: textSecondary, fontSize: 12)),
+                            Text('${event.currentParticipants} / ${event.capacityLimit == 0 ? "∞" : event.capacityLimit}', 
+                              style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1F2937), fontSize: 14)),
+                            Text('Participating', style: TextStyle(color: Colors.grey[500], fontSize: 11, fontWeight: FontWeight.w600)),
                           ],
                         ),
                         const Spacer(),
@@ -490,65 +414,46 @@ class _EventsListScreenState extends State<EventsListScreen> with TickerProvider
     );
   }
 
+  Widget _buildIconText(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF6B7280)),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, 
+          style: const TextStyle(color: Color(0xFF4B5563), fontSize: 13, fontWeight: FontWeight.w500))),
+      ],
+    );
+  }
+
   Widget _buildAvailabilityIndicator(EventModel event) {
-    if (event.isFull) {
-      return _indicator('FULL', Colors.red);
-    } else if (event.isEventOver) {
-      return _indicator('CLOSED', Colors.grey);
-    } else {
-      return _indicator('OPEN', Colors.green);
-    }
+    if (event.isFull) return _indicator('FULL', const Color(0xFFEF4444));
+    if (event.isEventOver) return _indicator('CLOSED', const Color(0xFF6B7280));
+    return _indicator('OPEN', const Color(0xFF10B981));
   }
 
   Widget _indicator(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
-      ),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6), border: Border.all(color: color.withOpacity(0.2))),
+      child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w800)),
     );
   }
 
   Widget _buildCategoryChip(String category) {
-    final color = _getCategoryColor(category);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)],
-      ),
-      child: Text(
-        _formatCategory(category).toUpperCase(),
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)]),
+      child: Text(_formatCategory(category).toUpperCase(), 
+        style: TextStyle(color: _getCategoryColor(category), fontSize: 10, fontWeight: FontWeight.w800)),
     );
   }
 
   Widget _buildStatusChip(String status) {
-    String label = status.replaceAll('_', ' ');
-    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-      ),
+      decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.white.withOpacity(0.2))),
+      child: Text(status.replaceAll('_', ' ').toUpperCase(), 
+        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800)),
     );
   }
 

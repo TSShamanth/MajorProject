@@ -1190,7 +1190,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       ),
       child: Row(
         children: [
-          // Menu Toggle Button (appears when sidebar is collapsed)
           if (!_sidebarExpanded)
             Container(
               margin: const EdgeInsets.only(right: 16),
@@ -1227,6 +1226,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                 ),
               ),
             ),
+          
+          Text(
+            'Admin Dashboard',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: _textPrimary,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(width: 24),
 
           Expanded(
             child: Container(
