@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../models/event_model.dart';
 import '../services/event_service.dart';
 import '../services/session_manager.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
+import '../widgets/faculty_layout.dart';
 import '../widgets/admin_layout.dart';
+import '../widgets/student_layout.dart';
 
 class CreateEditEventScreen extends StatefulWidget {
   final EventModel? event;
@@ -197,20 +198,7 @@ class _CreateEditEventScreenState extends State<CreateEditEventScreen> {
     final textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
     final textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
 
-    return AdminLayout(
-      title: widget.event == null ? 'Create Event' : 'Edit Event',
-      breadcrumbs: [
-        Icon(Icons.chevron_right, size: 16, color: textSecondary),
-        const SizedBox(width: 10),
-        InkWell(
-          onTap: () => context.push('/$_institutionId/events'),
-          child: Text('Events', style: TextStyle(color: textSecondary, fontSize: 13)),
-        ),
-        Icon(Icons.chevron_right, size: 16, color: textSecondary),
-        const SizedBox(width: 10),
-        Text(widget.event == null ? 'Create' : 'Edit', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.w600, fontSize: 13)),
-      ],
-      child: _isLoading 
+    Widget content = _isLoading 
         ? const Center(child: CircularProgressIndicator())
         : SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
@@ -348,8 +336,17 @@ class _CreateEditEventScreenState extends State<CreateEditEventScreen> {
                 ],
               ),
             ),
-          ),
-    );
+          );
+
+    final role = _currentUser?.role?.toLowerCase();
+    final title = widget.event == null ? 'Create Event' : 'Edit Event';
+    if (role == 'admin') {
+      return AdminLayout(title: title, child: content);
+    } else if (role == 'faculty') {
+      return FacultyLayout(title: title, child: content);
+    } else {
+      return StudentLayout(title: title, child: content);
+    }
   }
 
   Widget _buildFormSection(String title, String subtitle, IconData icon, Color color, List<Widget> children) {

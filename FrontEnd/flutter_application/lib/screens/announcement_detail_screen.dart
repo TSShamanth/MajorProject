@@ -7,7 +7,9 @@ import '../services/announcement_service.dart';
 import '../services/session_manager.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
+import '../widgets/faculty_layout.dart';
 import '../widgets/admin_layout.dart';
+import '../widgets/student_layout.dart';
 
 class AnnouncementDetailScreen extends StatefulWidget {
   final AnnouncementModel announcement;
@@ -146,20 +148,7 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
     final isAdmin = _currentUser?.role == 'admin';
     final canManage = isCreator || isAdmin;
 
-    return AdminLayout(
-      title: 'Announcement Details',
-      breadcrumbs: [
-        Icon(Icons.chevron_right, size: 16, color: textSecondary),
-        const SizedBox(width: 10),
-        InkWell(
-          onTap: () => context.push('/$_institutionId/announcements'),
-          child: Text('Announcements', style: TextStyle(color: textSecondary, fontSize: 13)),
-        ),
-        Icon(Icons.chevron_right, size: 16, color: textSecondary),
-        const SizedBox(width: 10),
-        Text('Details', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.w600, fontSize: 13)),
-      ],
-      child: _isLoading 
+    Widget content = _isLoading 
         ? const Center(child: CircularProgressIndicator())
         : SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
@@ -192,8 +181,16 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
                 ),
               ],
             ),
-          ),
-    );
+          );
+
+    final role = _currentUser?.role?.toLowerCase();
+    if (role == 'admin') {
+      return AdminLayout(title: 'Announcement Details', child: content);
+    } else if (role == 'faculty') {
+      return FacultyLayout(title: 'Announcement Details', child: content);
+    } else {
+      return StudentLayout(title: 'Announcement Details', child: content);
+    }
   }
 
   Widget _buildHeader(Color textPrimary, Color textSecondary, bool canManage) {

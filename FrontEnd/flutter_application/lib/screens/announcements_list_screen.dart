@@ -6,6 +6,8 @@ import '../services/announcement_service.dart';
 import '../services/session_manager.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
+import '../widgets/faculty_layout.dart';
+import '../widgets/admin_layout.dart';
 import '../widgets/student_layout.dart';
 
 class AnnouncementsListScreen extends StatefulWidget {
@@ -144,124 +146,125 @@ class _AnnouncementsListScreenState extends State<AnnouncementsListScreen> with 
     final isStudent = _currentUser?.role == 'student';
     final filteredAnnouncements = _getFilteredAnnouncements();
 
-    return StudentLayout(
-      title: 'Announcements Feed',
-      breadcrumbs: [
-        Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey[600]),
-        const SizedBox(width: 8),
-        Text('Announcements', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-      ],
-      child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(isStudent),
-                  const SizedBox(height: 24),
+    Widget content = _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(isStudent),
+                const SizedBox(height: 24),
 
-                  // Modern Tab Bar - Only show if not student or if we want multiple student tabs
-                  if (!isStudent)
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-                      ),
-                      child: TabBar(
-                        controller: _tabController,
-                        labelColor: const Color(0xFF4F46E5),
-                        unselectedLabelColor: Colors.grey[600],
-                        indicatorColor: const Color(0xFF4F46E5),
-                        indicatorWeight: 3,
-                        tabAlignment: TabAlignment.start,
-                        isScrollable: true,
-                        onTap: (index) {
-                          setState(() {
-                            _selectedTabIndex = index;
-                          });
-                        },
-                        tabs: [
-                          Tab(text: 'My Feed (${_audienceAnnouncements.length})'),
-                          Tab(text: 'My Posts (${_myAnnouncements.length})'),
-                          Tab(text: 'All (${_announcements.length})'),
-                        ],
-                      ),
+                // Modern Tab Bar - Only show if not student or if we want multiple student tabs
+                if (!isStudent)
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
                     ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Search & Category Filter
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          height: 46,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            onChanged: (value) => setState(() => _searchQuery = value),
-                            decoration: const InputDecoration(
-                              hintText: 'Search news and announcements...',
-                              hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
-                              prefixIcon: Icon(Icons.search_rounded, color: Color(0xFF9CA3AF), size: 20),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Container(
+                    child: TabBar(
+                      controller: _tabController,
+                      labelColor: const Color(0xFF4F46E5),
+                      unselectedLabelColor: Colors.grey[600],
+                      indicatorColor: const Color(0xFF4F46E5),
+                      indicatorWeight: 3,
+                      tabAlignment: TabAlignment.start,
+                      isScrollable: true,
+                      onTap: (index) {
+                        setState(() {
+                          _selectedTabIndex = index;
+                        });
+                      },
+                      tabs: [
+                        Tab(text: 'My Feed (${_audienceAnnouncements.length})'),
+                        Tab(text: 'My Posts (${_myAnnouncements.length})'),
+                        Tab(text: 'All (${_announcements.length})'),
+                      ],
+                    ),
+                  ),
+                
+                const SizedBox(height: 24),
+                
+                // Search & Category Filter
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
                         height: 46,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: const Color(0xFFE5E7EB)),
                         ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedCategory,
-                            icon: const Icon(Icons.filter_list_rounded, size: 20, color: Color(0xFF6B7280)),
-                            items: _categories.map((category) => DropdownMenuItem(
-                              value: category,
-                              child: Text(_formatCategory(category), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                            )).toList(),
-                            onChanged: (value) => setState(() => _selectedCategory = value),
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: (value) => setState(() => _searchQuery = value),
+                          decoration: const InputDecoration(
+                            hintText: 'Search news and announcements...',
+                            hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+                            prefixIcon: Icon(Icons.search_rounded, color: Color(0xFF9CA3AF), size: 20),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
                       ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // Announcements Grid
-                  filteredAnnouncements.isEmpty
-                      ? _buildEmptyState()
-                      : GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: MediaQuery.of(context).size.width > 1200 ? 3 : (MediaQuery.of(context).size.width > 800 ? 2 : 1),
-                            crossAxisSpacing: 24,
-                            mainAxisSpacing: 24,
-                            mainAxisExtent: 240,
-                          ),
-                          itemCount: filteredAnnouncements.length,
-                          itemBuilder: (context, index) {
-                            return _buildAnnouncementCard(filteredAnnouncements[index], isStudent);
-                          },
+                    ),
+                    const SizedBox(width: 16),
+                    Container(
+                      height: 46,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedCategory,
+                          icon: const Icon(Icons.filter_list_rounded, size: 20, color: Color(0xFF6B7280)),
+                          items: _categories.map((category) => DropdownMenuItem(
+                            value: category,
+                            child: Text(_formatCategory(category), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                          )).toList(),
+                          onChanged: (value) => setState(() => _selectedCategory = value),
                         ),
-                ],
-              ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 32),
+
+                // Announcements Grid
+                filteredAnnouncements.isEmpty
+                    ? _buildEmptyState()
+                    : GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: MediaQuery.of(context).size.width > 1200 ? 3 : (MediaQuery.of(context).size.width > 800 ? 2 : 1),
+                          crossAxisSpacing: 24,
+                          mainAxisSpacing: 24,
+                          mainAxisExtent: 240,
+                        ),
+                        itemCount: filteredAnnouncements.length,
+                        itemBuilder: (context, index) {
+                          return _buildAnnouncementCard(filteredAnnouncements[index], isStudent);
+                        },
+                      ),
+              ],
             ),
-    );
+          );
+
+    final role = _currentUser?.role?.toLowerCase();
+    if (role == 'admin') {
+      return AdminLayout(title: 'Announcements', child: content);
+    } else if (role == 'faculty') {
+      return FacultyLayout(title: 'Announcements', child: content);
+    } else {
+      return StudentLayout(title: 'Announcements', child: content);
+    }
   }
 
   Widget _buildHeader(bool isStudent) {

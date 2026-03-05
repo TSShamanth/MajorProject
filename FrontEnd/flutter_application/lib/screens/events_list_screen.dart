@@ -5,6 +5,8 @@ import '../services/event_service.dart';
 import '../services/session_manager.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
+import '../widgets/faculty_layout.dart';
+import '../widgets/admin_layout.dart';
 import '../widgets/student_layout.dart';
 
 class EventsListScreen extends StatefulWidget {
@@ -139,135 +141,136 @@ class _EventsListScreenState extends State<EventsListScreen> with TickerProvider
     final isStudent = _currentUser?.role == 'student';
     final filteredEvents = _getFilteredEvents();
 
-    return StudentLayout(
-      title: 'Events Explorer',
-      breadcrumbs: [
-        Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey[600]),
-        const SizedBox(width: 8),
-        Text('Events', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-      ],
-      child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(isStudent),
-                  const SizedBox(height: 24),
-                  
-                  // Modern Tab Bar
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-                    ),
-                    child: TabBar(
-                      controller: _tabController,
-                      labelColor: const Color(0xFF4F46E5),
-                      unselectedLabelColor: Colors.grey[600],
-                      indicatorColor: const Color(0xFF4F46E5),
-                      indicatorWeight: 3,
-                      tabAlignment: TabAlignment.start,
-                      isScrollable: true,
-                      onTap: (index) {
-                        setState(() {
-                          _selectedTabIndex = index;
-                        });
-                        _fetchEvents();
-                      },
-                      tabs: [
-                        const Tab(text: 'All Upcoming Events'),
-                        Tab(text: isStudent ? 'My Registrations' : 'My Managed Events'),
-                      ],
-                    ),
+    Widget content = _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(isStudent),
+                const SizedBox(height: 24),
+                
+                // Modern Tab Bar
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
                   ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Search & Category Filter
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          height: 46,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            onChanged: (value) => setState(() => _searchQuery = value),
-                            decoration: const InputDecoration(
-                              hintText: 'Search by title or description...',
-                              hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
-                              prefixIcon: Icon(Icons.search_rounded, color: Color(0xFF9CA3AF), size: 20),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 2,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: _categories.map((cat) {
-                              final isSelected = _selectedCategory == cat;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8.0),
-                                child: ChoiceChip(
-                                  label: Text(_formatCategory(cat)),
-                                  selected: isSelected,
-                                  onSelected: (selected) {
-                                    setState(() => _selectedCategory = cat);
-                                  },
-                                  selectedColor: const Color(0xFF4F46E5).withOpacity(0.1),
-                                  checkmarkColor: const Color(0xFF4F46E5),
-                                  labelStyle: TextStyle(
-                                    color: isSelected ? const Color(0xFF4F46E5) : Colors.grey[600],
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                    fontSize: 13,
-                                  ),
-                                  backgroundColor: Colors.white,
-                                  side: BorderSide(
-                                    color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ),
+                  child: TabBar(
+                    controller: _tabController,
+                    labelColor: const Color(0xFF4F46E5),
+                    unselectedLabelColor: Colors.grey[600],
+                    indicatorColor: const Color(0xFF4F46E5),
+                    indicatorWeight: 3,
+                    tabAlignment: TabAlignment.start,
+                    isScrollable: true,
+                    onTap: (index) {
+                      setState(() {
+                        _selectedTabIndex = index;
+                      });
+                      _fetchEvents();
+                    },
+                    tabs: [
+                      const Tab(text: 'All Upcoming Events'),
+                      Tab(text: isStudent ? 'My Registrations' : 'My Managed Events'),
                     ],
                   ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // Events Grid
-                  filteredEvents.isEmpty
-                      ? _buildEmptyState()
-                      : GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: MediaQuery.of(context).size.width > 1200 ? 3 : (MediaQuery.of(context).size.width > 800 ? 2 : 1),
-                            crossAxisSpacing: 24,
-                            mainAxisSpacing: 24,
-                            mainAxisExtent: 420,
-                          ),
-                          itemCount: filteredEvents.length,
-                          itemBuilder: (context, index) {
-                            return _buildEventCard(filteredEvents[index]);
-                          },
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Search & Category Filter
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
                         ),
-                ],
-              ),
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: (value) => setState(() => _searchQuery = value),
+                          decoration: const InputDecoration(
+                            hintText: 'Search by title or description...',
+                            hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+                            prefixIcon: Icon(Icons.search_rounded, color: Color(0xFF9CA3AF), size: 20),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: _categories.map((cat) {
+                            final isSelected = _selectedCategory == cat;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: ChoiceChip(
+                                label: Text(_formatCategory(cat)),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() => _selectedCategory = cat);
+                                },
+                                selectedColor: const Color(0xFF4F46E5).withOpacity(0.1),
+                                checkmarkColor: const Color(0xFF4F46E5),
+                                labelStyle: TextStyle(
+                                  color: isSelected ? const Color(0xFF4F46E5) : Colors.grey[600],
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  fontSize: 13,
+                                ),
+                                backgroundColor: Colors.white,
+                                side: BorderSide(
+                                  color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 32),
+                
+                // Events Grid
+                filteredEvents.isEmpty
+                    ? _buildEmptyState()
+                    : GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: MediaQuery.of(context).size.width > 1200 ? 3 : (MediaQuery.of(context).size.width > 800 ? 2 : 1),
+                          crossAxisSpacing: 24,
+                          mainAxisSpacing: 24,
+                          mainAxisExtent: 420,
+                        ),
+                        itemCount: filteredEvents.length,
+                        itemBuilder: (context, index) {
+                          return _buildEventCard(filteredEvents[index]);
+                        },
+                      ),
+              ],
             ),
-    );
+          );
+
+    final role = _currentUser?.role?.toLowerCase();
+    if (role == 'admin') {
+      return AdminLayout(title: 'Events', child: content);
+    } else if (role == 'faculty') {
+      return FacultyLayout(title: 'Events', child: content);
+    } else {
+      return StudentLayout(title: 'Events', child: content);
+    }
   }
 
   Widget _buildHeader(bool isStudent) {

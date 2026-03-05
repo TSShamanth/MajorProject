@@ -11,6 +11,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/models/announcement_model.dart';
 import 'package:flutter_application/screens/admin_attendance_dashboard.dart';
+import 'package:flutter_application/screens/report_card_viewer_screen.dart';
 import 'package:flutter_application/screens/student_eligibility_screen.dart';
 import 'package:flutter_application/screens/student_hall_ticket_list_screen.dart';
 import 'package:flutter_application/screens/student_shell.dart';
@@ -20,7 +21,7 @@ import 'package:flutter_application/screens/timetable_generation_screen.dart';
 import 'package:flutter_application/screens/user_form_list_screen.dart';
 import 'package:flutter_application/screens/user_list_screen.dart';
 import 'package:flutter_application/screens/working_day_management_screen.dart';
-import 'package:flutter_application/widgets/faculty_shell.dart';
+import 'package:flutter_application/widgets/faculty_layout.dart';
 import 'package:flutter_application/widgets/student_layout.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/admin_dashboard_screen.dart';
@@ -45,7 +46,7 @@ import '../screens/fee_structure_editor_screen.dart';
 import '../screens/exam_dashboard_screen.dart';
 import '../screens/exam_schedule_editor_screen.dart';
 import '../screens/report_card_dashboard_screen.dart';
-import '../screens/report_card_viewer_screen.dart';
+import '../screens/faculty/profile_screen.dart';
 import '../screens/inventory_dashboard_screen.dart';
 import '../screens/inventory_item_editor_screen.dart';
 import '../screens/form_builder_dashboard_screen.dart';
@@ -603,15 +604,15 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/:institutionId/faculty/profile',
-      builder: (context, state) => const FacultyShell(title: 'Faculty Profile', child: ComingSoonScreen(title: 'Faculty Profile')),
+      builder: (context, state) => const FacultyProfileScreen(),
     ),
     GoRoute(
       path: '/:institutionId/faculty/leave',
-      builder: (context, state) => const FacultyShell(title: 'Leave Application', child: ComingSoonScreen(title: 'Leave Application')),
+      builder: (context, state) => const FacultyLayout(title: 'Leave Application', child: ComingSoonScreen(title: 'Leave Application')),
     ),
     GoRoute(
       path: '/:institutionId/faculty/payroll',
-      builder: (context, state) => const FacultyShell(title: 'Payroll', child: ComingSoonScreen(title: 'Payroll')),
+      builder: (context, state) => const FacultyLayout(title: 'Payroll', child: ComingSoonScreen(title: 'Payroll')),
     ),
     GoRoute(
       path: '/',

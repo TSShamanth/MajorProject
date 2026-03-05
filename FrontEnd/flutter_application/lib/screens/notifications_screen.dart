@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../models/notification_model.dart';
+import '../models/user_model.dart';
 import '../services/api_service.dart';
 import '../services/session_manager.dart';
+import '../widgets/faculty_layout.dart';
 import '../widgets/admin_layout.dart';
+import '../widgets/student_layout.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -17,6 +20,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final ApiService _apiService = ApiService();
   late Future<List<NotificationModel>> _notificationsFuture;
   String? _institutionId;
+  UserModel? _currentUser;
   bool _isDarkMode = false;
 
   @override
@@ -30,7 +34,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (mounted) {
       setState(() => _institutionId = id);
     }
+    if (_institutionId != null) {
+      await _fetchCurrentUser();
+    }
     _fetchNotifications();
+  }
+
+  Future<void> _fetchCurrentUser() async {
+    if (_institutionId == null) return;
+    try {
+      final user = await _apiService.getMe(_institutionId!);
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching current user for notifications: $e');
+    }
   }
 
   void _fetchNotifications() {
@@ -86,80 +107,81 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
     final textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
 
-    return AdminLayout(
-      title: 'Notifications Center',
-      breadcrumbs: [
-        Icon(Icons.chevron_right, size: 16, color: textSecondary),
-        const SizedBox(width: 10),
-        Text('Notifications', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.w600, fontSize: 13)),
-      ],
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Your Notifications',
-                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: textPrimary, letterSpacing: -0.5),
-                    ),
-                    const SizedBox(height: 4),
-                    Text('Stay updated with the latest alerts and activities', style: TextStyle(fontSize: 14, color: textSecondary)),
-                  ],
-                ),
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: _markAllRead,
-                      icon: const Icon(Icons.done_all_rounded, size: 18),
-                      label: const Text('Mark All Read'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      onPressed: _fetchNotifications,
-                      icon: const Icon(Icons.refresh_rounded),
-                      tooltip: 'Refresh Notifications',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            Expanded(
-              child: FutureBuilder<List<NotificationModel>>(
-                future: _notificationsFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return _buildErrorState(snapshot.error.toString(), textPrimary, textSecondary);
-                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return _buildEmptyState(textSecondary);
-                  }
-
-                  final notifications = snapshot.data!;
-                  return ListView.builder(
-                    itemCount: notifications.length,
-                    itemBuilder: (context, index) {
-                      return _buildNotificationCard(notifications[index], textPrimary, textSecondary);
-                    },
-                  );
-                },
+    Widget content = Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Your Notifications',
+                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: textPrimary, letterSpacing: -0.5),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('Stay updated with the latest alerts and activities', style: TextStyle(fontSize: 14, color: textSecondary)),
+                ],
               ),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _markAllRead,
+                    icon: const Icon(Icons.done_all_rounded, size: 18),
+                    label: const Text('Mark All Read'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    onPressed: _fetchNotifications,
+                    icon: const Icon(Icons.refresh_rounded),
+                    tooltip: 'Refresh Notifications',
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          Expanded(
+            child: FutureBuilder<List<NotificationModel>>(
+              future: _notificationsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return _buildErrorState(snapshot.error.toString(), textPrimary, textSecondary);
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return _buildEmptyState(textSecondary);
+                }
+
+                final notifications = snapshot.data!;
+                return ListView.builder(
+                  itemCount: notifications.length,
+                  itemBuilder: (context, index) {
+                    return _buildNotificationCard(notifications[index], textPrimary, textSecondary);
+                  },
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+
+    final role = _currentUser?.role?.toLowerCase();
+    if (role == 'admin') {
+      return AdminLayout(title: 'Notifications', child: content);
+    } else if (role == 'faculty') {
+      return FacultyLayout(title: 'Notifications', child: content);
+    } else {
+      return StudentLayout(title: 'Notifications', child: content);
+    }
   }
 
   Widget _buildNotificationCard(NotificationModel n, Color textPrimary, Color textSecondary) {

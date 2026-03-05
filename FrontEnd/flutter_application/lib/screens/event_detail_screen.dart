@@ -6,7 +6,9 @@ import '../services/event_service.dart';
 import '../services/session_manager.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
+import '../widgets/faculty_layout.dart';
 import '../widgets/admin_layout.dart';
+import '../widgets/student_layout.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final String eventId;
@@ -154,28 +156,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final Color textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
     final Color textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
     
+    Widget content;
     if (_isLoading) {
-      return const AdminLayout(title: 'Event Details', child: Center(child: CircularProgressIndicator()));
-    }
-
-    if (_event == null) {
-      return const AdminLayout(title: 'Event Details', child: Center(child: Text('Event not found')));
-    }
-
-    return AdminLayout(
-      title: 'Event Details',
-      breadcrumbs: [
-        Icon(Icons.chevron_right, size: 16, color: textSecondary),
-        const SizedBox(width: 10),
-        InkWell(
-          onTap: () => context.push('/$_institutionId/events'),
-          child: Text('Events', style: TextStyle(color: textSecondary, fontSize: 13)),
-        ),
-        Icon(Icons.chevron_right, size: 16, color: textSecondary),
-        const SizedBox(width: 10),
-        Text('Details', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.w600, fontSize: 13)),
-      ],
-      child: SingleChildScrollView(
+      content = const Center(child: CircularProgressIndicator());
+    } else if (_event == null) {
+      content = const Center(child: Text('Event not found'));
+    } else {
+      content = SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,8 +193,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             ),
           ],
         ),
-      ),
-    );
+      );
+    }
+
+    final role = _currentUser?.role?.toLowerCase();
+    if (role == 'admin') {
+      return AdminLayout(title: 'Event Details', child: content);
+    } else if (role == 'faculty') {
+      return FacultyLayout(title: 'Event Details', child: content);
+    } else {
+      return StudentLayout(title: 'Event Details', child: content);
+    }
   }
 
   Widget _buildHeader(Color textPrimary, Color textSecondary) {
