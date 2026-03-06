@@ -5,6 +5,7 @@ import '../models/department_model.dart';
 import '../services/api_service.dart';
 import '../services/session_manager.dart';
 import '../widgets/admin_layout.dart';
+import '../widgets/create_user_dialog.dart';
 
 class UserListScreen extends StatefulWidget {
   final String role;
@@ -106,6 +107,16 @@ class _UserListScreenState extends State<UserListScreen> {
     super.dispose();
   }
 
+  void _showAddUserDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => CreateUserDialog(
+        initialRole: widget.role,
+        onSuccess: _fetchUsers,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     _isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -185,9 +196,7 @@ class _UserListScreenState extends State<UserListScreen> {
               ),
             const SizedBox(width: 12),
             ElevatedButton.icon(
-              onPressed: () {
-                // Future: Navigation to individual user creation
-              },
+              onPressed: _showAddUserDialog,
               icon: const Icon(Icons.add_rounded, size: 18),
               label: Text('Add $roleName'),
               style: ElevatedButton.styleFrom(

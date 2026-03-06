@@ -1,16 +1,13 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:go_router/go_router.dart';
-import '../services/image_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
-import '../services/announcement_service.dart'; // Add AnnouncementService import
-import '../models/department_model.dart'; // Import Department model
-import '../models/section_model.dart'; // Import Section model
-import '../models/announcement_model.dart'; // Add AnnouncementModel import
-import '../models/user_model.dart'; // Add UserModel import
+import '../services/announcement_service.dart'; 
+import '../models/announcement_model.dart';
+import '../models/user_model.dart';
+import '../widgets/create_user_dialog.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -20,30 +17,6 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> with SingleTickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _displayNameController = TextEditingController();
-  final _nameController = TextEditingController();
-  final _usnController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _semController = TextEditingController();
-  final _mentorController = TextEditingController();
-  final _programmeController = TextEditingController();
-  final _schoolController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _dobController = TextEditingController();
-  final _bloodGroupController = TextEditingController();
-  final _emergencyContactController = TextEditingController();
-  final _validUptoController = TextEditingController();
-
-  String? _selectedRole = 'student';
-  String? _selectedDepartmentForStudent; // New field
-  String? _selectedDepartmentForFaculty; // New field
-  String? _selectedSectionId; // New field
-  bool _isLoading = false;
-  Uint8List? _pickedImageBytes;
-  String? _photoUrl;
   String? _institutionId;
   int _studentCount = 0;
   int _facultyCount = 0;
@@ -54,11 +27,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   late AnimationController _animationController;
 
   final ApiService _apiService = ApiService();
-  final ImageService _imageService = ImageService();
-  final AnnouncementService _announcementService = AnnouncementService(); // Initialize AnnouncementService
-  List<Department> _departments = []; // New list for departments
-  List<Section> _sections = []; // New list for sections
-  bool _isLoadingDepartments = false; // New loading flag
+  final AnnouncementService _announcementService = AnnouncementService(); 
 
   // Announcement state variables
   List<AnnouncementModel> _myAnnouncements = [];
@@ -77,9 +46,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     _fetchInstitutionId().then((_) {
       if (_institutionId != null) {
         _fetchUsersAndCounts();
-        _fetchDepartments(); // Fetch departments when institutionId is available
-        _fetchCurrentUserAndAnnouncements(); // Fetch user profile and then announcements
-        _fetchNotificationCount(); // grab badge count
+        _fetchCurrentUserAndAnnouncements(); 
+        _fetchNotificationCount(); 
       }
     });
   }
@@ -94,13 +62,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   Future<void> _fetchCurrentUserAndAnnouncements() async {
     if (_institutionId == null) return;
     try {
-      debugPrint('Fetching current user profile for institution: $_institutionId');
       final user = await _apiService.getMe(_institutionId!);
-      debugPrint('Fetched user: ${user.displayName}, role: ${user.role}');
       setState(() {
         _currentUser = user;
       });
-      // Once we have user profile (role, department), fetch announcements
       await _fetchAnnouncements();
     } catch (e) {
       debugPrint('Error fetching current user profile: $e');
@@ -109,48 +74,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   Future<void> _fetchAnnouncements() async {
     if (_institutionId == null) return;
-        setState(() {
-          _isLoadingAnnouncements = true;
-        });
-    
-        try {
-          // Fetch "My Announcements"
-          final myAnnouncements = await _announcementService.getMyAnnouncementsFromBackend(_institutionId!);
-    
-          // Fetch "All Announcements"
-          final allAnnouncements = await _announcementService.getAllAnnouncements(_institutionId!);
-    
-          // Fetch "Audience Announcements" using current user's role and department
-          final audienceAnnouncements = await _announcementService.getAnnouncements(
-            _institutionId!,
-            role: _currentUser?.role,
-            departmentId: _currentUser?.departmentId,
-            programme: _currentUser?.programme,
-          );
-    
-          setState(() {
-            _myAnnouncements = myAnnouncements;
-            _allAnnouncements = allAnnouncements;
-            _audienceAnnouncements = audienceAnnouncements;
-            _isLoadingAnnouncements = false;
-          });
-        } catch (e) {
-          debugPrint('Error fetching announcements: $e');
-          setState(() {
-            _isLoadingAnnouncements = false;
-          });
-        }
-      }
+    setState(() {
+      _isLoadingAnnouncements = true;
+    });
+
+    try {
+      final myAnnouncements = await _announcementService.getMyAnnouncementsFromBackend(_institutionId!);
+      final allAnnouncements = await _announcementService.getAllAnnouncements(_institutionId!);
+      final audienceAnnouncements = await _announcementService.getAnnouncements(
+        _institutionId!,
+        role: _currentUser?.role,
+        departmentId: _currentUser?.departmentId,
+        programme: _currentUser?.programme,
+      );
+
+      setState(() {
+        _myAnnouncements = myAnnouncements;
+        _allAnnouncements = allAnnouncements;
+        _audienceAnnouncements = audienceAnnouncements;
+        _isLoadingAnnouncements = false;
+      });
+    } catch (e) {
+      debugPrint('Error fetching announcements: $e');
+      setState(() {
+        _isLoadingAnnouncements = false;
+      });
+    }
+  }
+
   Future<void> _fetchUsersAndCounts() async {
     if (_institutionId == null) return;
     try {
       final users = await _apiService.getUsers(_institutionId!);
-      debugPrint('Fetched users count: ${users.length}');
       int studentCount = 0;
       int facultyCount = 0;
       int adminCount = 0;
       for (var user in users) {
-        debugPrint('User role: ${user.role}');
         if (user.role == 'student') {
           studentCount++;
         } else if (user.role == 'faculty') {
@@ -169,25 +128,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     }
   }
 
-  Future<void> _fetchDepartments() async {
-    if (_institutionId == null) return;
-    setState(() {
-      _isLoadingDepartments = true;
-    });
-    try {
-      final departments = await _apiService.getDepartments(_institutionId!);
-      setState(() {
-        _departments = departments;
-      });
-    } catch (e) {
-      debugPrint('Error fetching departments: $e');
-    } finally {
-      setState(() {
-        _isLoadingDepartments = false;
-      });
-    }
-  }
-
   Future<void> _fetchNotificationCount() async {
     if (_institutionId == null) return;
     try {
@@ -200,487 +140,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     }
   }
 
-  Future<void> _fetchSections(String departmentId, Function setDialogState) async {
-    if (_institutionId == null) return;
-    try {
-      final sections = await _apiService.getSections(_institutionId!, departmentId);
-      setDialogState(() {
-        _sections = sections;
-      });
-    } catch (e) {
-      debugPrint('Error fetching sections: $e');
-    }
-  }
-
   @override
   void dispose() {
     _animationController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _displayNameController.dispose();
-    _nameController.dispose();
-    _usnController.dispose();
-    _phoneController.dispose();
-    _semController.dispose();
-    _mentorController.dispose();
-    _programmeController.dispose();
-    _schoolController.dispose();
-    _addressController.dispose();
-    _dobController.dispose();
-    _bloodGroupController.dispose();
-    _emergencyContactController.dispose();
-    _validUptoController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickAndUploadImage() async {
-    final result = await _imageService.pickAndUploadImage();
-
-    if (result != null) {
-      setState(() {
-        _photoUrl = result['downloadUrl'];
-        _pickedImageBytes = result['imageBytes'];
-      });
-      
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Image uploaded successfully!'), backgroundColor: Colors.green),
-      );
-    } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Image upload failed or was cancelled.'), backgroundColor: Colors.red),
-      );
-    }
   }
 
   void _showAddUserDialog() {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        String? selectedRole = _selectedRole;
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF4F46E5).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.person_add_alt_1_rounded, color: Color(0xFF4F46E5), size: 22),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Create New User',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 20,
-                      color: _isDarkMode ? Colors.white : const Color(0xFF1F2937),
-                    ),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 500,
-                child: Form(
-                  key: _formKey,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(height: 8),
-                        Center(
-                          child: Stack(
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFF4F46E5).withOpacity(0.2),
-                                      blurRadius: 16,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: CircleAvatar(
-                                  radius: 56,
-                                  backgroundColor: const Color(0xFFEEF2FF),
-                                  backgroundImage: _pickedImageBytes != null ? MemoryImage(_pickedImageBytes!) : null,
-                                  child: _pickedImageBytes == null
-                                      ? const Icon(Icons.person_outline_rounded, size: 56, color: Color(0xFF4F46E5))
-                                      : null,
-                                ),
-                              ),
-                              Positioned(
-                                bottom: 2,
-                                right: 2,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.15),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                  child: CircleAvatar(
-                                    radius: 20,
-                                    backgroundColor: const Color(0xFF4F46E5),
-                                    child: IconButton(
-                                      icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 18),
-                                      onPressed: () async {
-                                        Navigator.of(context).pop();
-                                        await _pickAndUploadImage();
-                                        _showAddUserDialog();
-                                      },
-                                      padding: EdgeInsets.zero,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        
-                        DropdownButtonFormField<String>(
-                          value: selectedRole,
-                          decoration: _inputDecoration('Role', Icons.school_rounded),
-                          dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
-                          style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
-                          items: ['student', 'faculty', 'admin', 'placements'].map((String role) {
-                            return DropdownMenuItem<String>(
-                              value: role,
-                              child: Text(role.substring(0, 1).toUpperCase() + role.substring(1)),
-                            );
-                          }).toList(),
-                          onChanged: (newValue) {
-                            setDialogState(() {
-                              selectedRole = newValue;
-                              _selectedRole = newValue;
-                            });
-                          },
-                          validator: (value) => value == null ? 'Please select a role' : null,
-                        ),
-                        const SizedBox(height: 20),
-
-                        _buildTextField(_displayNameController, 'Display Name', Icons.badge_rounded),
-                        const SizedBox(height: 20),
-                        _buildTextField(_emailController, 'Email', Icons.email_rounded),
-                        const SizedBox(height: 20),
-                        _buildTextField(_passwordController, 'Password', Icons.lock_rounded, obscureText: true),
-                        
-                        if (selectedRole == 'faculty') ...[
-                          const SizedBox(height: 20),
-                          _isLoadingDepartments
-                              ? const Center(child: CircularProgressIndicator())
-                              : DropdownButtonFormField<String>(
-                                  value: _selectedDepartmentForFaculty,
-                                  decoration: _inputDecoration('Department', Icons.business_rounded),
-                                  dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
-                                  style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
-                                  items: _departments.map((department) {
-                                    return DropdownMenuItem<String>(
-                                      value: department.id,
-                                      child: Text(department.name),
-                                    );
-                                  }).toList(),
-                                  onChanged: (newValue) {
-                                    setDialogState(() {
-                                      _selectedDepartmentForFaculty = newValue;
-                                    });
-                                  },
-                                  validator: (value) => value == null ? 'Please select a department' : null,
-                                ),
-                          const SizedBox(height: 20),
-                          _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_phoneController, 'Phone Number', Icons.phone_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_schoolController, 'School', Icons.school_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_rounded),
-                        ],
-
-                        if (selectedRole == 'placements') ...[
-                          const SizedBox(height: 20),
-                          _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_usnController, 'Officer ID', Icons.badge_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_phoneController, 'Phone Number', Icons.phone_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_schoolController, 'School', Icons.school_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_rounded),
-                        ],
-                        
-                        if (selectedRole == 'student') ...[
-                          const SizedBox(height: 20),
-                          _isLoadingDepartments
-                              ? const Center(child: CircularProgressIndicator())
-                              : DropdownButtonFormField<String>(
-                                  value: _selectedDepartmentForStudent,
-                                  decoration: _inputDecoration('Department', Icons.business_rounded),
-                                  dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
-                                  style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
-                                  items: _departments.map((department) {
-                                    return DropdownMenuItem<String>(
-                                      value: department.id,
-                                      child: Text(department.name),
-                                    );
-                                  }).toList(),
-                                  onChanged: (newValue) {
-                                    setDialogState(() {
-                                      _selectedDepartmentForStudent = newValue;
-                                      _selectedSectionId = null; // Reset section
-                                      _sections = []; // Clear sections
-                                    });
-                                    if (newValue != null) {
-                                      _fetchSections(newValue, setDialogState);
-                                    }
-                                  },
-                                  validator: (value) => value == null ? 'Please select a department' : null,
-                                ),
-                          const SizedBox(height: 20),
-                          DropdownButtonFormField<String>(
-                            value: _selectedSectionId,
-                            decoration: _inputDecoration('Section', Icons.group_work_rounded),
-                            dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
-                            style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
-                            items: _sections.where((s) => s.id != null).map((section) {
-                              return DropdownMenuItem<String>(
-                                value: section.id!,
-                                child: Text(section.name),
-                              );
-                            }).toList(),
-                            onChanged: (newValue) {
-                              setDialogState(() {
-                                _selectedSectionId = newValue;
-                              });
-                            },
-                            validator: (value) => value == null ? 'Please select a section' : null,
-                          ),
-                          const SizedBox(height: 20),
-                          _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_usnController, 'USN', Icons.confirmation_number_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_phoneController, 'Phone Number', Icons.phone_rounded),
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Expanded(child: _buildTextField(_semController, 'Semester', Icons.format_list_numbered_rounded)),
-                              const SizedBox(width: 20),
-                              Expanded(child: _buildTextField(_mentorController, 'Mentor Name', Icons.supervisor_account_rounded)),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          _buildTextField(_programmeController, 'Programme', Icons.class_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_schoolController, 'School', Icons.school_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_addressController, 'Address', Icons.home_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_dobController, 'Date of Birth', Icons.cake_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_bloodGroupController, 'Blood Group', Icons.bloodtype_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_emergencyContactController, 'Emergency Contact', Icons.contact_phone_rounded),
-                          const SizedBox(height: 20),
-                          _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_rounded),
-                        ],
-                        const SizedBox(height: 8),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _clearForm();
-                  },
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: _handleCreateUser,
-                  icon: _isLoading ? const SizedBox.shrink() : const Icon(Icons.check_circle_rounded, size: 20),
-                  label: _isLoading 
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                        )
-                      : const Text('Create User', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4F46E5),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                    elevation: 0,
-                  ),
-                ),
-              ],
-              actionsPadding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool obscureText = false}) {
-    return TextFormField(
-      controller: controller,
-      obscureText: obscureText,
-      decoration: _inputDecoration(label, icon),
-      style: TextStyle(fontSize: 15, color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter a $label';
-        }
-        if (label == 'Email' && !value.contains('@')) {
-          return 'Please enter a valid email';
-        }
-        if (label == 'Password' && value.length < 6) {
-          return 'Password must be at least 6 characters long';
-        }
-        return null;
-      },
-    );
-  }
-
-  InputDecoration _inputDecoration(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(fontSize: 14, color: _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-      prefixIcon: Icon(icon, color: const Color(0xFF4F46E5), size: 22),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
+      builder: (context) => CreateUserDialog(
+        onSuccess: _fetchUsersAndCounts,
       ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 2),
-      ),
-      filled: true,
-      fillColor: _isDarkMode ? const Color(0xFF111827) : const Color(0xFFFAFAFA),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
-  }
-
-  Future<void> _handleCreateUser() async {
-    if (_formKey.currentState!.validate()) {
-      if (_institutionId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not determine institution. Please log in again.'), backgroundColor: Colors.red),
-        );
-        return;
-      }
-      setState(() {
-        _isLoading = true;
-      });
-
-      try {
-        final response = await _apiService.createUser(
-          email: _emailController.text,
-          password: _passwordController.text,
-          displayName: _displayNameController.text,
-          role: _selectedRole!,
-          institutionId: _institutionId!,
-          name: _nameController.text,
-          usn: _usnController.text,
-          phone: _phoneController.text,
-          sem: _semController.text,
-          departmentId: _selectedRole == 'student' ? _selectedDepartmentForStudent : (_selectedRole == 'faculty' ? _selectedDepartmentForFaculty : null), // Pass departmentId for faculty too
-          sectionId: _selectedRole == 'student' ? _selectedSectionId : null, // Pass sectionId for student
-          mentorName: _mentorController.text,
-          photoUrl: _photoUrl,
-          programme: _programmeController.text,
-          school: _schoolController.text,
-          address: _addressController.text,
-          dob: _dobController.text,
-          bloodGroup: _bloodGroupController.text,
-          emergencyContact: _emergencyContactController.text,
-          validUpto: _validUptoController.text,
-        );
-
-        if (!mounted) return;
-
-        if (response.statusCode == 200) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User created successfully!'), backgroundColor: Colors.green),
-          );
-          Navigator.of(context).pop();
-          _clearForm();
-          _fetchUsersAndCounts();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${response.body}'), backgroundColor: Colors.red),
-          );
-        }
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red),
-        );
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      }
-    }
-  }
-
-  void _clearForm() {
-    _displayNameController.clear();
-    _emailController.clear();
-    _passwordController.clear();
-    _nameController.clear();
-    _usnController.clear();
-    _phoneController.clear();
-    _semController.clear();
-    _mentorController.clear();
-    _programmeController.clear();
-    _schoolController.clear();
-    _addressController.clear();
-    _dobController.clear();
-    _bloodGroupController.clear();
-    _emergencyContactController.clear();
-    _validUptoController.clear();
-    setState(() {
-      _selectedRole = 'student';
-      _selectedDepartmentForStudent = null;
-      _selectedDepartmentForFaculty = null;
-      _selectedSectionId = null;
-      _sections = [];
-      _pickedImageBytes = null;
-      _photoUrl = null;
-    });
   }
 
   Color get _bgColor => _isDarkMode ? const Color(0xFF111827) : const Color(0xFFF8FAFC);
@@ -688,13 +160,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   Color get _textPrimary => _isDarkMode ? const Color(0xFFF9FAFB) : const Color(0xFF1F2937);
   Color get _textSecondary => _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
   Color get _borderColor => _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
-  // Color get _sidebarColor => const Color(0xFF4F46E5);
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Determine screen breakpoints
         final isMobile = constraints.maxWidth < 768;
         final isTablet = constraints.maxWidth >= 768 && constraints.maxWidth < 1024;
         final isDesktop = constraints.maxWidth >= 1024;
@@ -888,7 +358,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
               });
             },
           ),
-          // Notifications with badge
           Stack(
             children: [
               IconButton(
@@ -1171,7 +640,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   }
 
   Widget _buildModernTopBar({bool isMobile = false}) {
-    if (isMobile) return const SizedBox.shrink(); // Use mobile top bar instead
+    if (isMobile) return const SizedBox.shrink(); 
     
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
@@ -1271,7 +740,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
           ),
           const SizedBox(width: 20),
 
-          // Dark Mode Toggle
           Container(
             decoration: BoxDecoration(
               color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
@@ -1404,17 +872,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                         children: [
                           Icon(Icons.settings_rounded, size: 20, color: _textPrimary),
                           const SizedBox(width: 14),
-                          Text('Settings', style: TextStyle(fontSize: 15, color: _textPrimary)),
+                          const Text('Settings', style: TextStyle(fontSize: 15)),
                         ],
                       ),
                       onTap: () {},
                     ),
                     PopupMenuItem(
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.logout_rounded, size: 20, color: Color(0xFFEF4444)),
-                          SizedBox(width: 14),
-                          Text('Logout', style: TextStyle(color: Color(0xFFEF4444), fontSize: 15)),
+                          const Icon(Icons.logout_rounded, size: 20, color: Color(0xFFEF4444)),
+                          const SizedBox(width: 14),
+                          const Text('Logout', style: TextStyle(color: Color(0xFFEF4444), fontSize: 15)),
                         ],
                       ),
                       onTap: () async {
@@ -1481,7 +949,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Text(
               'System Overview',
               style: TextStyle(
@@ -1503,19 +970,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             ),
             SizedBox(height: isMobile ? 16 : 24),
 
-            // Stats Row - Fully Responsive
             _buildResponsiveStatsRow(isMobile, isTablet),
             SizedBox(height: isMobile ? 16 : 20),
 
-            // Announcements Section
             _buildAnnouncementsSection(isMobile, isTablet),
             SizedBox(height: isMobile ? 16 : 20),
 
-            // Main Content - Fully Responsive
             _buildResponsiveMainContent(isMobile, isTablet, isDesktop),
             SizedBox(height: isMobile ? 16 : 20),
 
-            // Management Cards - Fully Responsive
             _buildResponsiveManagementSection(isMobile, isTablet),
           ],
         ),
@@ -1525,10 +988,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   Widget _buildResponsiveStatsRow(bool isMobile, bool isTablet) {
     if (isMobile) {
-      // Mobile - Responsive Grid (2 columns on wider phones)
       return LayoutBuilder(
         builder: (context, constraints) {
-          // Calculate how many columns fit (minimum card width 150px)
           final crossAxisCount = (constraints.maxWidth / 180).floor().clamp(1, 2);
           
           return GridView.count(
@@ -1539,8 +1000,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             mainAxisSpacing: 12,
             childAspectRatio: 0.85,
             children: [
-              _buildStatCard('Active Students', _studentCount.toString(), '298 Final Year', Icons.people_rounded, const Color(0xFF4F46E5)),
-              _buildStatCard('Faculty', _facultyCount.toString(), '12 Departments', Icons.school_rounded, const Color(0xFF10B981)),
+              _buildStatCard('Active Students', _studentCount.toString(), 'Current Enrolled', Icons.people_rounded, const Color(0xFF4F46E5)),
+              _buildStatCard('Faculty', _facultyCount.toString(), 'All Departments', Icons.school_rounded, const Color(0xFF10B981)),
               _buildStatCard('Placement', '82%', 'Current Season', Icons.business_center_rounded, const Color(0xFF8B5CF6)),
               _buildStatCard('Actions', '12', '8 Pending', Icons.warning_rounded, const Color(0xFFF59E0B)),
             ],
@@ -1548,7 +1009,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
         },
       );
     } else if (isTablet) {
-      // Tablet - 2 columns
       return GridView.count(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -1557,19 +1017,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
         mainAxisSpacing: 12,
         childAspectRatio: 1.3,
         children: [
-          _buildStatCard('Active Students', _studentCount.toString(), '298 Final Year', Icons.people_rounded, const Color(0xFF4F46E5)),
-          _buildStatCard('Faculty', _facultyCount.toString(), '12 Departments', Icons.school_rounded, const Color(0xFF10B981)),
+          _buildStatCard('Active Students', _studentCount.toString(), 'Current Enrolled', Icons.people_rounded, const Color(0xFF4F46E5)),
+          _buildStatCard('Faculty', _facultyCount.toString(), 'All Departments', Icons.school_rounded, const Color(0xFF10B981)),
           _buildStatCard('Placement', '82%', 'Current Season', Icons.business_center_rounded, const Color(0xFF8B5CF6)),
           _buildStatCard('Actions', '12', '8 Pending', Icons.warning_rounded, const Color(0xFFF59E0B)),
         ],
       );
     } else {
-      // Desktop - 4 columns
       return Row(
         children: [
-          Expanded(child: _buildStatCard('Active Students', _studentCount.toString(), '298 Final Year', Icons.people_rounded, const Color(0xFF4F46E5))),
+          Expanded(child: _buildStatCard('Active Students', _studentCount.toString(), 'Current Enrolled', Icons.people_rounded, const Color(0xFF4F46E5))),
           const SizedBox(width: 16),
-          Expanded(child: _buildStatCard('Faculty', _facultyCount.toString(), '12 Departments', Icons.school_rounded, const Color(0xFF10B981))),
+          Expanded(child: _buildStatCard('Faculty', _facultyCount.toString(), 'All Departments', Icons.school_rounded, const Color(0xFF10B981))),
           const SizedBox(width: 16),
           Expanded(child: _buildStatCard('Placement', '82%', 'Current Season', Icons.business_center_rounded, const Color(0xFF8B5CF6))),
           const SizedBox(width: 16),
@@ -1581,7 +1040,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   Widget _buildResponsiveMainContent(bool isMobile, bool isTablet, bool isDesktop) {
     if (isMobile || isTablet) {
-      // Mobile/Tablet - Single column
       return Column(
         children: [
           _buildUserManagementCard(),
@@ -1594,7 +1052,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
         ],
       );
     } else {
-      // Desktop - Two columns
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1626,7 +1083,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   Widget _buildResponsiveManagementSection(bool isMobile, bool isTablet) {
     if (isMobile) {
-      // Mobile - Single column
       return Column(
         children: [
           _buildAcademicsCard(),
@@ -1641,7 +1097,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
         ],
       );
     } else {
-      // Tablet/Desktop - Two columns
       return Column(
         children: [
           Row(

@@ -172,6 +172,32 @@ class ApiService {
     );
   }
 
+  Future<List<String>> bulkCreateUsers(
+      String institutionId, List<Map<String, dynamic>> userRequests) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    final token = await user.getIdToken();
+    final url = Uri.parse(
+        '${ApiConfig.baseUrl}/api/admin/institutions/$institutionId/users/bulk');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(userRequests),
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return List<String>.from(data);
+    } else {
+      throw Exception('Failed to bulk create users: ${response.body}');
+    }
+  }
+
   Future<http.Response> updateUser({
     required String uid,
     required String email,

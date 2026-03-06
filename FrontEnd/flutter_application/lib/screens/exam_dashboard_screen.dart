@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:flutter_application/services/api_service.dart';
-import 'package:flutter_application/models/exam_model.dart' as app_models; // Alias to avoid conflict
+import 'package:flutter_application/models/exam_model.dart' as app_models;
+import '../widgets/admin_layout.dart';
 
 class ExamDashboardScreen extends StatefulWidget {
   const ExamDashboardScreen({super.key});
@@ -16,18 +17,21 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
   List<app_models.Exam> _exams = [];
   bool _isLoading = true;
   String _errorMessage = '';
-  String? _selectedExamId; // New state variable for dropdown selection
+  String? _selectedExamId;
+  String? _institutionId;
+  bool _isDarkMode = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchExams().then((_) {
-      if (_exams.isNotEmpty) {
-        setState(() {
-          _selectedExamId = _exams.first.id; // Set first exam as default selected
-        });
-      }
-    });
+    _initData();
+  }
+
+  Future<void> _initData() async {
+    _institutionId = await SessionManager.getInstitutionId();
+    if (_institutionId != null) {
+      await _fetchExams();
+    }
   }
 
   Future<void> _fetchExams() async {
@@ -38,23 +42,22 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
     });
 
     try {
-      final institutionId = await SessionManager.getInstitutionId();
-      if (institutionId != null) {
-        final fetchedExams = await _apiService.getExams(institutionId);
+      if (_institutionId != null) {
+        final fetchedExams = await _apiService.getExams(_institutionId!);
         if (!mounted) return;
         setState(() {
           _exams = fetchedExams;
-          // After fetching, if _selectedExamId is null, try to set a default
           if (_selectedExamId == null && _exams.isNotEmpty) {
             _selectedExamId = _exams.first.id;
           }
         });
-      } else {
-        _errorMessage = 'Institution ID not found.';
       }
     } catch (e) {
-      if (!mounted) return;
-      _errorMessage = 'Failed to load exams: $e';
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load exams: $e';
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -64,173 +67,194 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
     }
   }
 
-  void _navigateToEditor({String? examId}) async {
-    final institutionId = await SessionManager.getInstitutionId();
-    if (!mounted) return;
-    if (institutionId != null) {
+  void _navigateToEditor({String? examId}) {
+    if (_institutionId != null) {
       if (examId != null) {
-        context.go('/$institutionId/admin/exam-schedule-editor/$examId');
+        context.push('/$_institutionId/admin/exam-schedule-editor/$examId');
       } else {
-        context.go('/$institutionId/admin/exam-schedule-editor');
+        context.push('/$_institutionId/admin/create-exam');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Examination Management'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_calendar),
-            tooltip: 'Manage Selected Exam Schedule',
-            onPressed: _selectedExamId == null
-                ? null // Disable button if no exam is selected
-                : () => _navigateToEditor(examId: _selectedExamId!),
+    _isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
+    final textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
+
+    return AdminLayout(
+      title: 'Examinations',
+      breadcrumbs: [
+        Icon(Icons.chevron_right, size: 16, color: textSecondary),
+        const SizedBox(width: 10),
+        Text('Exams', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.w600, fontSize: 13)),
+      ],
+      child: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Examination Control Panel', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: textPrimary, letterSpacing: -0.5)),
+                          const SizedBox(height: 4),
+                          Text('Manage schedules, eligibility and hall tickets', style: TextStyle(fontSize: 14, color: textSecondary)),
+                        ],
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () => _navigateToEditor(),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Create New Exam'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4F46E5),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  if (_errorMessage.isNotEmpty)
+                    _buildErrorState(textSecondary)
+                  else if (_exams.isEmpty)
+                    _buildEmptyState(textSecondary)
+                  else
+                    Expanded(
+                      child: GridView.builder(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: MediaQuery.of(context).size.width > 1200 ? 3 : (MediaQuery.of(context).size.width > 800 ? 2 : 1),
+                          crossAxisSpacing: 20,
+                          mainAxisSpacing: 20,
+                          mainAxisExtent: 220,
+                        ),
+                        itemCount: _exams.length,
+                        itemBuilder: (context, index) => _buildExamCard(_exams[index], textPrimary, textSecondary),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildExamCard(app_models.Exam exam, Color textPrimary, Color textSecondary) {
+    final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.2 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage.isNotEmpty
-              ? Center(child: Text(_errorMessage))
-              : _exams.isEmpty
-                  ? const Center(child: Text('No exams found.'))
-                  : Column( // Changed from ListView to Column
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: DropdownButtonFormField<String>(
-                            value: _selectedExamId,
-                            decoration: const InputDecoration(
-                              labelText: 'Select Exam to Manage Schedule',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: _exams.map((exam) {
-                              return DropdownMenuItem<String>(
-                                value: exam.id,
-                                child: Text(exam.name),
-                              );
-                            }).toList(),
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                _selectedExamId = newValue;
-                              });
-                            },
-                          ),
-                        ),
-                        Expanded( // Wrap the exam list in Expanded
-                          child: ListView(
-                            padding: const EdgeInsets.all(16.0),
-                            children: [
-                              _buildExamSection('All Exams', _exams),
-                            ],
-                          ),
-                        ),
-                      ],
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => context.push('/$_institutionId/admin/exam-management'),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4F46E5).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.description_rounded, color: Color(0xFF4F46E5), size: 20),
                     ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _navigateToEditor(), // Navigate to create new exam
-        icon: const Icon(Icons.add),
-        label: const Text('Create New Exam'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        exam.name,
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textPrimary, letterSpacing: -0.3),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildInfoRow(Icons.business_rounded, 'Dept: ${exam.departmentId}', textSecondary),
+                const SizedBox(height: 8),
+                _buildInfoRow(Icons.school_rounded, 'Semester: ${exam.semester}', textSecondary),
+                const SizedBox(height: 8),
+                _buildInfoRow(Icons.event_note_rounded, '${exam.schedule.length} Subjects Scheduled', textSecondary),
+                const Spacer(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'View Details',
+                      style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF4F46E5)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildExamSection(String title, List<app_models.Exam> exams) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildInfoRow(IconData icon, String label, Color color) {
+    return Row(
       children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        ...exams.map((exam) => _buildExamCard(exam)),
+        Icon(icon, size: 14, color: color.withOpacity(0.7)),
+        const SizedBox(width: 8),
+        Text(label, style: TextStyle(fontSize: 13, color: color)),
       ],
     );
   }
 
-  Widget _buildExamCard(app_models.Exam exam) {
-    String scheduleSummary = 'Not Scheduled';
-    if (exam.schedule.isNotEmpty) {
-      scheduleSummary = '${exam.schedule.length} subjects scheduled';
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12.0),
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).primaryColor, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 1,
-            blurRadius: 3,
-            offset: const Offset(0, 2), // changes position of shadow
-          ),
-        ],
-      ),
+  Widget _buildEmptyState(Color textSecondary) {
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(exam.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.school_outlined, size: 16, color: Colors.grey[700]),
-              const SizedBox(width: 8),
-              Text('Dept: ${exam.departmentId}', style: TextStyle(color: Colors.grey[700])),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(Icons.book_outlined, size: 16, color: Colors.grey[700]),
-              const SizedBox(width: 8),
-              Text('Semester: ${exam.semester}', style: TextStyle(color: Colors.grey[700])),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey[700]),
-              const SizedBox(width: 8),
-              Text(scheduleSummary, style: TextStyle(color: Colors.grey[700])),
-            ],
-          ),
+          Icon(Icons.event_busy_rounded, size: 64, color: textSecondary.withOpacity(0.3)),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () {
-                  _navigateToStudentEligibility(exam.id);
-                },
-                child: const Text('Manage Eligibility'),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () => _navigateToEditor(examId: exam.id),
-                child: const Text('Manage Schedule'),
-              ),
-            ],
-          ),
+          Text('No Exams Found', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textSecondary)),
         ],
       ),
     );
   }
 
-  void _navigateToStudentEligibility(String examId) async {
-    final institutionId = await SessionManager.getInstitutionId();
-    if (!mounted) return;
-    if (institutionId != null) {
-      context.go('/$institutionId/admin/exam/$examId/eligibility');
-    }
+  Widget _buildErrorState(Color textSecondary) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline_rounded, size: 64, color: Colors.redAccent),
+          const SizedBox(height: 16),
+          Text(_errorMessage, style: TextStyle(fontSize: 14, color: textSecondary), textAlign: TextAlign.center),
+          const SizedBox(height: 24),
+          ElevatedButton(onPressed: _fetchExams, child: const Text('Retry')),
+        ],
+      ),
+    );
   }
 }
