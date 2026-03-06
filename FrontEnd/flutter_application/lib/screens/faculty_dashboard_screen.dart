@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application/models/announcement_model.dart';
 import 'package:flutter_application/models/user_model.dart';
+import 'package:flutter_application/models/attendance_log_model.dart';
 import 'package:flutter_application/services/api_service.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:flutter_application/services/announcement_service.dart';
 import 'package:go_router/go_router.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
+import 'dart:async';
 import '../widgets/faculty_layout.dart';
 import '../models/course_model.dart';
 import '../models/timetable_entry_model.dart';
@@ -23,9 +27,13 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
   final ApiService _apiService = ApiService();
   final AnnouncementService _announcementService = AnnouncementService();
   UserModel? _currentUser;
+  AttendanceLog? _activeLog;
   String? _institutionId;
   bool _isLoading = true;
   bool _isDarkMode = false;
+  bool _isClocking = false;
+  Timer? _clockInTimer;
+  String _clockedInDuration = '00:00:00';
 
   // Stats
   int _menteeCount = 0;
@@ -48,6 +56,12 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
     _loadDashboardData();
   }
 
+  @override
+  void dispose() {
+    _clockInTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadDashboardData() async {
     try {
       _institutionId = await SessionManager.getInstitutionId();
@@ -60,12 +74,25 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
         departmentId: user.departmentId,
       );
       
+      AttendanceLog? activeLog;
+      if (user.attendanceStatus == 'Clocked-in') {
+        final history = await _apiService.getAttendanceHistory(_institutionId!);
+        if (history.isNotEmpty && history.first.clockOutTime == null) {
+          activeLog = history.first;
+        }
+      }
+
       if (mounted) {
         setState(() {
           _currentUser = user;
+          _activeLog = activeLog;
           _announcements = announcements.take(5).toList();
           _isLoading = false;
         });
+        
+        if (activeLog != null) {
+          _startClockTimer();
+        }
       }
 
       await Future.wait([
@@ -78,14 +105,43 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
     }
   }
 
+  void _startClockTimer() {
+    _clockInTimer?.cancel();
+    
+    // Initial update
+    _updateDuration();
+    
+    _clockInTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_activeLog != null) {
+        _updateDuration();
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  void _updateDuration() {
+    if (_activeLog == null) return;
+    
+    final now = DateTime.now();
+    final diff = now.difference(_activeLog!.clockInTime);
+    
+    final hours = diff.inHours.toString().padLeft(2, '0');
+    final minutes = (diff.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (diff.inSeconds % 60).toString().padLeft(2, '0');
+    
+    if (mounted) {
+      setState(() {
+        _clockedInDuration = '$hours:$minutes:$seconds';
+      });
+    }
+  }
+
   Future<void> _fetchStats() async {
     if (_institutionId == null || _currentUser == null) return;
     try {
       final allUsers = await _apiService.getUsers(_institutionId!);
       final mentees = allUsers.where((u) => u.role == 'student' && u.mentorName == _currentUser!.displayName).toList();
-      
-      // In a real app, you'd fetch pending leave approvals from a service
-      // For now, let's just mock some numbers or fetch if available
       
       if (mounted) {
         setState(() {
@@ -138,6 +194,91 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
     }
   }
 
+  Future<void> _handleClockAction() async {
+    if (_institutionId == null || _currentUser == null) return;
+
+    setState(() => _isClocking = true);
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw 'Location services are disabled.';
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw 'Location permissions are denied';
+        }
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        throw 'Location permissions are permanently denied.';
+      }
+
+      Position position = await Geolocator.getCurrentPosition();
+
+      UserModel updatedUser;
+      bool isClockingIn = _currentUser!.attendanceStatus != 'Clocked-in';
+
+      if (isClockingIn) {
+        updatedUser = await _apiService.clockIn(
+          _institutionId!, 
+          position.latitude, 
+          position.longitude
+        );
+      } else {
+        updatedUser = await _apiService.clockOut(
+          _institutionId!, 
+          position.latitude, 
+          position.longitude
+        );
+      }
+
+      AttendanceLog? activeLog;
+      if (updatedUser.attendanceStatus == 'Clocked-in') {
+        final history = await _apiService.getAttendanceHistory(_institutionId!);
+        if (history.isNotEmpty && history.first.clockOutTime == null) {
+          activeLog = history.first;
+        }
+      } else {
+        _clockInTimer?.cancel();
+        _clockedInDuration = '00:00:00';
+      }
+
+      if (mounted) {
+        setState(() {
+          _currentUser = updatedUser;
+          _activeLog = activeLog;
+          _isClocking = false;
+        });
+
+        if (activeLog != null) {
+          _startClockTimer();
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isClockingIn ? 'Clocked in successfully!' : 'Clocked out successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Clock action error: $e');
+      if (mounted) {
+        setState(() => _isClocking = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     _isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -177,6 +318,10 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                           color: textSecondary,
                         ),
                       ),
+                      const SizedBox(height: 24),
+
+                      // Attendance Horizontal Section
+                      _buildAttendanceSection(isMobile),
                       const SizedBox(height: 24),
 
                       // Stats Row
@@ -223,6 +368,183 @@ class _FacultyDashboardScreenState extends State<FacultyDashboardScreen> {
                 );
               },
             ),
+    );
+  }
+
+  Widget _buildAttendanceSection(bool isMobile) {
+    final isClockedIn = _currentUser?.attendanceStatus == 'Clocked-in';
+    final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.2 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: isMobile 
+        ? Column(
+            children: [
+              _buildAttendanceInfo(isClockedIn),
+              const SizedBox(height: 16),
+              _buildClockInOutButton(fullWidth: true),
+            ],
+          )
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildAttendanceInfo(isClockedIn),
+              _buildClockInOutButton(),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildAttendanceInfo(bool isClockedIn) {
+    final todayName = DateFormat('EEEE').format(DateTime.now());
+    final todayDate = DateFormat('MMM dd').format(DateTime.now());
+    final statusColor = isClockedIn ? const Color(0xFF10B981) : Colors.grey;
+
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            isClockedIn ? Icons.timer_rounded : Icons.timer_off_rounded,
+            color: statusColor,
+            size: 28,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Text(
+                  isClockedIn ? 'Active Session' : 'Work Shift',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+                if (isClockedIn) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'LIVE',
+                      style: TextStyle(
+                        color: Color(0xFF10B981),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  isClockedIn ? _clockedInDuration : '00:00:00',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: isClockedIn ? const Color(0xFF4F46E5) : (_isDarkMode ? Colors.white : Colors.black),
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '$todayName, $todayDate',
+                    style: TextStyle(
+                      color: _isDarkMode ? Colors.grey[500] : Colors.grey[500],
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildClockInOutButton({bool fullWidth = false}) {
+    bool isClockedIn = _currentUser?.attendanceStatus == 'Clocked-in';
+    
+    return SizedBox(
+      width: fullWidth ? double.infinity : null,
+      child: InkWell(
+        onTap: _isClocking ? null : _handleClockAction,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          decoration: BoxDecoration(
+            color: isClockedIn 
+                ? Colors.red.withOpacity(0.1) 
+                : const Color(0xFF4F46E5).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isClockedIn 
+                  ? Colors.red.withOpacity(0.2) 
+                  : const Color(0xFF4F46E5).withOpacity(0.2),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_isClocking)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Color(0xFF4F46E5))),
+                )
+              else
+                Icon(
+                  isClockedIn ? Icons.logout_rounded : Icons.login_rounded,
+                  size: 20,
+                  color: isClockedIn ? Colors.red : const Color(0xFF4F46E5),
+                ),
+              const SizedBox(width: 10),
+              Text(
+                isClockedIn ? 'Clock Out' : 'Clock In',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: isClockedIn ? Colors.red : const Color(0xFF4F46E5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
