@@ -18,7 +18,7 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final ApiService _apiService = ApiService();
-  late Future<List<NotificationModel>> _notificationsFuture;
+  late Future<List<NotificationModel>> _notificationsFuture = Future.value([]);
   String? _institutionId;
   UserModel? _currentUser;
   bool _isDarkMode = false;

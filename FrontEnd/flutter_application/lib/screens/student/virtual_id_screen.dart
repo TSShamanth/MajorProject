@@ -103,7 +103,7 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
                 Center(
                   child: SizedBox(
                     width: 360,
-                    height: 580,
+                    height: 620,
                     child: GestureDetector(
                       onTap: _toggleCard,
                       child: TweenAnimationBuilder<double>(
@@ -326,7 +326,7 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
           BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 30, offset: const Offset(0, 15)),
         ],
       ),
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -352,7 +352,7 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
           const Text('1. This card is non-transferable.', style: TextStyle(color: Colors.white54, fontSize: 10)),
           const Text('2. Loss of card must be reported immediately.', style: TextStyle(color: Colors.white54, fontSize: 10)),
           const Text('3. Please return if found to the university office.', style: TextStyle(color: Colors.white54, fontSize: 10)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Center(
             child: Opacity(
               opacity: 0.5,
@@ -377,7 +377,7 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
 
   Widget _buildBackDetail(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -401,9 +401,9 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _buildCircleActionButton(Icons.download_rounded, 'Download'),
-        const SizedBox(width: 32),
+        const SizedBox(width: 24),
         _buildCircleActionButton(Icons.share_rounded, 'Share'),
-        const SizedBox(width: 32),
+        const SizedBox(width: 24),
         _buildCircleActionButton(Icons.print_rounded, 'Print'),
       ],
     );
@@ -413,7 +413,7 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: Colors.white,
             shape: BoxShape.circle,
@@ -422,7 +422,7 @@ class _VirtualIdScreenState extends State<VirtualIdScreen> {
               BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5)),
             ],
           ),
-          child: Icon(icon, color: const Color(0xFF4F46E5), size: 24),
+          child: Icon(icon, color: const Color(0xFF4F46E5), size: 22),
         ),
         const SizedBox(height: 8),
         Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF4B5563))),
