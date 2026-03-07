@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:flutter_application/services/auth_service.dart';
 import 'package:flutter_application/services/api_service.dart';
+import '../providers/institution_provider.dart';
 
 class AppLayout extends StatefulWidget {
   final Widget child;
@@ -51,10 +53,18 @@ class _AppLayoutState extends State<AppLayout> {
 
   Future<void> _fetchInstitutionId() async {
     final id = await SessionManager.getInstitutionId();
+    debugPrint('AppLayout: Fetched institutionId from session: $id');
     if (mounted) {
       setState(() {
         _institutionId = id;
       });
+      
+      // Trigger provider fetch if not loaded
+      final provider = Provider.of<InstitutionProvider>(context, listen: false);
+      if (provider.institution == null && id != null) {
+        debugPrint('AppLayout: Triggering provider fetch for $id');
+        provider.fetchInstitutionProfile(id);
+      }
     }
   }
 
@@ -79,35 +89,43 @@ class _AppLayoutState extends State<AppLayout> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 1024;
+    return Consumer<InstitutionProvider>(
+      builder: (context, provider, _) {
+        final primaryColor = provider.primaryColor;
+        final logoUrl = provider.institution?.logoUrl;
+        final institutionName = provider.institution?.name ?? 'Acadexa';
 
-        return Scaffold(
-          backgroundColor: _bgColor,
-          drawer: isMobile ? _buildMobileDrawer() : null,
-          body: Row(
-            children: [
-              if (!isMobile) _buildModernSidebar(),
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildModernTopBar(isMobile: isMobile),
-                    _buildBreadcrumb(),
-                    Expanded(
-                      child: widget.child,
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 1024;
+
+            return Scaffold(
+              backgroundColor: _bgColor,
+              drawer: isMobile ? _buildMobileDrawer(primaryColor, logoUrl, institutionName) : null,
+              body: Row(
+                children: [
+                  if (!isMobile) _buildModernSidebar(primaryColor, logoUrl, institutionName),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        _buildModernTopBar(isMobile: isMobile, primaryColor: primaryColor),
+                        _buildBreadcrumb(),
+                        Expanded(
+                          child: widget.child,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildMobileDrawer() {
+  Widget _buildMobileDrawer(Color primaryColor, String? logoUrl, String institutionName) {
     return Drawer(
       width: 270,
       child: Container(
@@ -115,17 +133,17 @@ class _AppLayoutState extends State<AppLayout> {
           gradient: LinearGradient(
             colors: _isDarkMode 
                 ? [const Color(0xFF1F2937), const Color(0xFF111827)]
-                : [const Color(0xFF4F46E5), const Color(0xFF4338CA)],
+                : [primaryColor, primaryColor.withBlue(primaryColor.blue + 20).withRed(primaryColor.red - 20)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
         ),
-        child: _buildSidebarContent(isMobile: true),
+        child: _buildSidebarContent(primaryColor, logoUrl, institutionName, isMobile: true),
       ),
     );
   }
 
-  Widget _buildModernSidebar() {
+  Widget _buildModernSidebar(Color primaryColor, String? logoUrl, String institutionName) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
@@ -134,7 +152,7 @@ class _AppLayoutState extends State<AppLayout> {
         gradient: LinearGradient(
           colors: _isDarkMode 
               ? [const Color(0xFF1F2937), const Color(0xFF111827)]
-              : [const Color(0xFF4F46E5), const Color(0xFF4338CA)],
+              : [primaryColor, primaryColor.withBlue(primaryColor.blue + 20).withRed(primaryColor.red - 20)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -146,11 +164,11 @@ class _AppLayoutState extends State<AppLayout> {
           ),
         ] : [],
       ),
-      child: _sidebarExpanded ? _buildSidebarContent() : const SizedBox.shrink(),
+      child: _sidebarExpanded ? _buildSidebarContent(primaryColor, logoUrl, institutionName) : const SizedBox.shrink(),
     );
   }
 
-  Widget _buildSidebarContent({bool isMobile = false}) {
+  Widget _buildSidebarContent(Color primaryColor, String? logoUrl, String institutionName, {bool isMobile = false}) {
     final currentPath = GoRouterState.of(context).matchedLocation;
 
     return Column(
@@ -181,27 +199,27 @@ class _AppLayoutState extends State<AppLayout> {
                     ),
                   ],
                 ),
-                child: const Center(
-                  child: Text(
-                    'A',
-                    style: TextStyle(
-                      color: Color(0xFF4F46E5),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
-                    ),
-                  ),
+                child: Center(
+                  child: logoUrl != null && logoUrl.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(logoUrl, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => _buildLogoFallback(primaryColor, institutionName)),
+                      )
+                    : _buildLogoFallback(primaryColor, institutionName),
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Acadexa',
-                  style: TextStyle(
+                  institutionName,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 19,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (!isMobile)
@@ -302,6 +320,17 @@ class _AppLayoutState extends State<AppLayout> {
     );
   }
 
+  Widget _buildLogoFallback(Color primaryColor, String institutionName) {
+    return Text(
+      institutionName.isNotEmpty ? institutionName[0].toUpperCase() : 'A',
+      style: TextStyle(
+        color: primaryColor,
+        fontWeight: FontWeight.w900,
+        fontSize: 22,
+      ),
+    );
+  }
+
   Widget _buildSidebarFooterItem(IconData icon, String label) {
     return InkWell(
       onTap: () {},
@@ -325,7 +354,7 @@ class _AppLayoutState extends State<AppLayout> {
     );
   }
 
-  Widget _buildModernTopBar({bool isMobile = false}) {
+  Widget _buildModernTopBar({bool isMobile = false, required Color primaryColor}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
       decoration: BoxDecoration(
@@ -350,11 +379,11 @@ class _AppLayoutState extends State<AppLayout> {
             Container(
               margin: const EdgeInsets.only(right: 16),
               decoration: BoxDecoration(
-                color: _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5),
+                color: _isDarkMode ? const Color(0xFF1F2937) : primaryColor,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: (_isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5)).withOpacity(0.3),
+                    color: (_isDarkMode ? const Color(0xFF1F2937) : primaryColor).withOpacity(0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -412,7 +441,7 @@ class _AppLayoutState extends State<AppLayout> {
           IconButton(
             icon: Icon(
               _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-              color: _isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFF4F46E5),
+              color: _isDarkMode ? const Color(0xFFFBBF24) : primaryColor,
             ),
             onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
           ),
@@ -457,7 +486,7 @@ class _AppLayoutState extends State<AppLayout> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)]),
+                      gradient: LinearGradient(colors: [primaryColor, primaryColor.withBlue(primaryColor.blue + 30)]),
                       shape: BoxShape.circle,
                     ),
                     child: Center(

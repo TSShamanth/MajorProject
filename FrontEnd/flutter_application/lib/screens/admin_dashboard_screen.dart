@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:go_router/go_router.dart';
 import '../services/api_service.dart';
-import '../services/auth_service.dart';
 import '../services/announcement_service.dart'; 
 import '../models/announcement_model.dart';
 import '../models/user_model.dart';
 import '../widgets/create_user_dialog.dart';
+import '../widgets/admin_layout.dart';
+import '../providers/institution_provider.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -21,9 +23,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   int _studentCount = 0;
   int _facultyCount = 0;
   int _adminCount = 0;
-  int _notificationCount = 0;
-  bool _sidebarExpanded = true;
-  bool _isDarkMode = false;
   late AnimationController _animationController;
 
   final ApiService _apiService = ApiService();
@@ -47,7 +46,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       if (_institutionId != null) {
         _fetchUsersAndCounts();
         _fetchCurrentUserAndAnnouncements(); 
-        _fetchNotificationCount(); 
       }
     });
   }
@@ -128,18 +126,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     }
   }
 
-  Future<void> _fetchNotificationCount() async {
-    if (_institutionId == null) return;
-    try {
-      final list = await _apiService.getNotifications();
-      setState(() {
-        _notificationCount = list.where((n) => !n.read).length;
-      });
-    } catch (e) {
-      debugPrint('Error fetching notifications: $e');
-    }
-  }
-
   @override
   void dispose() {
     _animationController.dispose();
@@ -155,6 +141,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     );
   }
 
+  // Helper for reactive colors
+  Color get _primaryColor => Provider.of<InstitutionProvider>(context, listen: false).primaryColor;
+  bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
   Color get _bgColor => _isDarkMode ? const Color(0xFF111827) : const Color(0xFFF8FAFC);
   Color get _cardColor => _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
   Color get _textPrimary => _isDarkMode ? const Color(0xFFF9FAFB) : const Color(0xFF1F2937);
@@ -163,775 +152,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 768;
-        final isTablet = constraints.maxWidth >= 768 && constraints.maxWidth < 1024;
-        final isDesktop = constraints.maxWidth >= 1024;
+    return AdminLayout(
+      title: 'Admin Dashboard',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 768;
+          final isTablet = constraints.maxWidth >= 768 && constraints.maxWidth < 1024;
+          final isDesktop = constraints.maxWidth >= 1024;
 
-        return Scaffold(
-          backgroundColor: _bgColor,
-          drawer: isMobile ? _buildMobileDrawer() : null,
-          body: isMobile 
-              ? _buildMobileLayout()
-              : Row(
-                  children: [
-                    if (!isMobile) _buildModernSidebar(),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          _buildModernTopBar(isMobile: isMobile),
-                          if (!isMobile) _buildBreadcrumb(),
-                          Expanded(
-                            child: _buildDashboardContent(
-                              isMobile: isMobile,
-                              isTablet: isTablet,
-                              isDesktop: isDesktop,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMobileLayout() {
-    return Column(
-      children: [
-        _buildMobileTopBar(),
-        Expanded(
-          child: _buildDashboardContent(
-            isMobile: true,
-            isTablet: false,
-            isDesktop: false,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMobileDrawer() {
-    final menuItems = [
-      {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
-      {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': '/admin/user-management'},
-      {'icon': Icons.supervisor_account_rounded, 'label': 'Mentor Management', 'active': false, 'route': '/admin/mentor-management'},
-      {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
-      {'icon': Icons.account_balance_wallet_rounded, 'label': 'Fee Management', 'active': false, 'route': '/admin/fee-management'},
-      {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'active': false, 'route': '/admin/timetable/timeslots'},
-      {'icon': Icons.calendar_today_rounded, 'label': 'Working Days', 'active': false, 'route': '/admin/timetable/working-days'},
-      {'icon': Icons.grid_on_rounded, 'label': 'Timetable', 'active': false, 'route': '/admin/timetable/generate'},
-      {'icon': Icons.school_rounded, 'label': 'Academic Operations', 'active': false, 'route': null},
-      {'icon': Icons.business_center_rounded, 'label': 'Workforce & Placement', 'active': false, 'route': null},
-      {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': '/events'},
-      {'icon': Icons.announcement_rounded, 'label': 'Announcements', 'active': false, 'route': '/announcements/manage'},
-      {'icon': Icons.bar_chart_rounded, 'label': 'Analytics & Reports', 'active': false, 'route': null},
-      {'icon': Icons.article_rounded, 'label': 'Content Management', 'active': false, 'route': null},
-      {'icon': Icons.settings_rounded, 'label': 'System Settings', 'active': false, 'route': null},
-    ];
-
-    return Drawer(
-      backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
-      child: Column(
-        children: [
-          DrawerHeader(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _isDarkMode 
-                    ? [const Color(0xFF1F2937), const Color(0xFF111827)]
-                    : [const Color(0xFF4F46E5), const Color(0xFF4338CA)],
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'A',
-                      style: TextStyle(
-                        color: _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 22,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Text(
-                    'Acadexa',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 19,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: menuItems.map((item) {
-                final isActive = item['active'] == true;
-                return ListTile(
-                  leading: Icon(
-                    item['icon'] as IconData,
-                    color: isActive ? const Color(0xFF4F46E5) : _textSecondary,
-                  ),
-                  title: Text(
-                    item['label'] as String,
-                    style: TextStyle(
-                      color: isActive ? const Color(0xFF4F46E5) : _textPrimary,
-                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                  ),
-                  selected: isActive,
-                  selectedTileColor: const Color(0xFF4F46E5).withOpacity(0.1),
-                  onTap: () {
-                    Navigator.pop(context);
-                    final route = item['route'];
-                    if (route != null && _institutionId != null) {
-                      context.go('/$_institutionId${route as String}');
-                    }
-                  },
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMobileTopBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: _cardColor,
-        border: Border(bottom: BorderSide(color: _borderColor)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Builder(
-            builder: (context) => IconButton(
-              icon: Icon(Icons.menu_rounded, color: _textPrimary),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text(
-              'Acadexa',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF4F46E5),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-              color: _isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFF4F46E5),
-            ),
-            onPressed: () {
-              setState(() {
-                _isDarkMode = !_isDarkMode;
-              });
-            },
-          ),
-          Stack(
-            children: [
-              IconButton(
-                icon: Icon(Icons.notifications_rounded, color: _textPrimary),
-                onPressed: () {
-                  if (_institutionId != null) {
-                    context.push('/$_institutionId/notifications');
-                    setState(() {
-                      _notificationCount = 0;
-                    });
-                  }
-                },
-              ),
-              if (_notificationCount > 0)
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '$_notificationCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModernSidebar() {
-    final menuItems = [
-      {'icon': Icons.dashboard_rounded, 'label': 'Dashboard', 'active': true, 'route': null},
-      {'icon': Icons.people_rounded, 'label': 'User Management', 'active': false, 'route': '/admin/user-management'},
-      {'icon': Icons.supervisor_account_rounded, 'label': 'Mentor Management', 'active': false, 'route': '/admin/mentor-management'},
-      {'icon': Icons.settings_applications_rounded, 'label': 'Institution Setup', 'active': false, 'route': '/admin/institution-settings'},
-      {'icon': Icons.account_balance_wallet_rounded, 'label': 'Fee Management', 'active': false, 'route': '/admin/fee-management'},
-      {'icon': Icons.timer_rounded, 'label': 'Time Slots', 'active': false, 'route': '/admin/timetable/timeslots'},
-      {'icon': Icons.calendar_today_rounded, 'label': 'Working Days', 'active': false, 'route': '/admin/timetable/working-days'},
-      {'icon': Icons.grid_on_rounded, 'label': 'Timetable', 'active': false, 'route': '/admin/timetable/generate'},
-      {'icon': Icons.approval, 'label': 'Approval', 'active': false, 'route': '/admin/approval'},
-      {'icon': Icons.event_rounded, 'label': 'Event Management', 'active': false, 'route': '/events'},
-      {'icon': Icons.announcement_rounded, 'label': 'Announcements', 'active': false, 'route': '/announcements/manage'},
-    ];
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      width: _sidebarExpanded ? 270 : 0,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: _isDarkMode 
-              ? [const Color(0xFF1F2937), const Color(0xFF111827)]
-              : [const Color(0xFF4F46E5), const Color(0xFF4338CA)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: _sidebarExpanded ? [
-          BoxShadow(
-            color: Colors.black.withOpacity(_isDarkMode ? 0.3 : 0.15),
-            blurRadius: 20,
-            offset: const Offset(4, 0),
-          ),
-        ] : [],
-      ),
-      child: _sidebarExpanded ? Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      'A',
-                      style: TextStyle(
-                        color: _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 22,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Text(
-                    'Acadexa',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 19,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.chevron_left_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _sidebarExpanded = false;
-                      });
-                    },
-                    tooltip: 'Collapse sidebar',
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
-              children: menuItems.map((item) {
-                final isActive = item['active'] == true;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        if (item['route'] != null && _institutionId != null) {
-                          context.go('/$_institutionId${item['route']}');
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: isActive 
-                              ? Colors.white.withOpacity(_isDarkMode ? 0.1 : 0.15) 
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          border: isActive 
-                              ? Border.all(
-                                  color: Colors.white.withOpacity(_isDarkMode ? 0.2 : 0.3),
-                                  width: 1,
-                                )
-                              : null,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              item['icon'] as IconData,
-                              color: Colors.white.withOpacity(isActive ? 1.0 : 0.7),
-                              size: 24,
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                item['label'] as String,
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(isActive ? 1.0 : 0.8),
-                                  fontSize: 15,
-                                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(
-                  color: Colors.white.withOpacity(_isDarkMode ? 0.05 : 0.1),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                InkWell(
-                  onTap: () {},
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.help_outline_rounded,
-                          size: 16,
-                          color: Colors.white.withOpacity(0.6),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Help & Support',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                InkWell(
-                  onTap: () {},
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.description_outlined,
-                          size: 16,
-                          color: Colors.white.withOpacity(0.6),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Documentation',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ) : const SizedBox.shrink(),
-    );
-  }
-
-  Widget _buildModernTopBar({bool isMobile = false}) {
-    if (isMobile) return const SizedBox.shrink(); 
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-      decoration: BoxDecoration(
-        color: _cardColor,
-        border: Border(
-          bottom: BorderSide(color: _borderColor),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          if (!_sidebarExpanded)
-            Container(
-              margin: const EdgeInsets.only(right: 16),
-              decoration: BoxDecoration(
-                color: _isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: (_isDarkMode ? const Color(0xFF1F2937) : const Color(0xFF4F46E5)).withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      _sidebarExpanded = true;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 46,
-                    height: 46,
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.menu_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          
-          Text(
-            'Admin Dashboard',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: _textPrimary,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(width: 24),
-
-          Expanded(
-            child: Container(
-              height: 46,
-              decoration: BoxDecoration(
-                color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _borderColor),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 18),
-                  Icon(Icons.search_rounded, color: _textSecondary, size: 22),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search students, courses, companies...',
-                        hintStyle: TextStyle(
-                          color: _textSecondary,
-                          fontSize: 15,
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                      ),
-                      style: TextStyle(color: _textPrimary, fontSize: 15),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 20),
-
-          Container(
-            decoration: BoxDecoration(
-              color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _borderColor),
-            ),
-            child: IconButton(
-              icon: Icon(
-                _isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                color: _isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFF4F46E5),
-                size: 22,
-              ),
-              onPressed: () {
-                setState(() {
-                  _isDarkMode = !_isDarkMode;
-                });
-              },
-              tooltip: _isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-            ),
-          ),
-          const SizedBox(width: 16),
-
-          Stack(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: _isDarkMode ? const Color(0xFF111827) : _bgColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: IconButton(
-                  icon: Icon(Icons.notifications_rounded, color: _textPrimary, size: 24),
-                  onPressed: () {
-                    if (_institutionId != null) {
-                      context.push('/$_institutionId/notifications');
-                      setState(() {
-                        _notificationCount = 0;
-                      });
-                    }
-                  },
-                ),
-              ),
-              if (_notificationCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '$_notificationCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 20),
-
-          Container(
-            padding: const EdgeInsets.only(left: 20),
-            decoration: BoxDecoration(
-              border: Border(
-                left: BorderSide(color: _borderColor),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(23),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'AD',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 17,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Admin',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: _textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Administrator',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: _textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 10),
-                PopupMenuButton(
-                  icon: Icon(Icons.arrow_drop_down_rounded, color: _textSecondary, size: 26),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  color: _cardColor,
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      child: Row(
-                        children: [
-                          Icon(Icons.settings_rounded, size: 20, color: _textPrimary),
-                          const SizedBox(width: 14),
-                          const Text('Settings', style: TextStyle(fontSize: 15)),
-                        ],
-                      ),
-                      onTap: () {},
-                    ),
-                    PopupMenuItem(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.logout_rounded, size: 20, color: Color(0xFFEF4444)),
-                          const SizedBox(width: 14),
-                          const Text('Logout', style: TextStyle(color: Color(0xFFEF4444), fontSize: 15)),
-                        ],
-                      ),
-                      onTap: () async {
-                        final router = GoRouter.of(context);
-                        await SessionManager.clearSession();
-                        await AuthService.logout();
-                        router.go('/login');
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBreadcrumb() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-      decoration: BoxDecoration(
-        color: _cardColor,
-        border: Border(
-          bottom: BorderSide(color: _borderColor),
-        ),
-      ),
-      child: Row(
-        children: [
-          Text(
-            'Home',
-            style: TextStyle(
-              fontSize: 14,
-              color: _textSecondary,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Icon(Icons.chevron_right_rounded, size: 18, color: _textSecondary),
-          const SizedBox(width: 10),
-          Text(
-            'Dashboard',
-            style: TextStyle(
-              fontSize: 14,
-              color: const Color(0xFF4F46E5),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+          return _buildDashboardContent(
+            isMobile: isMobile,
+            isTablet: isTablet,
+            isDesktop: isDesktop,
+          );
+        },
       ),
     );
   }
@@ -1000,7 +234,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             mainAxisSpacing: 12,
             childAspectRatio: 0.85,
             children: [
-              _buildStatCard('Active Students', _studentCount.toString(), 'Current Enrolled', Icons.people_rounded, const Color(0xFF4F46E5)),
+              _buildStatCard('Active Students', _studentCount.toString(), 'Current Enrolled', Icons.people_rounded, _primaryColor),
               _buildStatCard('Faculty', _facultyCount.toString(), 'All Departments', Icons.school_rounded, const Color(0xFF10B981)),
               _buildStatCard('Placement', '82%', 'Current Season', Icons.business_center_rounded, const Color(0xFF8B5CF6)),
               _buildStatCard('Actions', '12', '8 Pending', Icons.warning_rounded, const Color(0xFFF59E0B)),
@@ -1017,7 +251,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
         mainAxisSpacing: 12,
         childAspectRatio: 1.3,
         children: [
-          _buildStatCard('Active Students', _studentCount.toString(), 'Current Enrolled', Icons.people_rounded, const Color(0xFF4F46E5)),
+          _buildStatCard('Active Students', _studentCount.toString(), 'Current Enrolled', Icons.people_rounded, _primaryColor),
           _buildStatCard('Faculty', _facultyCount.toString(), 'All Departments', Icons.school_rounded, const Color(0xFF10B981)),
           _buildStatCard('Placement', '82%', 'Current Season', Icons.business_center_rounded, const Color(0xFF8B5CF6)),
           _buildStatCard('Actions', '12', '8 Pending', Icons.warning_rounded, const Color(0xFFF59E0B)),
@@ -1026,7 +260,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     } else {
       return Row(
         children: [
-          Expanded(child: _buildStatCard('Active Students', _studentCount.toString(), 'Current Enrolled', Icons.people_rounded, const Color(0xFF4F46E5))),
+          Expanded(child: _buildStatCard('Active Students', _studentCount.toString(), 'Current Enrolled', Icons.people_rounded, _primaryColor)),
           const SizedBox(width: 16),
           Expanded(child: _buildStatCard('Faculty', _facultyCount.toString(), 'All Departments', Icons.school_rounded, const Color(0xFF10B981))),
           const SizedBox(width: 16),
@@ -1223,10 +457,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF4F46E5).withOpacity(0.1),
+                      color: _primaryColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.people_rounded, color: Color(0xFF4F46E5), size: 20),
+                    child: Icon(Icons.people_rounded, color: _primaryColor, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -1244,7 +478,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: const Text('Add User', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4F46E5),
+                  backgroundColor: _primaryColor,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1254,7 +488,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             ],
           ),
           const SizedBox(height: 16),
-          _buildUserTypeTile('Students', _studentCount.toString(), 'Active accounts', const Color(0xFF4F46E5), Icons.school_rounded, onTap: () {
+          _buildUserTypeTile('Students', _studentCount.toString(), 'Active accounts', _primaryColor, Icons.school_rounded, onTap: () {
             if (_institutionId != null) {
               context.go('/$_institutionId/admin/users/student');
             }
@@ -1353,7 +587,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   Widget _buildRecentActivityCard() {
     final activities = [
-      {'title': 'New Company Registration - Wipro', 'time': '1 hour ago', 'icon': Icons.info_rounded, 'color': const Color(0xFF4F46E5)},
+      {'title': 'New Company Registration - Wipro', 'time': '1 hour ago', 'icon': Icons.info_rounded, 'color': _primaryColor},
       {'title': 'Semester Results Published', 'time': '3 hours ago', 'icon': Icons.check_circle_rounded, 'color': const Color(0xFF10B981)},
       {'title': 'Faculty Leave Approval', 'time': '5 pending', 'icon': Icons.access_time_rounded, 'color': const Color(0xFFF59E0B)},
       {'title': 'Placement Drive - Microsoft', 'time': 'Jan 18', 'icon': Icons.event_rounded, 'color': const Color(0xFF8B5CF6)},
@@ -1457,7 +691,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
   Widget _buildQuickActionsCard() {
     final actions = [
-      {'label': 'Manage Users', 'color': const Color(0xFF4F46E5), 'icon': Icons.people_rounded, 'route': null},
+      {'label': 'Manage Users', 'color': _primaryColor, 'icon': Icons.people_rounded, 'route': null},
       {'label': 'Mentor Management', 'color': const Color(0xFFEC4899), 'icon': Icons.supervisor_account_rounded, 'route': '/admin/mentor-management'},
       {'label': 'Schedule Drive', 'color': const Color(0xFF10B981), 'icon': Icons.event_rounded, 'route': null},
       {'label': 'System Reports', 'color': const Color(0xFF8B5CF6), 'icon': Icons.bar_chart_rounded, 'route': null},
@@ -1559,15 +793,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF4F46E5), Color(0xFF8B5CF6)],
+        gradient: LinearGradient(
+          colors: [_primaryColor, const Color(0xFF8B5CF6)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF4F46E5).withOpacity(0.3),
+            color: _primaryColor.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -1680,7 +914,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   Widget _buildCommunityCard() {
     return _buildManagementCard(
       'Community',
-      const Color(0xFF4F46E5),
+      _primaryColor,
       Icons.groups_rounded,
       [
         {'title': 'Alumni Network', 'route': '/$_institutionId/admin/alumni-dashboard'},
@@ -1810,10 +1044,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF4F46E5).withOpacity(0.1),
+                          color: _primaryColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.announcement_rounded, color: Color(0xFF4F46E5), size: 20),
+                        child: Icon(Icons.announcement_rounded, color: _primaryColor, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Text(
@@ -1834,15 +1068,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                     },
                     icon: const Icon(Icons.settings_rounded, size: 16),
                     label: const Text('Manage', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    style: TextButton.styleFrom(foregroundColor: const Color(0xFF4F46E5)),
+                    style: TextButton.styleFrom(foregroundColor: _primaryColor),
                   ),
                 ],
               ),
             ),
             TabBar(
-              labelColor: const Color(0xFF4F46E5),
+              labelColor: _primaryColor,
               unselectedLabelColor: _textSecondary,
-              indicatorColor: const Color(0xFF4F46E5),
+              indicatorColor: _primaryColor,
               dividerColor: _borderColor,
               labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               tabs: const [
@@ -1922,9 +1156,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             Row(
               children: [
                 if (announcement.isPinned)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 8.0),
-                    child: Icon(Icons.push_pin_rounded, size: 14, color: Color(0xFF4F46E5)),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Icon(Icons.push_pin_rounded, size: 14, color: _primaryColor),
                   ),
                 Expanded(
                   child: Text(

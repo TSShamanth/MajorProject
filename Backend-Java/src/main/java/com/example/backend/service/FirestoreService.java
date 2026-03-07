@@ -20,9 +20,8 @@ public class FirestoreService {
     public List<Institution> getInstitutions() throws ExecutionException, InterruptedException {
         List<Institution> institutions = new ArrayList<>();
         firestore.collection("Institutions").get().get().forEach(document -> {
-            Institution institution = new Institution();
+            Institution institution = document.toObject(Institution.class);
             institution.setId(document.getId());
-            institution.setName(document.getString("name"));
             institutions.add(institution);
         });
         return institutions;
@@ -31,8 +30,14 @@ public class FirestoreService {
     public Institution getInstitutionById(String institutionId) throws ExecutionException, InterruptedException {
         com.google.cloud.firestore.DocumentSnapshot document = firestore.collection("Institutions").document(institutionId).get().get();
         if (document.exists()) {
-            return document.toObject(Institution.class);
+            Institution institution = document.toObject(Institution.class);
+            institution.setId(document.getId());
+            return institution;
         }
         return null;
+    }
+
+    public void updateInstitution(String institutionId, Institution institution) throws ExecutionException, InterruptedException {
+        firestore.collection("Institutions").document(institutionId).set(institution).get();
     }
 }

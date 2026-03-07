@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_application/models/seating_entry.dart';
 import '../models/invigilator_assignment.dart';
 import '../models/hall_ticket_data.dart';
@@ -38,6 +39,39 @@ class ApiService {
     } else {
       throw Exception('Failed to load institutions');
     }
+  }
+
+  static Future<Institution> getInstitutionProfile(String id) async {
+    debugPrint('ApiService: GET /institutions/$id');
+    final response =
+        await http.get(Uri.parse('${ApiConfig.baseUrl}/institutions/$id'));
+
+    if (response.statusCode == 200) {
+      debugPrint('ApiService: Profile fetched successfully');
+      return Institution.fromJson(json.decode(response.body));
+    } else {
+      debugPrint('ApiService: Failed to load profile: ${response.statusCode}');
+      throw Exception('Failed to load institution profile');
+    }
+  }
+
+  static Future<void> updateInstitutionProfile(Institution institution) async {
+    final url = '${ApiConfig.baseUrl}/institutions/${institution.id}';
+    final body = jsonEncode(institution.toJson());
+    debugPrint('ApiService: PUT $url');
+    debugPrint('ApiService: Body: $body');
+    
+    final response = await http.put(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+
+    if (response.statusCode != 200) {
+      debugPrint('ApiService: Update failed: ${response.statusCode} - ${response.body}');
+      throw Exception('Failed to update institution profile: ${response.body}');
+    }
+    debugPrint('ApiService: Update successful');
   }
 
   Future<List<Department>> getDepartments(String institutionId) async {
