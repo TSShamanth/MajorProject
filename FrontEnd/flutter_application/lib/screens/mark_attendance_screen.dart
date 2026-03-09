@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
-
 import '../models/attendance_model.dart';
 import '../services/attendance_service.dart';
 import '../models/course_model.dart';
 import '../models/user_model.dart';
 import '../services/session_manager.dart';
+import '../widgets/faculty_layout.dart';
 
 class MarkAttendanceScreen extends StatefulWidget {
   const MarkAttendanceScreen({super.key});
@@ -16,6 +16,7 @@ class MarkAttendanceScreen extends StatefulWidget {
 }
 
 class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
+  // ── Business logic state ──────────────────────────────────────────────────
   List<Course> _courses = [];
   List<UserModel> _students = [];
   List<UserModel> _filteredStudents = [];
@@ -26,9 +27,14 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   String _searchQuery = '';
-
   String? _institutionId;
   String? _facultyUid;
+  bool _isDarkMode = false;
+
+  // ── Theme helpers ──────────────────────────────────────────────────────────
+  static const _accent  = Color(0xFF4F46E5);
+  static const _success = Color(0xFF10B981);
+  static const _danger  = Color(0xFFEF4444);
 
   @override
   void initState() {
@@ -62,13 +68,6 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
           _errorMessage = null;
         });
       }
-    } on AttendanceException catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = e.message;
-          _isLoading = false;
-        });
-      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -81,7 +80,6 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
 
   Future<void> _loadStudents() async {
     if (_selectedCourse == null) return;
-
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
@@ -90,18 +88,11 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
         setState(() {
           _students = loadedStudents;
           _filteredStudents = loadedStudents;
-          _attendanceMap = {for (var student in loadedStudents) student.uid: false};
-          _remarksMap = {for (var student in loadedStudents) student.uid: ''};
+          _attendanceMap = {for (var s in loadedStudents) s.uid: false};
+          _remarksMap = {for (var s in loadedStudents) s.uid: ''};
           _searchQuery = '';
           _isLoading = false;
           _errorMessage = null;
-        });
-      }
-    } on AttendanceException catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = e.message;
-          _isLoading = false;
         });
       }
     } catch (e) {
@@ -117,34 +108,27 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
   void _filterStudents(String query) {
     setState(() {
       _searchQuery = query;
-      if (query.isEmpty) {
-        _filteredStudents = _students;
-      } else {
-        _filteredStudents = _students
-            .where((student) =>
-                (student.displayName.toLowerCase().contains(query.toLowerCase())) ||
-                (student.usn != null && student.usn!.toLowerCase().contains(query.toLowerCase())))
-            .toList();
-      }
+      _filteredStudents = query.isEmpty
+          ? _students
+          : _students
+              .where((s) =>
+                  s.displayName.toLowerCase().contains(query.toLowerCase()) ||
+                  (s.usn != null && s.usn!.toLowerCase().contains(query.toLowerCase())))
+              .toList();
     });
   }
 
   Future<void> _submitAttendance() async {
     if (_selectedCourse == null) {
-      _showErrorSnackbar('Please select a course.');
+      _showSnackbar('Please select a course.', isError: true);
       return;
     }
     if (_students.isEmpty) {
-      _showErrorSnackbar('No students loaded. Please try again.');
+      _showSnackbar('No students loaded.', isError: true);
       return;
     }
     if (_institutionId == null || _facultyUid == null) {
-      _showErrorSnackbar('Missing essential IDs for submission.');
-      return;
-    }
-    // Add null check for departmentId
-    if (_selectedCourse!.departmentId == null) {
-      _showErrorSnackbar('Selected course is missing a department ID. Cannot mark attendance.');
+      _showSnackbar('Missing IDs for submission.', isError: true);
       return;
     }
 
@@ -152,7 +136,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
     setState(() => _isLoading = true);
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-      
+
       List<AttendanceModel> attendanceRecords = _students.map((student) {
         return AttendanceModel(
           courseCode: _selectedCourse!.courseCode,
@@ -162,30 +146,25 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
           remarks: _remarksMap[student.uid],
           facultyUid: _facultyUid,
           institutionId: _institutionId!,
-          departmentId: _selectedCourse!.departmentId!, // Assert non-null after check
+          departmentId: _selectedCourse!.departmentId ?? 'N/A',
         );
       }).toList();
 
       final success = await AttendanceService.markAttendance(
         courseCode: _selectedCourse!.courseCode,
         institutionId: _institutionId!,
-        departmentId: _selectedCourse!.departmentId!, // Assert non-null after check
+        departmentId: _selectedCourse!.departmentId ?? 'N/A',
         facultyUid: _facultyUid!,
         attendanceRecords: attendanceRecords,
       );
 
       if (success && mounted) {
-        _showSuccessSnackbar('Attendance marked successfully!');
+        _showSnackbar('Attendance marked successfully!', isError: false);
         _resetForm();
-      }
-    } on AttendanceException catch (e) {
-      if (mounted) {
-        _showErrorSnackbar(e.message);
-        setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
-        _showErrorSnackbar('Error marking attendance: ${e.toString()}');
+        _showSnackbar('Error: ${e.toString()}', isError: true);
         setState(() => _isLoading = false);
       }
     }
@@ -203,554 +182,400 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
       _isLoading = false;
       _errorMessage = null;
     });
-    _loadCourses(); // Reload courses after reset
+    _loadCourses();
   }
 
   void _selectDate() async {
-    final pickedDate = await showDatePicker(
+    final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2024),
       lastDate: DateTime.now(),
     );
-
-    if (pickedDate != null && mounted) {
-      setState(() => _selectedDate = pickedDate);
+    if (picked != null && mounted) {
+      setState(() => _selectedDate = picked);
     }
   }
 
-  void _showErrorSnackbar(String message) {
+  void _showSnackbar(String message, {required bool isError}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red.shade600,
-        duration: const Duration(seconds: 4),
-      ),
-    );
-  }
-
-  void _showSuccessSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green.shade600,
-        duration: const Duration(seconds: 3),
+        backgroundColor: isError ? _danger : _success,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E293B)),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text(
-          'Mark Attendance',
-          style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: _isLoading
+    _isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = _isDarkMode ? const Color(0xFFF9FAFB) : const Color(0xFF1F2937);
+
+    return FacultyLayout(
+      title: 'Attendance',
+      breadcrumbs: [
+        Icon(Icons.chevron_right_rounded, size: 16, color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text('Mark Attendance', style: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600], fontSize: 13)),
+      ],
+      child: _isLoading && _courses.isEmpty
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Error Message
-                  if (_errorMessage != null) _buildErrorBanner(),
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 768;
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 800),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Attendance Tracking',
+                                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: textPrimary, letterSpacing: -0.5),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Select session details and mark presence',
+                                    style: TextStyle(fontSize: 14, color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
+                              if (_students.isNotEmpty)
+                                ElevatedButton.icon(
+                                  onPressed: _isLoading ? null : _submitAttendance,
+                                  icon: const Icon(Icons.check_circle_rounded, size: 18),
+                                  label: const Text('Submit Attendance'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _accent,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    elevation: 0,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
 
-                  // Course Selection
-                  _buildSectionTitle('Select Course'),
-                  const SizedBox(height: 8),
-                  _buildCourseDropdown(),
-                  const SizedBox(height: 24),
+                          if (_errorMessage != null) _buildErrorBanner(),
 
-                  // Date Selection
-                  _buildSectionTitle('Select Date'),
-                  const SizedBox(height: 8),
-                  _buildDatePicker(),
-                  const SizedBox(height: 24),
+                          _buildSessionCard(),
+                          const SizedBox(height: 24),
 
-                  // Students List with Search
-                  if (_students.isNotEmpty) ...[
-                    _buildStudentListHeader(),
-                    const SizedBox(height: 12),
-                    _buildSearchBar(),
-                    const SizedBox(height: 12),
-                    _buildQuickActions(),
-                    const SizedBox(height: 12),
-                    if (_filteredStudents.isEmpty)
-                      _buildEmptySearchState()
-                    else
-                      _buildStudentsList(),
-                  ] else if (_selectedCourse != null) ...[
-                    _buildEmptyState('No students found for this course.'),
-                  ],
-
-                  const SizedBox(height: 32),
-
-                  // Action Buttons
-                  _buildActionButtons(),
-                ],
-              ),
+                          if (_students.isNotEmpty) ...[
+                            _buildStudentsSection(isMobile),
+                            const SizedBox(height: 24),
+                            _buildActionButtons(isMobile),
+                          ] else if (_selectedCourse != null) ...[
+                            _buildEmptyState('No students found for this course.', Icons.people_outline_rounded),
+                          ] else ...[
+                            _buildEmptyState('Please select a course to start marking attendance.', Icons.assignment_turned_in_rounded),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
     );
   }
 
   Widget _buildErrorBanner() {
     return Container(
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        border: Border.all(color: Colors.red.shade300),
-        borderRadius: BorderRadius.circular(8.0),
+        color: _danger.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _danger.withOpacity(0.3)),
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline, color: Colors.red.shade700),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _errorMessage!,
-              style: TextStyle(color: Colors.red.shade700, fontSize: 12),
-            ),
+          const Icon(Icons.error_outline_rounded, color: _danger),
+          const SizedBox(width: 12),
+          Expanded(child: Text(_errorMessage!, style: const TextStyle(color: _danger, fontWeight: FontWeight.w500))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSessionCard() {
+    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+    final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(_isDarkMode ? 0.2 : 0.03), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.tune_rounded, color: _accent, size: 20),
+              const SizedBox(width: 12),
+              const Text('Session Configuration', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
           ),
-          IconButton(
-            icon: Icon(Icons.close, color: Colors.red.shade700, size: 18),
-            onPressed: () => setState(() => _errorMessage = null),
-            constraints: const BoxConstraints(),
-            padding: EdgeInsets.zero,
+          const SizedBox(height: 20),
+          DropdownButtonFormField<Course>(
+            value: _selectedCourse,
+            dropdownColor: cardColor,
+            decoration: InputDecoration(
+              labelText: 'Select Course',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: const Icon(Icons.book_rounded, size: 20),
+            ),
+            items: _courses.map((c) => DropdownMenuItem(
+              value: c,
+              child: Text('${c.courseCode} - ${c.courseName}'),
+            )).toList(),
+            onChanged: (course) {
+              setState(() => _selectedCourse = course);
+              if (course != null) _loadStudents();
+            },
+          ),
+          const SizedBox(height: 20),
+          InkWell(
+            onTap: _selectDate,
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: 'Session Date',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.calendar_today_rounded, size: 20),
+              ),
+              child: Text(DateFormat('EEEE, dd MMM yyyy').format(_selectedDate)),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        color: Color(0xFF1E293B),
-      ),
-    );
-  }
+  Widget _buildStudentsSection(bool isMobile) {
+    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+    final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
 
-  Widget _buildCourseDropdown() {
     return Container(
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8.0),
-        color: Colors.white,
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
       ),
-      child: DropdownButton<Course>(
-        value: _selectedCourse,
-        isExpanded: true,
-        underline: const SizedBox(),
-        items: _courses
-            .map((course) => DropdownMenuItem(
-                  value: course,
-                  child: SizedBox(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(course.courseName, style: const TextStyle(fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          Text(
-                            '${course.courseCode} • ${course.program} • Sem ${course.semester}',
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ))
-            .toList(),
-        onChanged: (course) {
-          setState(() => _selectedCourse = course);
-          if (course != null) _loadStudents();
-        },
-        padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.groups_rounded, color: _success, size: 20),
+                  SizedBox(width: 12),
+                  Text('Student Roster', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              _buildAttendanceStats(),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildSearchBar(),
+          const SizedBox(height: 16),
+          _buildQuickActions(),
+          const SizedBox(height: 20),
+          if (_filteredStudents.isEmpty)
+            Center(child: Text('No students match "$_searchQuery"', style: const TextStyle(color: Colors.grey)))
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _filteredStudents.length,
+              itemBuilder: (context, index) => _buildStudentTile(_filteredStudents[index]),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildDatePicker() {
+  Widget _buildAttendanceStats() {
+    final present = _attendanceMap.values.where((v) => v).length;
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8.0),
-        color: Colors.white,
+        color: _success.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _success.withOpacity(0.3)),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _selectDate,
-          borderRadius: BorderRadius.circular(8.0),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Icon(Icons.calendar_today, color: Colors.blue.shade600),
-                const SizedBox(width: 12),
-                Text(
-                  DateFormat('yyyy-MM-dd').format(_selectedDate),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                ),
-                const Spacer(),
-                Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
-              ],
-            ),
-          ),
-        ),
+      child: Text(
+        '$present/${_students.length} Present',
+        style: const TextStyle(color: _success, fontWeight: FontWeight.bold, fontSize: 12),
       ),
-    );
-  }
-
-  Widget _buildStudentListHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'Attendance (${_filteredStudents.length}/${_students.length})',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.green.shade50,
-            border: Border.all(color: Colors.green.shade300),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            '${_attendanceMap.values.where((v) => v).length}/${_students.length} Present',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.green.shade700,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8.0),
-        color: Colors.white,
-      ),
-      child: TextField(
-        onChanged: _filterStudents,
-        decoration: InputDecoration(
-          hintText: 'Search by name or USN...',
-          hintStyle: TextStyle(color: Colors.grey.shade600),
-          border: InputBorder.none,
-          prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-                  icon: Icon(Icons.clear, color: Colors.grey.shade600),
-                  onPressed: () => _filterStudents(''),
-                )
-              : null,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        ),
+    return TextField(
+      onChanged: _filterStudents,
+      decoration: InputDecoration(
+        hintText: 'Search by name or USN...',
+        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     );
   }
 
   Widget _buildQuickActions() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildQuickActionButton(
-            'Mark All Present',
-            Icons.check_circle,
-            Colors.green,
-            () {
-              setState(() {
-                for (var student in _filteredStudents) {
-                  _attendanceMap[student.uid] = true;
-                }
-              });
-            },
-          ),
-          const SizedBox(width: 8),
-          _buildQuickActionButton(
-            'Mark All Absent',
-            Icons.cancel,
-            Colors.red,
-            () {
-              setState(() {
-                for (var student in _filteredStudents) {
-                  _attendanceMap[student.uid] = false;
-                }
-              });
-            },
-          ),
-          const SizedBox(width: 8),
-          _buildQuickActionButton(
-            'Clear Selection',
-            Icons.refresh,
-            Colors.orange,
-            () {
-              setState(() {
-                for (var student in _students) {
-                  _attendanceMap[student.uid] = false;
-                }
-              });
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActionButton(
-    String label,
-    IconData icon,
-    Color color,
-    VoidCallback onPressed,
-  ) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(label, style: const TextStyle(fontSize: 11)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color.withOpacity(0.1),
-        foregroundColor: color,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      ),
-    );
-  }
-
-  Widget _buildEmptySearchState() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(Icons.search_off, color: Colors.grey.shade600, size: 48),
-            const SizedBox(height: 8),
-            Text(
-              'No students found matching "$_searchQuery"',
-              style: TextStyle(color: Colors.grey.shade600),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStudentsList() {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _filteredStudents.length,
-      itemBuilder: (context, index) {
-        final student = _filteredStudents[index];
-        final isPresent = _attendanceMap[student.uid] ?? false;
-        final remarks = _remarksMap[student.uid] ?? '';
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(
-              color: isPresent ? Colors.green.shade300 : Colors.grey.shade300,
-              width: isPresent ? 2 : 1,
-            ),
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          child: ExpansionTile(
-            title: Row(
-              children: [
-                Checkbox(
-                  value: isPresent,
-                  onChanged: (value) {
-                    setState(() {
-                      _attendanceMap[student.uid] = value ?? false;
-                    });
-                  },
-                  activeColor: Colors.green.shade600,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        student.displayName,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      if (student.usn != null)
-                        Text(
-                          student.usn!,
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                        ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isPresent ? Colors.green.shade50 : Colors.red.shade50,
-                    border: Border.all(
-                      color: isPresent ? Colors.green.shade300 : Colors.red.shade300,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    isPresent ? 'Present' : 'Absent',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: isPresent ? Colors.green.shade700 : Colors.red.shade700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Divider(),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Add Remarks (Optional)',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey.shade700),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(6),
-                        color: Colors.grey.shade50,
-                      ),
-                      child: TextField(
-                        onChanged: (value) {
-                          setState(() {
-                            _remarksMap[student.uid] = value;
-                          });
-                        },
-                        controller: TextEditingController(text: remarks),
-                        maxLines: 2,
-                        minLines: 1,
-                        decoration: InputDecoration(
-                          hintText: 'e.g., Late arrival, Medical leave, etc.',
-                          hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.all(10),
-                        ),
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildEmptyState(String message) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(Icons.assignment_outlined, color: Colors.grey.shade600, size: 48),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: TextStyle(color: Colors.grey.shade600),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Column(
+    return Row(
       children: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _students.isEmpty ? null : _submitAttendance,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade600,
-              disabledBackgroundColor: Colors.grey.shade300,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
+        _quickActionBtn('All Present', Icons.check_circle_outline_rounded, _success, () {
+          setState(() { for (var s in _filteredStudents) { _attendanceMap[s.uid] = true; } });
+        }),
+        const SizedBox(width: 12),
+        _quickActionBtn('All Absent', Icons.cancel_outlined, _danger, () {
+          setState(() { for (var s in _filteredStudents) { _attendanceMap[s.uid] = false; } });
+        }),
+      ],
+    );
+  }
+
+  Widget _quickActionBtn(String label, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 8),
+            Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStudentTile(UserModel student) {
+    final isPresent = _attendanceMap[student.uid] ?? false;
+    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? const Color(0xFF111827) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isPresent ? _success.withOpacity(0.5) : borderColor),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          leading: Checkbox(
+            value: isPresent,
+            activeColor: _success,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            onChanged: (val) => setState(() => _attendanceMap[student.uid] = val ?? false),
+          ),
+          title: Text(student.displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          subtitle: Text(student.usn ?? 'No USN', style: const TextStyle(fontSize: 12)),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: (isPresent ? _success : _danger).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              isPresent ? 'Present' : 'Absent',
+              style: TextStyle(color: isPresent ? _success : _danger, fontWeight: FontWeight.bold, fontSize: 10),
+            ),
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: TextFormField(
+                initialValue: _remarksMap[student.uid],
+                onChanged: (val) => _remarksMap[student.uid] = val,
+                decoration: InputDecoration(
+                  labelText: 'Remarks (Optional)',
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                style: const TextStyle(fontSize: 13),
               ),
             ),
-            child: const Text(
-              'Submit',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons(bool isMobile) {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _resetForm,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Reset Form'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton(
-            onPressed: _resetForm,
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              side: BorderSide(color: Colors.grey.shade300),
-            ),
-            child: const Text(
-              'Reset',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
-              ),
+        const SizedBox(width: 16),
+        Expanded(
+          flex: 2,
+          child: ElevatedButton.icon(
+            onPressed: _isLoading ? null : _submitAttendance,
+            icon: const Icon(Icons.check_circle_rounded),
+            label: const Text('Submit Attendance'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _accent,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEmptyState(String message, IconData icon) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        children: [
+          Icon(icon, size: 64, color: _isDarkMode ? Colors.grey[700] : Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(message, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[500])),
+        ],
+      ),
     );
   }
 }

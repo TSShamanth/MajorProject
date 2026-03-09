@@ -5,6 +5,7 @@ import '../models/mentor_meeting_model.dart';
 import '../models/mentee_concern_model.dart';
 import '../services/mentorship_service.dart';
 import '../services/session_manager.dart';
+import '../widgets/faculty_layout.dart';
 
 class FacultyMenteeDashboardScreen extends StatefulWidget {
   const FacultyMenteeDashboardScreen({super.key});
@@ -21,6 +22,7 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
   List<MenteeConcern> _concerns = [];
   bool _isLoading = true;
   late TabController _tabController;
+  bool _isDarkMode = false;
 
   // Search and Filter state
   final TextEditingController _searchController = TextEditingController();
@@ -56,19 +58,6 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
     }).toList();
   }
 
-  Future<void> _handleMeetingAction(String meetingId, String newStatus) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await _mentorshipService.updateMeetingStatus(_institutionId!, meetingId, newStatus);
-      if (mounted) {
-        messenger.showSnackBar(SnackBar(content: Text('Meeting $newStatus'), backgroundColor: Colors.green));
-        _loadData();
-      }
-    } catch (e) {
-      if (mounted) messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
-  }
-
   Future<void> _loadData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
@@ -95,6 +84,19 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
     }
   }
 
+  Future<void> _handleMeetingAction(String meetingId, String newStatus) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _mentorshipService.updateMeetingStatus(_institutionId!, meetingId, newStatus);
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(content: Text('Meeting $newStatus'), backgroundColor: Colors.green));
+        _loadData();
+      }
+    } catch (e) {
+      if (mounted) messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
   void _showRespondToConcernDialog(MenteeConcern concern) {
     final remarksController = TextEditingController();
     String selectedStatus = 'Resolved';
@@ -103,19 +105,32 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Respond to: ${concern.concernType}'),
+          backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+          title: Text('Respond to: ${concern.concernType}', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
                 value: selectedStatus,
+                dropdownColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+                style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
                 items: ['In-Progress', 'Resolved'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
                 onChanged: (val) => setDialogState(() => selectedStatus = val!),
+                decoration: InputDecoration(
+                  labelText: 'Status',
+                  labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                  border: const OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: remarksController,
-                decoration: const InputDecoration(labelText: 'Mentor Remarks', border: OutlineInputBorder()),
+                style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  labelText: 'Mentor Remarks',
+                  labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                  border: const OutlineInputBorder(),
+                ),
                 maxLines: 3,
               ),
             ],
@@ -133,11 +148,10 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
                     _loadData();
                   }
                 } catch (e) {
-                  if (mounted) {
-                    messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
-                  }
+                  if (mounted) messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
                 }
               },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F46E5), foregroundColor: Colors.white),
               child: const Text('Send Response'),
             ),
           ],
@@ -156,40 +170,60 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Schedule Future Meeting'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<UserModel>(
-                decoration: const InputDecoration(labelText: 'Select Mentee'),
-                value: selectedMentee,
-                items: _mentees.map((m) => DropdownMenuItem(value: m, child: Text(m.displayName))).toList(),
-                onChanged: (val) => setDialogState(() => selectedMentee = val),
-              ),
-              const SizedBox(height: 16),
-              TextField(controller: topicController, decoration: const InputDecoration(labelText: 'Meeting Topic')),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedMode,
-                decoration: const InputDecoration(labelText: 'Meeting Mode'),
-                items: ['Offline', 'Online'].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-                onChanged: (val) => setDialogState(() => selectedMode = val!),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                title: Text('Date: ${selectedDate.day}/${selectedDate.month}'),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: selectedDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 90)),
-                  );
-                  if (picked != null) setDialogState(() => selectedDate = picked);
-                },
-              ),
-            ],
+          backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+          title: Text('Schedule Future Meeting', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<UserModel>(
+                  dropdownColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+                  style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
+                    labelText: 'Select Mentee',
+                    labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                  ),
+                  value: selectedMentee,
+                  items: _mentees.map((m) => DropdownMenuItem(value: m, child: Text(m.displayName))).toList(),
+                  onChanged: (val) => setDialogState(() => selectedMentee = val),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: topicController,
+                  style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
+                    labelText: 'Meeting Topic',
+                    labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedMode,
+                  dropdownColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+                  style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
+                    labelText: 'Meeting Mode',
+                    labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                  ),
+                  items: ['Offline', 'Online'].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                  onChanged: (val) => setDialogState(() => selectedMode = val!),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  title: Text('Date: ${selectedDate.day}/${selectedDate.month}/${selectedDate.year}', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
+                  trailing: Icon(Icons.calendar_today, color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 90)),
+                    );
+                    if (picked != null) setDialogState(() => selectedDate = picked);
+                  },
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
@@ -203,7 +237,7 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
                   studentId: selectedMentee!.uid,
                   studentName: selectedMentee!.displayName,
                   date: selectedDate,
-                  notes: topicController.text, // Used as topic for scheduled
+                  notes: topicController.text,
                   followUpAction: '',
                   status: 'Scheduled',
                   mode: selectedMode,
@@ -219,6 +253,7 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
                   if (mounted) messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
                 }
               },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F46E5), foregroundColor: Colors.white),
               child: const Text('Schedule'),
             ),
           ],
@@ -237,32 +272,53 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Complete Meeting with ${meeting.studentName}'),
+          backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+          title: Text('Complete Meeting with ${meeting.studentName}', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: notesController,
-                  decoration: const InputDecoration(labelText: 'Discussion Notes', border: OutlineInputBorder()),
+                  style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
+                    labelText: 'Discussion Notes',
+                    labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                    border: const OutlineInputBorder(),
+                  ),
                   maxLines: 3,
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: followUpController,
-                  decoration: const InputDecoration(labelText: 'Next Steps / Follow-up', border: OutlineInputBorder()),
+                  style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
+                    labelText: 'Next Steps / Follow-up',
+                    labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                    border: const OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 16),
-                const Text('Attachments (Links)', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text('Attachments (Links)', style: TextStyle(fontWeight: FontWeight.bold, color: _isDarkMode ? Colors.white : Colors.black)),
                 ...links.map((l) => ListTile(
-                  title: Text(l, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)), 
+                  title: Text(l, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: _isDarkMode ? Colors.grey[300] : Colors.black)), 
                   dense: true, 
                   trailing: IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 18), onPressed: () => setDialogState(() => links.remove(l)))
                 )),
                 Row(
                   children: [
-                    Expanded(child: TextField(controller: linkController, decoration: const InputDecoration(hintText: 'Add resource URL...', isDense: true))),
-                    IconButton(icon: const Icon(Icons.add_link), onPressed: () {
+                    Expanded(
+                      child: TextField(
+                        controller: linkController,
+                        style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+                        decoration: InputDecoration(
+                          hintText: 'Add resource URL...',
+                          hintStyle: TextStyle(color: _isDarkMode ? Colors.grey[500] : Colors.grey[400]),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    IconButton(icon: Icon(Icons.add_link, color: _isDarkMode ? Colors.blue[400] : Colors.blue), onPressed: () {
                       if (linkController.text.isNotEmpty) {
                         setDialogState(() => links.add(linkController.text));
                         linkController.clear();
@@ -296,6 +352,7 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
                   if (mounted) messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
                 }
               },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F46E5), foregroundColor: Colors.white),
               child: const Text('Mark Completed'),
             ),
           ],
@@ -306,38 +363,44 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    _isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
-      appBar: AppBar(
-        title: const Text('Mentorship Dashboard'),
-        backgroundColor: const Color(0xFF312E81),
-        foregroundColor: Colors.white,
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: 'Mentees'),
-            Tab(text: 'Concerns'),
-            Tab(text: 'Meetings'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
+    return FacultyLayout(
+      title: 'Mentee Management',
+      breadcrumbs: [
+        Icon(Icons.chevron_right_rounded, size: 16, color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text('Mentees', style: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600], fontSize: 13)),
+      ],
+      child: Column(
         children: [
-          _buildMenteeListTab(),
-          _buildConcernList(),
-          _buildMeetingListTab(),
+          Container(
+            color: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+            child: TabBar(
+              controller: _tabController,
+              labelColor: const Color(0xFF4F46E5),
+              unselectedLabelColor: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+              indicatorColor: const Color(0xFF4F46E5),
+              tabs: const [
+                Tab(text: 'Mentees'),
+                Tab(text: 'Concerns'),
+                Tab(text: 'Meetings'),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildMenteeListTab(),
+                      _buildConcernList(),
+                      _buildMeetingListTab(),
+                    ],
+                  ),
+          ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showScheduleMeetingDialog,
-        label: const Text('Schedule Meeting'),
-        icon: const Icon(Icons.calendar_today),
-        backgroundColor: const Color(0xFF4F46E5),
       ),
     );
   }
@@ -346,27 +409,57 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(20.0),
           child: Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search by name or USN...',
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                child: Container(
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: _isDarkMode ? const Color(0xFF111827) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 14),
+                      Icon(Icons.search_rounded, color: _isDarkMode ? Colors.grey[400] : Colors.grey[600], size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black, fontSize: 14),
+                          decoration: const InputDecoration(
+                            hintText: 'Search by name or USN...',
+                            border: InputBorder.none,
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               FilterChip(
                 label: const Text('At Risk'),
                 selected: _showAtRiskOnly,
-                selectedColor: Colors.red.shade100,
+                selectedColor: Colors.red.withOpacity(0.2),
+                labelStyle: TextStyle(color: _showAtRiskOnly ? Colors.red : (_isDarkMode ? Colors.grey[400] : Colors.grey[600])),
                 onSelected: (val) => setState(() => _showAtRiskOnly = val),
+              ),
+              const SizedBox(width: 16),
+              ElevatedButton.icon(
+                onPressed: _showScheduleMeetingDialog,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('New Meeting'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
               ),
             ],
           ),
@@ -374,11 +467,13 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
         Expanded(
           child: RefreshIndicator(
             onRefresh: _loadData,
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _filteredMentees.length,
-              itemBuilder: (context, index) => _buildMenteeCard(_filteredMentees[index]),
-            ),
+            child: _filteredMentees.isEmpty
+                ? Center(child: Text('No mentees found', style: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600])))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: _filteredMentees.length,
+                    itemBuilder: (context, index) => _buildMenteeCard(_filteredMentees[index]),
+                  ),
           ),
         ),
       ],
@@ -389,72 +484,79 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
     final att = mentee.attendancePercentage ?? 0.0;
     final attColor = att < 75 ? Colors.red : Colors.green;
 
-    return InkWell(
-      onTap: () => context.push('/$_institutionId/faculty/mentees/${mentee.uid}'),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 3,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(color: Color(0xFF4F46E5), shape: BoxShape.circle),
-              child: Center(
-                child: Text(
-                  mentee.displayName.substring(0, 1).toUpperCase(),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.2 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () => context.push('/$_institutionId/faculty/mentees/${mentee.uid}'),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)]),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    mentee.displayName.substring(0, 1).toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    mentee.displayName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF111827)),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'USN: ${mentee.usn ?? "N/A"} • Sem ${mentee.sem ?? "N/A"}',
-                    style: const TextStyle(color: Color(0xFF6B7280), fontSize: 12),
-                  ),
-                ],
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      mentee.displayName,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'USN: ${mentee.usn ?? "N/A"} • Sem ${mentee.sem ?? "N/A"}',
+                      style: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: attColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: attColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: attColor.withOpacity(0.3)),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      '${att.toStringAsFixed(1)}%',
+                      style: TextStyle(color: attColor, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    Text('Attendance', style: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600], fontSize: 10)),
+                  ],
+                ),
               ),
-              child: Column(
-                children: [
-                  Text(
-                    '${att.toStringAsFixed(1)}%',
-                    style: TextStyle(color: attColor, fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  const Text('Attendance', style: TextStyle(color: Color(0xFF6B7280), fontSize: 9)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: Color(0xFFD1D5DB)),
-          ],
+              const SizedBox(width: 12),
+              Icon(Icons.chevron_right_rounded, color: _isDarkMode ? Colors.grey[600] : Colors.grey[400]),
+            ],
+          ),
         ),
       ),
     );
@@ -462,17 +564,59 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
 
   Widget _buildConcernList() {
     final pending = _concerns.where((c) => c.status != 'Resolved').toList();
-    if (pending.isEmpty) return const Center(child: Text('No pending concerns. Good job!'));
+    if (pending.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline_rounded, size: 48, color: Colors.green.withOpacity(0.5)),
+            const SizedBox(height: 16),
+            Text('No pending concerns. Good job!', style: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600])),
+          ],
+        ),
+      );
+    }
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       itemCount: pending.length,
       itemBuilder: (context, index) {
         final c = pending[index];
-        return Card(
-          child: ListTile(
-            title: Text(c.concernType, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text(c.description),
-            trailing: ElevatedButton(onPressed: () => _showRespondToConcernDialog(c), child: const Text('Respond')),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    ),
+                    child: Text(c.concernType, style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _showRespondToConcernDialog(c),
+                    icon: const Icon(Icons.reply_rounded, size: 18),
+                    label: const Text('Respond'),
+                    style: TextButton.styleFrom(foregroundColor: const Color(0xFF4F46E5)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(c.description, style: TextStyle(fontSize: 14, color: _isDarkMode ? Colors.grey[300] : Colors.black87)),
+              const SizedBox(height: 8),
+              Text('Date: ${c.createdAt.day}/${c.createdAt.month}/${c.createdAt.year}', style: TextStyle(fontSize: 12, color: _isDarkMode ? Colors.grey[500] : Colors.grey[600])),
+            ],
           ),
         );
       },
@@ -481,50 +625,92 @@ class _FacultyMenteeDashboardScreenState extends State<FacultyMenteeDashboardScr
 
   Widget _buildMeetingListTab() {
     final requests = _meetings.where((m) => m.status == 'Requested').toList();
-    final upcoming = _meetings.where((m) => m.status != 'Requested').toList();
+    final history = _meetings.where((m) => m.status != 'Requested').toList();
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       children: [
         if (requests.isNotEmpty) ...[
-          const Text('Meeting Requests', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange)),
-          const SizedBox(height: 8),
-          ...requests.map((m) => Card(
-            color: Colors.orange.shade50,
-            child: ListTile(
-              title: Text(m.studentName),
-              subtitle: Text('Proposed: ${m.date.day}/${m.date.month} - Topic: ${m.notes}'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(icon: const Icon(Icons.check_circle, color: Colors.green), onPressed: () => _handleMeetingAction(m.id!, 'Scheduled')),
-                  IconButton(icon: const Icon(Icons.cancel, color: Colors.red), onPressed: () => _handleMeetingAction(m.id!, 'Cancelled')),
-                ],
-              ),
+          Row(
+            children: [
+              const Icon(Icons.notification_important_rounded, color: Colors.orange, size: 20),
+              const SizedBox(width: 8),
+              Text('Meeting Requests', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _isDarkMode ? Colors.white : const Color(0xFF1F2937))),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...requests.map((m) => Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.orange.withOpacity(0.2)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(m.studentName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      const SizedBox(height: 4),
+                      Text('Proposed: ${m.date.day}/${m.date.month} • ${m.notes}', style: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600], fontSize: 13)),
+                    ],
+                  ),
+                ),
+                IconButton(icon: const Icon(Icons.check_circle_rounded, color: Colors.green), onPressed: () => _handleMeetingAction(m.id!, 'Scheduled')),
+                IconButton(icon: const Icon(Icons.cancel_rounded, color: Colors.red), onPressed: () => _handleMeetingAction(m.id!, 'Cancelled')),
+              ],
             ),
           )),
-          const Divider(height: 32),
+          const SizedBox(height: 24),
         ],
-        const Text('Meeting History', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        ...upcoming.map((m) => Card(
+        Row(
+          children: [
+            const Icon(Icons.history_rounded, color: Color(0xFF4F46E5), size: 20),
+            const SizedBox(width: 8),
+            Text('Meeting History', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _isDarkMode ? Colors.white : const Color(0xFF1F2937))),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...history.map((m) => Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
+          ),
           child: ExpansionTile(
-            title: Text('${m.studentName} - ${m.date.day}/${m.date.month}'),
-            subtitle: Text(m.status, style: TextStyle(color: m.status == 'Scheduled' ? Colors.blue : Colors.grey)),
+            shape: const RoundedRectangleBorder(side: BorderSide.none),
+            collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+            title: Text(m.studentName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            subtitle: Text('${m.date.day}/${m.date.month} • ${m.status}', style: TextStyle(color: m.status == 'Scheduled' ? Colors.blue : Colors.grey, fontSize: 13)),
             trailing: m.status == 'Scheduled' 
               ? ElevatedButton(
                   onPressed: () => _showCompleteMeetingDialog(m),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4F46E5),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    elevation: 0,
+                  ),
                   child: const Text('Complete', style: TextStyle(fontSize: 12)),
                 )
-              : null,
+              : Icon(Icons.chevron_right_rounded, color: _isDarkMode ? Colors.grey[600] : Colors.grey[400]),
             children: [
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Notes: ${m.notes}'),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Text('Notes: ${m.notes}', style: TextStyle(color: _isDarkMode ? Colors.grey[300] : Colors.black87)),
+                    if (m.followUpAction.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text('Follow-up: ${m.followUpAction}', style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.w500)),
+                    ],
                   ],
                 ),
               )

@@ -1,24 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application/models/fee_structure_model.dart';
+import 'package:flutter_application/models/student_fee_model.dart';
 import 'package:flutter_application/screens/admin_mentor_management_screen.dart';
 import 'package:flutter_application/screens/faculty_exam_timetable_screen.dart';
 import 'package:flutter_application/screens/faculty_mentee_dashboard_screen.dart';
+import 'package:flutter_application/screens/form_fill_screen.dart';
 import 'package:flutter_application/screens/mentee_detail_screen.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/models/announcement_model.dart';
 import 'package:flutter_application/screens/admin_attendance_dashboard.dart';
+import 'package:flutter_application/screens/report_card_viewer_screen.dart';
 import 'package:flutter_application/screens/student_eligibility_screen.dart';
 import 'package:flutter_application/screens/student_hall_ticket_list_screen.dart';
 import 'package:flutter_application/screens/student_shell.dart';
 import 'package:flutter_application/screens/student_timetable_screen.dart';
 import 'package:flutter_application/screens/time_slot_management_screen.dart';
 import 'package:flutter_application/screens/timetable_generation_screen.dart';
+import 'package:flutter_application/screens/user_form_list_screen.dart';
 import 'package:flutter_application/screens/user_list_screen.dart';
 import 'package:flutter_application/screens/working_day_management_screen.dart';
+import 'package:flutter_application/widgets/faculty_layout.dart';
+import 'package:flutter_application/widgets/student_layout.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/admin_dashboard_screen.dart';
+import '../screens/admin_user_management_screen.dart';
 import '../screens/auth_wrapper.dart';
 import '../screens/faculty_dashboard_screen.dart';
 import '../screens/login_screen.dart';
@@ -39,7 +46,7 @@ import '../screens/fee_structure_editor_screen.dart';
 import '../screens/exam_dashboard_screen.dart';
 import '../screens/exam_schedule_editor_screen.dart';
 import '../screens/report_card_dashboard_screen.dart';
-import '../screens/report_card_viewer_screen.dart';
+import '../screens/faculty/profile_screen.dart';
 import '../screens/inventory_dashboard_screen.dart';
 import '../screens/inventory_item_editor_screen.dart';
 import '../screens/form_builder_dashboard_screen.dart';
@@ -48,7 +55,11 @@ import '../screens/form_responses_screen.dart';
 import '../screens/alumni_dashboard_screen.dart';
 import '../screens/alumni_directory_screen.dart';
 import '../screens/alumni_job_board_screen.dart';
+import '../screens/placement_dashboard_screen.dart';
+import '../screens/drive_details_screen.dart';
+import '../screens/student_mentor_dashboard_screen.dart';
 import '../screens/student_attendance_screen.dart';
+import '../screens/student/student_academics_screen.dart';
 import '../screens/regularisation_request_screen.dart';
 import '../screens/regularisation_status_screen.dart';
 import '../screens/admin_regularisation_screen.dart';
@@ -58,7 +69,12 @@ import '../screens/exam_management_screen.dart';
 import '../screens/announcements_list_screen.dart';
 import '../screens/announcement_detail_screen.dart';
 import '../screens/create_edit_announcement_screen.dart';
-import '../screens/manage_announcements_screen.dart';
+import '../models/event_model.dart';
+import '../screens/events_list_screen.dart';
+import '../screens/event_detail_screen.dart';
+import '../screens/create_edit_event_screen.dart';
+import '../screens/event_participants_screen.dart';
+import '../screens/faculty/faculty_marks_entry_screen.dart';
 import '../screens/faculty/virtual_id_screen.dart' as faculty_vid;
 import '../screens/faculty/faculty_leave_approval_screen.dart';
 import '../screens/faculty/faculty_student_fee_status_screen.dart';
@@ -70,6 +86,18 @@ import '../screens/hall_allocation_screen.dart';
 import '../screens/invigilator_assignment_screen.dart';
 import '../screens/exam_hall_tickets_screen.dart';
 import '../screens/hall_ticket_viewer_screen.dart';
+import '../screens/student/student_leave_screen.dart';
+import '../screens/student/leave_history_screen.dart';
+import '../screens/student/student_fees_screen.dart';
+import '../screens/student/student_fee_detail_screen.dart';
+import '../screens/notifications_screen.dart';
+import '../screens/coming_soon_screen.dart';
+
+
+import 'package:flutter_application/screens/student_placement_dashboard_screen.dart';
+import 'package:flutter_application/screens/placement_registration_screen.dart';
+import 'package:flutter_application/screens/resume_builder_screen.dart';
+import 'package:flutter_application/screens/placement_history_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -114,11 +142,70 @@ final router = GoRouter(
           path: '/:institutionId/student/attendance',
           builder: (context, state) => const StudentAttendanceScreen(),
         ),
+        GoRoute(
+          path: '/:institutionId/student/academics',
+          builder: (context, state) => const StudentAcademicsScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/fees',
+          builder: (context, state) => const StudentFeesScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/fees/:feeId',
+          builder: (context, state) {
+            final fee = state.extra as StudentFee;
+            return StudentFeeDetailScreen(fee: fee);
+          },
+        ),
+        GoRoute(
+          path: '/:institutionId/student/study-planner',
+          builder: (context, state) => const StudentLayout(title: 'Study Planner', child: ComingSoonScreen(title: 'Study Planner')),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/notes',
+          builder: (context, state) => const StudentLayout(title: 'Notes', child: ComingSoonScreen(title: 'Notes')),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/my-mentors',
+          builder: (context, state) => const StudentMentorDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/:institutionId/student/placement',
+          builder: (context, state) {
+            final institutionId = state.pathParameters['institutionId']!;
+            return StudentPlacementDashboardScreen(institutionId: institutionId);
+          },
+        ),
       ],
+    ),
+    GoRoute(
+      path: '/:institutionId/placement/registration',
+      builder: (context, state) {
+        final institutionId = state.pathParameters['institutionId']!;
+        return PlacementRegistrationScreen(institutionId: institutionId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/placement/resume-builder',
+      builder: (context, state) {
+        final institutionId = state.pathParameters['institutionId']!;
+        return ResumeBuilderScreen(institutionId: institutionId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/placement/history',
+      builder: (context, state) {
+        final institutionId = state.pathParameters['institutionId']!;
+        return PlacementHistoryScreen(institutionId: institutionId);
+      },
     ),
     GoRoute(
       path: '/:institutionId/admin/dashboard',
       builder: (context, state) => const AdminDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/user-management',
+      builder: (context, state) => const AdminUserManagementScreen(),
     ),
     GoRoute(
       path: '/:institutionId/admin/mentor-management',
@@ -135,6 +222,17 @@ final router = GoRouter(
     GoRoute(
       path: '/:institutionId/admin/bulk-user-import',
       builder: (context, state) => const BulkUserImportScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/placement/dashboard',
+      builder: (context, state) => const PlacementDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/placement/drive/:driveId',
+      builder: (context, state) {
+        final driveId = state.pathParameters['driveId']!;
+        return DriveDetailsScreen(driveId: driveId);
+      },
     ),
     GoRoute(
       path: '/:institutionId/admin/fee-management',
@@ -264,12 +362,37 @@ final router = GoRouter(
       builder: (context, state) => const FormBuilderDashboardScreen(),
     ),
     GoRoute(
-      path: '/:institutionId/admin/form-editor',
-      builder: (context, state) => const FormEditorScreen(),
+      path: '/:institutionId/admin/form-builder/:formId/edit',
+      builder: (context, state) {
+        final formId = state.pathParameters['formId'];
+        return FormEditorScreen(formId: formId);
+      },
     ),
     GoRoute(
-      path: '/:institutionId/admin/form-responses',
-      builder: (context, state) => const FormResponsesScreen(),
+      path: '/:institutionId/admin/form-builder/new',
+      builder: (context, state) => const FormEditorScreen(formId: 'new'),
+    ),
+    GoRoute(
+      path: '/:institutionId/admin/form-builder/:formId/responses',
+      builder: (context, state) {
+        final formId = state.pathParameters['formId']!;
+        return FormResponsesScreen(formId: formId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/forms/:formId/fill',
+      builder: (context, state) {
+        final formId = state.pathParameters['formId']!;
+        return FormFillScreen(formId: formId);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/student/forms',
+      builder: (context, state) => const UserFormListScreen(role: 'STUDENT'),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/forms',
+      builder: (context, state) => const UserFormListScreen(role: 'FACULTY'),
     ),
     GoRoute(
       path: '/:institutionId/admin/alumni-dashboard',
@@ -387,11 +510,27 @@ final router = GoRouter(
       builder: (context, state) => FacultyExamTimetableScreen(),
     ),
     GoRoute(
+      path: '/:institutionId/student/leave',
+      builder: (context, state) => const StudentLeaveScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/student/leave/history',
+      builder: (context, state) => const LeaveHistoryScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/notifications',
+      builder: (context, state) => const NotificationsScreen(),
+    ),
+    GoRoute(
       path: '/:institutionId/faculty/exam-timetable/:examId',
       builder: (context, state) {
         final examId = state.pathParameters['examId']!;
         return ExamTimetableViewerScreen(examId: examId);
       },
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/marks-entry',
+      builder: (context, state) => const FacultyMarksEntryScreen(),
     ),
     GoRoute(
       path: '/:institutionId/announcements',
@@ -403,7 +542,7 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/:institutionId/announcements/manage',
-      builder: (context, state) => const ManageAnnouncementsScreen(),
+      builder: (context, state) => const AnnouncementsListScreen(),
     ),
     GoRoute(
       path: '/:institutionId/announcements/:announcementId',
@@ -423,10 +562,64 @@ final router = GoRouter(
       },
     ),
     GoRoute(
+      path: '/:institutionId/events',
+      builder: (context, state) => const EventsListScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/events/create',
+      builder: (context, state) => const CreateEditEventScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/events/:eventId',
+      builder: (context, state) {
+        final eventId = state.pathParameters['eventId']!;
+        EventModel? event;
+        if (state.extra is EventModel) {
+          event = state.extra as EventModel;
+        } else if (state.extra is Map<String, dynamic>) {
+          event = EventModel.fromJson(state.extra as Map<String, dynamic>);
+        }
+        return EventDetailScreen(eventId: eventId, event: event);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/events/:eventId/edit',
+      builder: (context, state) {
+        EventModel? event;
+        if (state.extra is EventModel) {
+          event = state.extra as EventModel;
+        } else if (state.extra is Map<String, dynamic>) {
+          event = EventModel.fromJson(state.extra as Map<String, dynamic>);
+        }
+        return CreateEditEventScreen(event: event);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/events/:eventId/participants',
+      builder: (context, state) {
+        final eventId = state.pathParameters['eventId']!;
+        final eventTitle = state.extra as String;
+        return EventParticipantsScreen(eventId: eventId, eventTitle: eventTitle);
+      },
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/profile',
+      builder: (context, state) => const FacultyProfileScreen(),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/leave',
+      builder: (context, state) => const FacultyLayout(title: 'Leave Application', child: ComingSoonScreen(title: 'Leave Application')),
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/payroll',
+      builder: (context, state) => const FacultyLayout(title: 'Payroll', child: ComingSoonScreen(title: 'Payroll')),
+    ),
+    GoRoute(
       path: '/',
       builder: (context, state) => const AuthWrapper(),
     ),
   ],
+
   refreshListenable: GoRouterRefreshStream(fb_auth.FirebaseAuth.instance.authStateChanges()),
   redirect: (BuildContext context, GoRouterState state) async {
     final user = fb_auth.FirebaseAuth.instance.currentUser;

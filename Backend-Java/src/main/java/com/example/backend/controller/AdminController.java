@@ -56,6 +56,26 @@ public class AdminController {
         }
     }
 
+    @PostMapping("/institutions/{institutionId}/users/bulk")
+    public ResponseEntity<?> bulkCreateUsers(
+            @AuthenticationPrincipal String requesterUid,
+            @PathVariable String institutionId,
+            @RequestBody List<CreateUserRequest> requests) {
+        try {
+            logger.info("AdminController: bulkCreateUsers called by UID: {} for institution: {} with {} users", requesterUid, institutionId, requests.size());
+            User requestingUser = userService.getUserById(institutionId, requesterUid);
+            if (requestingUser == null || !"admin".equalsIgnoreCase(requestingUser.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied: Admin user not found or insufficient privileges.");
+            }
+
+            List<String> results = userService.bulkCreateUsers(institutionId, requests);
+            return ResponseEntity.ok(results);
+        } catch (Exception e) {
+            logger.error("Error in bulkCreateUsers", e);
+            return ResponseEntity.status(500).body("Error in bulk user import: " + e.getMessage());
+        }
+    }
+
     @GetMapping("/users")
     public ResponseEntity<?> getUsers(
             @AuthenticationPrincipal String uid,

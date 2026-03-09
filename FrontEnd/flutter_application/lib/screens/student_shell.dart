@@ -9,48 +9,9 @@ class StudentShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final location = state.uri.toString();
-    final institutionId = state.pathParameters['institutionId'];
-    final bool isDashboard = location == '/$institutionId/student/dashboard';
-    final bool isHallTicketViewer = location.contains('/student/hall-tickets/') && state.pathParameters.containsKey('examId');
-
-    // These screens have their own scaffold/appbar
-    if (isDashboard || isHallTicketViewer) {
-      return child;
-    }
-
-    String title = 'Student Portal';
-    if (location.contains('/student/profile')) {
-      title = 'My Profile';
-    } else if (location.contains('/student/virtual-id')) {
-      title = 'Virtual ID';
-    } else if (location.contains('/student/leave')) {
-      title = 'Leave Management';
-    } else if (location.contains('/student/fees')) {
-      title = 'My Fees';
-    } else if (location.contains('/student/attendance')) {
-      title = 'My Attendance';
-    } else if (location.contains('/student/timetable')) {
-      title = 'My Timetable';
-    } else if (location.contains('/student/hall-tickets')) {
-      title = 'My Hall Tickets';
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/$institutionId/student/dashboard');
-            }
-          },
-        ),
-      ),
-      body: child,
-    );
+    // The individual screens (Profile, Fees, etc.) now use StudentLayout 
+    // which internally uses AppLayout. AppLayout provides the Sidebar and Header.
+    // We should not wrap them in another Scaffold here.
+    return child;
   }
 }

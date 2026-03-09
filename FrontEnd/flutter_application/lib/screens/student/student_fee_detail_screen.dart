@@ -5,6 +5,7 @@ import 'package:flutter_application/services/fee_service.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:flutter_application/widgets/payment_bottom_sheet.dart';
 import 'package:intl/intl.dart';
+import '../../widgets/student_layout.dart';
 
 class StudentFeeDetailScreen extends StatefulWidget {
   final StudentFee fee;
@@ -36,89 +37,160 @@ class _StudentFeeDetailScreenState extends State<StudentFeeDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // The Scaffold and AppBar are now handled by the shell. This widget only returns the content.
-    return Scaffold(
-      backgroundColor: Colors.transparent, // Make scaffold transparent to show shell's background
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSummaryCard(),
-            const SizedBox(height: 24),
-            _buildSectionTitle('Fee Components'),
-            _buildComponentsList(),
-            const SizedBox(height: 24),
-            _buildSectionTitle('Payment History'),
-            _buildPaymentHistoryList(),
-          ],
-        ),
+    return StudentLayout(
+      title: 'Fee Details',
+      breadcrumbs: [
+        Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text('Fees', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        const SizedBox(width: 8),
+        Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text('Details', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+      ],
+      child: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeaderInfo(),
+                const SizedBox(height: 24),
+                _buildSummaryGrid(),
+                const SizedBox(height: 32),
+                _buildSectionTitle('Fee Components'),
+                _buildComponentsList(),
+                const SizedBox(height: 32),
+                _buildSectionTitle('Payment History'),
+                _buildPaymentHistoryList(),
+              ],
+            ),
+          ),
+          if (widget.fee.balanceAmount > 0)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _buildPaymentButton(),
+            ),
+        ],
       ),
-      bottomNavigationBar: widget.fee.balanceAmount > 0 ? _buildPaymentButton() : null,
     );
   }
 
-  Widget _buildSummaryCard() {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: isDarkMode ? Colors.grey[800]! : Colors.grey[200]!),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
+  Widget _buildHeaderInfo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.fee.feeStructureTitle,
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF1F2937), letterSpacing: -0.5),
+        ),
+        const SizedBox(height: 4),
+        if (widget.fee.dueDate != null)
+          Text(
+            'Payment due by ${DateFormat('dd MMMM, yyyy').format(widget.fee.dueDate!)}',
+            style: const TextStyle(fontSize: 14, color: Color(0xFFEF4444), fontWeight: FontWeight.w600),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryGrid() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 1200 ? 4 : (constraints.maxWidth > 800 ? 2 : 1);
+        return GridView.count(
+          crossAxisCount: crossAxisCount,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          childAspectRatio: 2.2,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            _buildStatCard('Total Amount', widget.fee.totalAmount, const Color(0xFF1F2937), Icons.account_balance_wallet_rounded),
+            _buildStatCard('Amount Paid', widget.fee.paidAmount, const Color(0xFF10B981), Icons.check_circle_rounded),
+            _buildStatCard('Balance Due', widget.fee.balanceAmount, const Color(0xFFEF4444), Icons.error_rounded, isBold: true),
+            _buildStatCard('Fines Applied', widget.fee.fineAmount, const Color(0xFFF59E0B), Icons.warning_rounded),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStatCard(String label, double amount, Color color, IconData icon, {bool isBold = false}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildStatColumn('Total Amount', '₹${NumberFormat.decimalPattern().format(widget.fee.totalAmount)}'),
-                _buildStatColumn('Fine Applied', '₹${NumberFormat.decimalPattern().format(widget.fee.fineAmount)}', color: Colors.orange),
-                _buildStatColumn('Amount Paid', '₹${NumberFormat.decimalPattern().format(widget.fee.paidAmount)}', color: Colors.green),
-                _buildStatColumn('Balance Due', '₹${NumberFormat.decimalPattern().format(widget.fee.balanceAmount)}', color: Colors.red),
+                Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                const SizedBox(height: 4),
+                Text(
+                  '₹${NumberFormat.decimalPattern().format(amount)}',
+                  style: TextStyle(fontSize: 18, fontWeight: isBold ? FontWeight.w900 : FontWeight.w700, color: color),
+                ),
               ],
             ),
-             if (widget.fee.dueDate != null) ...[
-                const Divider(height: 28),
-                Center(
-                  child: Text(
-                    'Due Date: ${DateFormat('dd MMM, yyyy').format(widget.fee.dueDate!)}',
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
-                  ),
-                ),
-             ]
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0, left: 4),
+      padding: const EdgeInsets.only(bottom: 16.0),
       child: Text(
         title,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1F2937), letterSpacing: -0.5),
       ),
     );
   }
   
   Widget _buildComponentsList() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      clipBehavior: Clip.antiAlias,
-      child: ListView.builder(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: widget.fee.components.length,
+        separatorBuilder: (context, index) => const Divider(height: 1, indent: 20, endIndent: 20),
         itemBuilder: (context, index) {
           final component = widget.fee.components[index];
           return ListTile(
-            title: Text(component.name),
-            trailing: Text('₹${NumberFormat.decimalPattern().format(component.amount)}'),
-            tileColor: index.isEven ? Colors.transparent : Theme.of(context).colorScheme.surface.withOpacity(0.03),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            title: Text(component.name, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF4B5563))),
+            trailing: Text(
+              '₹${NumberFormat.decimalPattern().format(component.amount)}',
+              style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1F2937), fontSize: 15),
+            ),
           );
         },
       ),
@@ -133,83 +205,103 @@ class _StudentFeeDetailScreenState extends State<StudentFeeDetailScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(color: Colors.red.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
+            child: Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red))),
+          );
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Card(
-            child: Padding(
-              padding: EdgeInsets.all(20.0),
-              child: Center(child: Text('No payment history found.')),
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.history_rounded, size: 40, color: Colors.grey[300]),
+                const SizedBox(height: 12),
+                const Text('No previous payments found.', style: TextStyle(color: Color(0xFF6B7280), fontWeight: FontWeight.w500)),
+              ],
             ),
           );
         }
         final payments = snapshot.data!;
-        return Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          clipBehavior: Clip.antiAlias,
-          child: ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: payments.length,
-            itemBuilder: (context, index) {
-              final payment = payments[index];
-              return ListTile(
-                tileColor: index.isEven ? Colors.transparent : Theme.of(context).colorScheme.surface.withOpacity(0.03),
-                title: Text('Paid ₹${NumberFormat.decimalPattern().format(payment.amountPaid)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('on ${DateFormat('dd MMM, yyyy, hh:mm a').format(payment.paymentDate)} via ${payment.paymentMethod}'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        const Text('Receipt', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                        Text('#${payment.receiptNumber}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      ],
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.download, size: 20, color: Color(0xFF4F46E5)),
-                      onPressed: () async {
-                        final messenger = ScaffoldMessenger.of(context);
-                        try {
-                          if (_institutionId != null) {
-                            await _feeService.downloadReceipt(_institutionId!, payment.id, payment.receiptNumber);
-                          }
-                        } catch (e) {
-                          messenger.showSnackBar(
-                            SnackBar(content: Text('Error downloading receipt: $e')),
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+        return Column(
+          children: payments.map((payment) => _buildPaymentHistoryCard(payment)).toList(),
         );
       },
     );
   }
 
+  Widget _buildPaymentHistoryCard(Payment payment) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.1), shape: BoxShape.circle),
+          child: const Icon(Icons.receipt_long_rounded, color: Color(0xFF10B981), size: 20),
+        ),
+        title: Text(
+          'Paid ₹${NumberFormat.decimalPattern().format(payment.amountPaid)}',
+          style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1F2937)),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(
+              '${DateFormat('dd MMM yyyy, hh:mm a').format(payment.paymentDate)} • ${payment.paymentMethod}',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+            Text('Receipt: #${payment.receiptNumber}', style: TextStyle(color: Colors.grey[500], fontSize: 11, fontWeight: FontWeight.w600)),
+          ],
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.file_download_outlined, color: Color(0xFF4F46E5)),
+          onPressed: () async {
+            final messenger = ScaffoldMessenger.of(context);
+            try {
+              if (_institutionId != null) {
+                await _feeService.downloadReceipt(_institutionId!, payment.id, payment.receiptNumber);
+              }
+            } catch (e) {
+              messenger.showSnackBar(SnackBar(content: Text('Error downloading receipt: $e')));
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildPaymentButton() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))],
+      ),
       child: ElevatedButton.icon(
-        icon: const Icon(Icons.payment),
+        icon: const Icon(Icons.payment_rounded),
         label: Text('Pay ₹${NumberFormat.decimalPattern().format(widget.fee.balanceAmount)} Now'),
-        onPressed: () {
-          _showPaymentDialog(context, widget.fee);
-        },
+        onPressed: () => _showPaymentDialog(context, widget.fee),
         style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          backgroundColor: Theme.of(context).primaryColor,
-          foregroundColor: Theme.of(context).colorScheme.onPrimary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          backgroundColor: const Color(0xFF4F46E5),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 0,
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
       ),
     );
@@ -219,27 +311,17 @@ class _StudentFeeDetailScreenState extends State<StudentFeeDetailScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => PaymentBottomSheet(
         fee: fee,
         onPaymentSuccess: () {
-          Navigator.of(context).pop(); // Close payment bottom sheet
-          _loadPaymentHistory(); // Refresh payment history
+          Navigator.of(context).pop();
+          _loadPaymentHistory();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Payment successful!')),
+            const SnackBar(content: Text('Payment successful!'), backgroundColor: Colors.green),
           );
         },
       ),
-    );
-  }
-
-
-  Widget _buildStatColumn(String label, String value, {Color? color}) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 4),
-        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-      ],
     );
   }
 }

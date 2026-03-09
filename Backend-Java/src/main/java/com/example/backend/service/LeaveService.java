@@ -4,6 +4,7 @@ import com.google.cloud.Timestamp;
 import com.example.backend.dto.LeaveApplicationDto;
 import com.example.backend.models.LeaveApplication;
 import com.example.backend.models.User;
+import com.example.backend.models.Notification;
 import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
@@ -29,11 +30,13 @@ public class LeaveService {
 
     private final Firestore firestore;
     private final UserService userService;
+    private final NotificationService notificationService;
     private static final Logger logger = LoggerFactory.getLogger(LeaveService.class);
 
-    public LeaveService(Firestore firestore, UserService userService) {
+    public LeaveService(Firestore firestore, UserService userService, NotificationService notificationService) {
         this.firestore = firestore;
         this.userService = userService;
+        this.notificationService = notificationService;
     }
 
     private CollectionReference getLeaveApplicationsCollection(String institutionId) {
@@ -142,6 +145,17 @@ public class LeaveService {
                 .get();
 
         logger.info("Leave application created successfully with ID: {} for professor: {}", leaveId, professorName);
+        // notify professor
+        try {
+            Notification notif = new Notification();
+            notif.setTitle("New Leave Application");
+            notif.setMessage(studentName + " has applied for leave.");
+            // when tapped, professor should see leave list
+            notif.setRoute("/faculty/leave-approval");
+            notificationService.createNotification(institutionId, requestDto.getProfessorId(), notif);
+        } catch (Exception e) {
+            logger.error("Failed to send notification to professor {}: {}", requestDto.getProfessorId(), e.getMessage());
+        }
 
         return leaveApplication;
     }
@@ -315,6 +329,23 @@ public class LeaveService {
         updates.put("status", "Approved");
         updates.put("updatedAt", Timestamp.now());
         leaveRef.update(updates).get();
+        // notify student about approval
+        try {
+            String studentId = snapshot.getString("userId");
+            String professorName = snapshot.getString("professorName");
+            if (professorName == null) {
+                professorName = getProfessorNameDirectly(institutionId, facultyId);
+            }
+            if (studentId != null) {
+                Notification notif = new Notification();
+                notif.setTitle("Leave Application Approved");
+                notif.setMessage("Your leave application has been approved by " + professorName + ".");
+                notif.setRoute("/student/leave/history");
+                notificationService.createNotification(institutionId, studentId, notif);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to notify student about approval for leave {}: {}", leaveId, e.getMessage());
+        }
     }
 
     public void rejectLeaveApplication(String institutionId, String leaveId, String facultyId, String rejectionReason)
@@ -344,6 +375,23 @@ public class LeaveService {
         updates.put("rejectionReason", rejectionReason);
         updates.put("updatedAt", Timestamp.now());
         leaveRef.update(updates).get();
+        // notify student about rejection
+        try {
+            String studentId = snapshot.getString("userId");
+            String professorName = snapshot.getString("professorName");
+            if (professorName == null) {
+                professorName = getProfessorNameDirectly(institutionId, facultyId);
+            }
+            if (studentId != null) {
+                Notification notif = new Notification();
+                notif.setTitle("Leave Application Rejected");
+                notif.setMessage("Your leave application was rejected by " + professorName + ". Reason: " + rejectionReason);
+                notif.setRoute("/student/leave/history");
+                notificationService.createNotification(institutionId, studentId, notif);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to notify student about rejection for leave {}: {}", leaveId, e.getMessage());
+        }
     }
 
     @SuppressWarnings("unchecked")

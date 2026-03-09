@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_application/models/seating_entry.dart';
 import '../models/invigilator_assignment.dart';
 import '../models/hall_ticket_data.dart';
@@ -11,6 +12,7 @@ import '../models/institution.dart';
 import '../models/leave_application_model.dart';
 import '../models/user_model.dart';
 import '../models/professor_model.dart';
+import '../models/notification_model.dart';
 import '../models/section_model.dart';
 import '../models/department_model.dart';
 import '../models/attendance_log_model.dart';
@@ -22,6 +24,7 @@ import '../models/room_model.dart';
 import './session_manager.dart';
 import '../models/student_fee_model.dart';
 import '../models/saved_payment_method_model.dart';
+import '../models/marks_model.dart';
 
 class ApiService {
   /* -------------------- Institutions -------------------- */
@@ -36,6 +39,39 @@ class ApiService {
     } else {
       throw Exception('Failed to load institutions');
     }
+  }
+
+  static Future<Institution> getInstitutionProfile(String id) async {
+    debugPrint('ApiService: GET /institutions/$id');
+    final response =
+        await http.get(Uri.parse('${ApiConfig.baseUrl}/institutions/$id'));
+
+    if (response.statusCode == 200) {
+      debugPrint('ApiService: Profile fetched successfully');
+      return Institution.fromJson(json.decode(response.body));
+    } else {
+      debugPrint('ApiService: Failed to load profile: ${response.statusCode}');
+      throw Exception('Failed to load institution profile');
+    }
+  }
+
+  static Future<void> updateInstitutionProfile(Institution institution) async {
+    final url = '${ApiConfig.baseUrl}/institutions/${institution.id}';
+    final body = jsonEncode(institution.toJson());
+    debugPrint('ApiService: PUT $url');
+    debugPrint('ApiService: Body: $body');
+    
+    final response = await http.put(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+
+    if (response.statusCode != 200) {
+      debugPrint('ApiService: Update failed: ${response.statusCode} - ${response.body}');
+      throw Exception('Failed to update institution profile: ${response.body}');
+    }
+    debugPrint('ApiService: Update successful');
   }
 
   Future<List<Department>> getDepartments(String institutionId) async {
@@ -84,6 +120,28 @@ class ApiService {
       return data.map((json) => UserModel.fromJson(json)).toList();
     } else {
       throw Exception('Failed to load users');
+    }
+  }
+
+  Future<UserModel> getUserDetails(String institutionId, String uid) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    final token = await user.getIdToken();
+    final url = Uri.parse(
+        '${ApiConfig.baseUrl}/api/admin/users/$uid?institutionId=$institutionId');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return UserModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to load user details: ${response.body}');
     }
   }
 
@@ -146,6 +204,32 @@ class ApiService {
       },
       body: jsonEncode(body),
     );
+  }
+
+  Future<List<String>> bulkCreateUsers(
+      String institutionId, List<Map<String, dynamic>> userRequests) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    final token = await user.getIdToken();
+    final url = Uri.parse(
+        '${ApiConfig.baseUrl}/api/admin/institutions/$institutionId/users/bulk');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(userRequests),
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return List<String>.from(data);
+    } else {
+      throw Exception('Failed to bulk create users: ${response.body}');
+    }
   }
 
   Future<http.Response> updateUser({
@@ -315,6 +399,57 @@ class ApiService {
       return data.map((json) => LeaveApplication.fromJson(json)).toList();
     } else {
       throw Exception('Failed to load leave history: ${response.body}');
+    }
+  }
+
+  /* -------------------- Notifications -------------------- */
+
+  Future<List<NotificationModel>> getNotifications() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    final institutionId = await SessionManager.getInstitutionId();
+    if (institutionId == null) throw Exception('Institution ID not found');
+
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/notifications/me');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => NotificationModel.fromJson(json as Map<String, dynamic>)).toList();
+    } else {
+      throw Exception('Failed to load notifications: ${response.body}');
+    }
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    final institutionId = await SessionManager.getInstitutionId();
+    if (institutionId == null) throw Exception('Institution ID not found');
+
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/$institutionId/api/notifications/me/$notificationId/read');
+
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to mark notification read: ${response.body}');
     }
   }
 
@@ -1359,6 +1494,61 @@ class ApiService {
 
     if (response.statusCode != 204) {
       throw Exception('Failed to delete payment method: ${response.statusCode}');
+    }
+  }
+
+  /* -------------------- Marks & Academic Progress -------------------- */
+
+  Future<MarksModel> saveMarks(String institutionId, MarksModel marks) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/marks');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(marks.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return MarksModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to save marks: ${response.body}');
+    }
+  }
+
+  Future<List<MarksModel>> getMarksByStudent(String institutionId, String studentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/marks/student/$studentId');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => MarksModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load marks: ${response.body}');
+    }
+  }
+
+  Future<Map<String, dynamic>> getAcademicSummary(String institutionId, String studentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/marks/student/$studentId/summary');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to load academic summary: ${response.body}');
     }
   }
 }

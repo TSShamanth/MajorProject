@@ -3,7 +3,8 @@ import 'package:flutter_application/models/department_model.dart';
 import 'package:flutter_application/models/section_model.dart';
 import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/services/api_service.dart';
-import 'package:go_router/go_router.dart';
+import '../widgets/admin_layout.dart';
+import '../services/session_manager.dart';
 
 class ClassManagementScreen extends StatefulWidget {
   const ClassManagementScreen({super.key});
@@ -22,21 +23,25 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
   bool _isLoadingDepartments = true;
   bool _isLoadingSections = false;
   bool _isLoadingUsers = true;
+  bool _isDarkMode = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final router = GoRouter.of(context);
-    final routeState = router.routerDelegate.currentConfiguration;
-    final pathParams = routeState.pathParameters;
-    _institutionId = pathParams['institutionId'];
-    _fetchInitialData();
+  void initState() {
+    super.initState();
+    _initializeData();
   }
 
-  Future<void> _fetchInitialData() async {
-    if (_institutionId == null) return;
-    await _fetchDepartments();
-    await _fetchAllUsers();
+  Future<void> _initializeData() async {
+    final id = await SessionManager.getInstitutionId();
+    if (mounted) {
+      setState(() {
+        _institutionId = id;
+      });
+    }
+    if (id != null) {
+      await _fetchDepartments();
+      await _fetchAllUsers();
+    }
   }
 
   Future<void> _fetchAllUsers() async {
@@ -54,7 +59,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
         _isLoadingUsers = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to fetch users: $e')),
+        SnackBar(content: Text('Failed to fetch users: $e'), behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -86,7 +91,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
         _isLoadingDepartments = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to fetch departments: $e')),
+        SnackBar(content: Text('Failed to fetch departments: $e'), behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -109,7 +114,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
         _isLoadingSections = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to fetch sections: $e')),
+        SnackBar(content: Text('Failed to fetch sections: $e'), behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -122,17 +127,18 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
     return _sections.where((section) => section.facultyId != null).map((section) => section.facultyId!).toList();
   }
 
-
   Future<void> _addSection() async {
     final nameController = TextEditingController();
     final shouldRefresh = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Add New Section'),
+          backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+          title: Text('Add New Section', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87)),
           content: TextField(
             controller: nameController,
-            decoration: const InputDecoration(hintText: "Section Name"),
+            style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87),
+            decoration: _inputDecoration("Section Name", Icons.grid_view_rounded),
             autofocus: true,
           ),
           actions: [
@@ -141,28 +147,25 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
               onPressed: () => Navigator.of(dialogContext).pop(false),
             ),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F46E5), foregroundColor: Colors.white),
               child: const Text('Create'),
               onPressed: () async {
                 if (nameController.text.isNotEmpty && _institutionId != null && _selectedDepartment != null) {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final navigator = Navigator.of(dialogContext);
                   final newSection = Section(
                     name: nameController.text,
                     departmentId: _selectedDepartment!.id,
                     institutionId: _institutionId!,
                     studentIds: [],
                   );
-                  final dialogNavigator = Navigator.of(dialogContext);
                   try {
                     await _apiService.createSection(_institutionId!, _selectedDepartment!.id, newSection);
-                    if (dialogNavigator.mounted) {
-                      dialogNavigator.pop(true);
-                    }
+                    if (mounted) navigator.pop(true);
                   } catch (e) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to create section: $e')),
-                    );
-                    if (dialogNavigator.mounted) {
-                      dialogNavigator.pop(false);
+                    if (mounted) {
+                      messenger.showSnackBar(SnackBar(content: Text('Failed: $e')));
+                      navigator.pop(false);
                     }
                   }
                 }
@@ -173,9 +176,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
       },
     );
 
-    if (shouldRefresh == true) {
-      _fetchSections();
-    }
+    if (shouldRefresh == true) _fetchSections();
   }
 
   void _addStudent(Section section) {
@@ -189,38 +190,42 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
         return StatefulBuilder(
           builder: (innerDialogContext, setDialogState) {
             return AlertDialog(
-              title: const Text('Add Students'),
+              backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+              title: Text('Enroll Students', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87)),
               content: SizedBox(
-                width: double.maxFinite,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: students.length,
-                  itemBuilder: (context, index) {
-                    final student = students[index];
-                    final isSelected = selectedStudentIds.contains(student.uid);
-                    return CheckboxListTile(
-                      title: Text(student.displayName),
-                      value: isSelected,
-                      onChanged: (bool? value) {
-                        setDialogState(() {
-                          if (value == true) {
-                            selectedStudentIds.add(student.uid);
-                          } else {
-                            selectedStudentIds.remove(student.uid);
-                          }
-                        });
+                width: 400,
+                child: students.isEmpty 
+                  ? const Padding(padding: EdgeInsets.all(20), child: Text('No unassigned students found.'))
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: students.length,
+                      itemBuilder: (context, index) {
+                        final student = students[index];
+                        final isSelected = selectedStudentIds.contains(student.uid);
+                        return CheckboxListTile(
+                          title: Text(student.displayName, style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87)),
+                          subtitle: Text(student.usn ?? '', style: TextStyle(color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!)),
+                          value: isSelected,
+                          onChanged: (bool? value) {
+                            setDialogState(() {
+                              if (value == true) {
+                                selectedStudentIds.add(student.uid);
+                              } else {
+                                selectedStudentIds.remove(student.uid);
+                              }
+                            });
+                          },
+                        );
                       },
-                    );
-                  },
-                ),
+                    ),
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
+                TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F46E5), foregroundColor: Colors.white),
                   onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final navigator = Navigator.of(dialogContext);
                     final newStudentIds = [...section.studentIds, ...selectedStudentIds];
                     final updatedSection = Section(
                       id: section.id,
@@ -230,21 +235,15 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
                       facultyId: section.facultyId,
                       studentIds: newStudentIds,
                     );
-                    final dialogNavigator = Navigator.of(dialogContext);
                     try {
                       await _apiService.updateSection(_institutionId!, _selectedDepartment!.id, section.id!, updatedSection);
-                      if (dialogNavigator.mounted) {
-                        dialogNavigator.pop();
-                      }
+                      if (mounted) navigator.pop();
                       _fetchSections();
                     } catch (e) {
-                      if (!mounted) return;
-                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to add students: $e')),
-                      );
+                      if (mounted) messenger.showSnackBar(SnackBar(content: Text('Failed: $e')));
                     }
                   },
-                  child: const Text('Add'),
+                  child: const Text('Enroll'),
                 ),
               ],
             );
@@ -256,43 +255,41 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
 
   Future<void> _assignFaculty(Section section) async {
     final allAssignedFacultyIds = _getAllAssignedFacultyIds();
-    if (section.facultyId != null) {
-      allAssignedFacultyIds.remove(section.facultyId);
-    }
+    if (section.facultyId != null) allAssignedFacultyIds.remove(section.facultyId);
+    
     final faculties = _allUsers.where((user) => user.role == 'faculty' && !allAssignedFacultyIds.contains(user.uid)).toList();
 
+    if (!mounted) return;
     final selectedFacultyId = await showDialog<String>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Assign Faculty'),
+          backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+          title: Text('Assign Class Teacher', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87)),
           content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: faculties.length,
-              itemBuilder: (context, index) {
-                final faculty = faculties[index];
-                return ListTile(
-                  title: Text(faculty.displayName),
-                  onTap: () {
-                    Navigator.of(dialogContext).pop(faculty.uid);
+            width: 400,
+            child: faculties.isEmpty 
+              ? const Padding(padding: EdgeInsets.all(20), child: Text('No available faculty found.'))
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: faculties.length,
+                  itemBuilder: (context, index) {
+                    final faculty = faculties[index];
+                    return ListTile(
+                      title: Text(faculty.displayName, style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87)),
+                      onTap: () => Navigator.of(dialogContext).pop(faculty.uid),
+                    );
                   },
-                );
-              },
-            ),
+                ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-          ],
+          actions: [TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel'))],
         );
       },
     );
 
-    if (selectedFacultyId != null && _institutionId != null && _selectedDepartment != null) {
+    if (!mounted) return;
+    if (selectedFacultyId != null) {
+      final messenger = ScaffoldMessenger.of(context);
       final updatedSection = Section(
         id: section.id,
         name: section.name,
@@ -301,20 +298,17 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
         facultyId: selectedFacultyId,
         studentIds: section.studentIds,
       );
-
       try {
         await _apiService.updateSection(_institutionId!, _selectedDepartment!.id, section.id!, updatedSection);
         _fetchSections();
       } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to assign faculty: $e')),
-        );
+        if (mounted) messenger.showSnackBar(SnackBar(content: Text('Failed: $e')));
       }
     }
   }
 
   void _removeStudent(Section section, String studentId) async {
+    final messenger = ScaffoldMessenger.of(context);
     final newStudentIds = section.studentIds.where((id) => id != studentId).toList();
     final updatedSection = Section(
       id: section.id,
@@ -324,125 +318,215 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
       facultyId: section.facultyId,
       studentIds: newStudentIds,
     );
-
     try {
       await _apiService.updateSection(_institutionId!, _selectedDepartment!.id, section.id!, updatedSection);
       _fetchSections();
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to remove student: $e')),
-      );
+      if (mounted) messenger.showSnackBar(SnackBar(content: Text('Failed: $e')));
     }
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!),
+      prefixIcon: Icon(icon, color: const Color(0xFF4F46E5).withOpacity(0.7), size: 20),
+      filled: true,
+      fillColor: _isDarkMode ? const Color(0xFF111827).withOpacity(0.5) : Colors.grey[50]!,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Class & Section Management'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-      ),
-      body: _isLoadingDepartments || _isLoadingUsers
+    _isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
+    final textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
+
+    return AdminLayout(
+      title: 'Class Management',
+      breadcrumbs: [
+        Icon(Icons.chevron_right, size: 16, color: textSecondary),
+        const SizedBox(width: 10),
+        Text('Class & Section', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.w600, fontSize: 13)),
+      ],
+      child: _isLoadingDepartments || _isLoadingUsers
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                _buildDepartmentSelector(),
-                Expanded(
-                  child: _isLoadingSections
-                      ? const Center(child: CircularProgressIndicator())
-                      : _sections.isEmpty
-                          ? const Center(child: Text('No sections found for this department.'))
-                          : _buildSectionsList(),
-                ),
-              ],
+          : Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Academic Organization', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: textPrimary, letterSpacing: -0.5)),
+                          const SizedBox(height: 4),
+                          Text('Manage sections, students, and faculty assignments for each department', style: TextStyle(fontSize: 14, color: textSecondary)),
+                        ],
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: _addSection,
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Add New Section'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4F46E5),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  _buildDepartmentSelector(textPrimary, textSecondary),
+                  const SizedBox(height: 24),
+                  
+                  Expanded(
+                    child: _isLoadingSections
+                        ? const Center(child: CircularProgressIndicator())
+                        : _sections.isEmpty
+                            ? _buildEmptyState(textSecondary)
+                            : _buildSectionsList(textPrimary, textSecondary),
+                  ),
+                ],
+              ),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addSection,
-        tooltip: 'Add Section',
-        child: const Icon(Icons.add),
-      ),
     );
   }
 
-  Widget _buildDepartmentSelector() {
+  Widget _buildDepartmentSelector(Color textPrimary, Color textSecondary) {
     return Container(
-      padding: const EdgeInsets.all(16.0),
-      color: Colors.white,
-      child: DropdownButtonFormField<Department>(
-        value: _selectedDepartment,
-        decoration: const InputDecoration(
-          labelText: 'Select Program/Batch',
-          border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        onChanged: (Department? newValue) {
-          setState(() {
-            _selectedDepartment = newValue;
-            _fetchSections();
-          });
-        },
-        items: _departments.map<DropdownMenuItem<Department>>((Department department) {
-          return DropdownMenuItem<Department>(
-            value: department,
-            child: Text(department.name),
-          );
-        }).toList(),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.business_rounded, color: const Color(0xFF4F46E5), size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<Department>(
+                value: _selectedDepartment,
+                isExpanded: true,
+                dropdownColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+                style: TextStyle(color: textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
+                onChanged: (Department? newValue) {
+                  setState(() {
+                    _selectedDepartment = newValue;
+                    _fetchSections();
+                  });
+                },
+                items: _departments.map<DropdownMenuItem<Department>>((d) => DropdownMenuItem(value: d, child: Text(d.name))).toList(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSectionsList() {
+  Widget _buildSectionsList(Color textPrimary, Color textSecondary) {
     return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
       itemCount: _sections.length,
       itemBuilder: (context, index) {
         final section = _sections[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16.0),
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+        final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor),
+          ),
           child: ExpansionTile(
-            shape: Border.all(color: Colors.transparent),
-            title: Text(section.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            subtitle: Text('${section.studentIds.length} Students'),
+            shape: const RoundedRectangleBorder(side: BorderSide.none),
+            collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.grid_view_rounded, color: Color(0xFF10B981), size: 20),
+            ),
+            title: Text(section.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary)),
+            subtitle: Text('${section.studentIds.length} Students enrolled', style: TextStyle(fontSize: 13, color: textSecondary)),
             children: [
-              ListTile(
-                title: Text('Faculty: ${section.facultyId != null ? _getUserName(section.facultyId!) : 'Not Assigned'}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () => _assignFaculty(section),
-                ),
-              ),
-              const Divider(),
-              const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text('Students', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              ...section.studentIds.map((studentId) {
-                return ListTile(
-                  title: Text(_getUserName(studentId)),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                    onPressed: () {
-                      _removeStudent(section, studentId);
-                    },
-                  ),
-                );
-              }),
+              const Divider(height: 1),
+              _buildFacultyTile(section, textPrimary, textSecondary),
+              const Divider(height: 1),
               Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Student'),
-                  onPressed: () => _addStudent(section),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Student Roster', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textPrimary)),
+                    TextButton.icon(
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Add Student'),
+                      onPressed: () => _addStudent(section),
+                    ),
+                  ],
                 ),
-              )
+              ),
+              ...section.studentIds.map((sid) => _buildStudentTile(section, sid, textPrimary, textSecondary)),
+              const SizedBox(height: 12),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildFacultyTile(Section section, Color textPrimary, Color textSecondary) {
+    final facultyName = section.facultyId != null ? _getUserName(section.facultyId!) : 'Not Assigned';
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      leading: const Icon(Icons.person_pin_rounded, color: Color(0xFF8B5CF6), size: 20),
+      title: Text('Class Teacher', style: TextStyle(fontSize: 12, color: textSecondary)),
+      subtitle: Text(facultyName, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: textPrimary)),
+      trailing: IconButton(
+        icon: const Icon(Icons.edit_rounded, size: 18),
+        onPressed: () => _assignFaculty(section),
+        tooltip: 'Change Faculty',
+      ),
+    );
+  }
+
+  Widget _buildStudentTile(Section section, String studentId, Color textPrimary, Color textSecondary) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+      leading: const CircleAvatar(radius: 14, backgroundColor: Color(0xFFF3F4F6), child: Icon(Icons.person_rounded, size: 16, color: Colors.grey)),
+      title: Text(_getUserName(studentId), style: TextStyle(fontSize: 14, color: textPrimary)),
+      trailing: IconButton(
+        icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.redAccent, size: 18),
+        onPressed: () => _removeStudent(section, studentId),
+        tooltip: 'Remove from Section',
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(Color textSecondary) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.layers_clear_rounded, size: 64, color: textSecondary.withOpacity(0.5)),
+          const SizedBox(height: 16),
+          Text('No sections found for this department', style: TextStyle(fontSize: 16, color: textSecondary, fontWeight: FontWeight.w500)),
+        ],
+      ),
     );
   }
 }

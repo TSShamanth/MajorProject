@@ -80,6 +80,22 @@ public class UserService {
         return userRecord;
     }
 
+    public List<String> bulkCreateUsers(String institutionId, List<CreateUserRequest> requests) {
+        List<String> results = new ArrayList<>();
+        for (CreateUserRequest request : requests) {
+            try {
+                // Force the institutionId from the path to the request
+                request.setInstitutionId(institutionId);
+                UserRecord record = createUser(request);
+                results.add("SUCCESS: Created " + request.getEmail() + " (UID: " + record.getUid() + ")");
+            } catch (Exception e) {
+                logger.error("Error creating user during bulk import for email: {}", request.getEmail(), e);
+                results.add("ERROR: Failed for " + request.getEmail() + ": " + e.getMessage());
+            }
+        }
+        return results;
+    }
+
     public List<User> getUsers(String institutionId, String role) throws ExecutionException, InterruptedException {
         CollectionReference usersCollection = firestore.collection("Institutions").document(institutionId).collection("users");
         Query query = usersCollection;

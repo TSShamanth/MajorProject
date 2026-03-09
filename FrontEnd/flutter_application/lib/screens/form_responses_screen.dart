@@ -1,158 +1,184 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import '../models/form_builder_model.dart';
+import '../services/form_builder_service.dart';
+import '../widgets/admin_layout.dart';
 
-// Mock Data
-class FormResponse {
-  final List<String> answers;
-  FormResponse(this.answers);
+class FormResponsesScreen extends StatefulWidget {
+  final String formId;
+  const FormResponsesScreen({super.key, required this.formId});
+
+  @override
+  State<FormResponsesScreen> createState() => _FormResponsesScreenState();
 }
 
-class FormResponsesScreen extends StatelessWidget {
-  const FormResponsesScreen({super.key});
+class _FormResponsesScreenState extends State<FormResponsesScreen> {
+  final FormBuilderService _formService = FormBuilderService();
+  CustomForm? _form;
+  List<FormResponseModel> _responses = [];
+  bool _isLoading = true;
+  bool _isDarkMode = false;
 
-  // Mock Data
-  static const List<String> _questions = [
-    'What is your name?',
-    'How would you rate the library services?',
-    'Any suggestions for the sports facilities?',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
 
-  static final List<FormResponse> _responses = [
-    FormResponse(['Alice', 'Excellent', 'More basketball courts, please.']),
-    FormResponse(['Bob', 'Good', 'The gym timings could be extended.']),
-    FormResponse(['Charlie', 'Excellent', 'No suggestions, everything is great!']),
-  ];
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      final form = await _formService.getFormById(widget.formId);
+      final responses = await _formService.getResponses(widget.formId);
+      setState(() {
+        _form = form;
+        _responses = responses;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading responses: $e')));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Form Responses'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.download_outlined),
-              tooltip: 'Export to CSV',
-              onPressed: () {},
+    _isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
+
+    return AdminLayout(
+      title: 'Form Responses',
+      breadcrumbs: [
+        const SizedBox(width: 8),
+        Icon(Icons.chevron_right_rounded, size: 16, color: textSecondary),
+        const SizedBox(width: 8),
+        InkWell(
+          onTap: () => context.pop(),
+          child: Text('Form Builder', style: TextStyle(color: textSecondary, fontSize: 13)),
+        ),
+        const SizedBox(width: 8),
+        Icon(Icons.chevron_right_rounded, size: 16, color: textSecondary),
+        const SizedBox(width: 8),
+        Text('Responses', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.w600, fontSize: 13)),
+      ],
+      child: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSummaryHeader(),
+                const SizedBox(height: 32),
+                Text('All Submissions (${_responses.length})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                if (_responses.isEmpty)
+                  _buildEmptyState(textSecondary)
+                else
+                  _buildResponsesTable(),
+              ],
             ),
-          ],
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Summary'),
-              Tab(text: 'Individual'),
-            ],
           ),
-        ),
-        body: TabBarView(
-          children: [
-            _buildSummaryView(),
-            _buildIndividualView(),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildSummaryView() {
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        _buildSummaryCard(
-          question: _questions[1], // "How would you rate the library services?"
-          child: Column(
-            children: [
-              _buildBarChartOption('Excellent', 2),
-              _buildBarChartOption('Good', 1),
-              _buildBarChartOption('Average', 0),
-              _buildBarChartOption('Poor', 0),
-            ],
-          ),
-        ),
-        _buildSummaryCard(
-          question: _questions[2], // "Any suggestions for the sports facilities?"
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: _responses.map((r) => Text('• ${r.answers[2]}')).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildSummaryCard({required String question, required Widget child}) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(question, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 12),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildBarChartOption(String option, int count) {
-    // Simple bar chart representation
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
+  Widget _buildSummaryHeader() {
+    final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 80, child: Text(option)),
-          Expanded(
-            child: Container(
-              height: 20,
-              color: Colors.blue.withOpacity(0.2),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Container(
-                  width: (count / _responses.length) * 200, // simple scaling
-                  color: Colors.blue,
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: 10, child: Text('$count')),
+          Text(_form?.title ?? 'Form Responses', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text('${_responses.length} responses received', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.bold, fontSize: 16)),
         ],
       ),
     );
   }
 
-  Widget _buildIndividualView() {
-    return PageView.builder(
-      itemCount: _responses.length,
-      itemBuilder: (context, index) {
-        final response = _responses[index];
-        return Card(
-          margin: const EdgeInsets.all(24),
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Response ${index + 1} of ${_responses.length}', style: Theme.of(context).textTheme.titleLarge),
-                const Divider(height: 24),
-                for (int i = 0; i < _questions.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_questions[i], style: const TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        Text(response.answers[i], style: const TextStyle(fontSize: 16)),
-                      ],
-                    ),
+  Widget _buildEmptyState(Color textSecondary) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40.0),
+        child: Column(
+          children: [
+            Icon(Icons.forum_outlined, size: 64, color: textSecondary.withOpacity(0.5)),
+            const SizedBox(height: 16),
+            Text('No responses received yet.', style: TextStyle(color: textSecondary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResponsesTable() {
+    final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12), border: Border.all(color: borderColor)),
+      child: DataTable(
+        columns: [
+          const DataColumn(label: Text('User ID')),
+          const DataColumn(label: Text('Submitted At')),
+          ...(_form?.fields.take(2).map((f) => DataColumn(label: Text(f.label))) ?? []),
+          const DataColumn(label: Text('Actions')),
+        ],
+        rows: _responses.map((resp) {
+          return DataRow(cells: [
+            DataCell(Text('${resp.userId.substring(0, 8)}...')),
+            DataCell(Text(DateFormat('dd MMM, HH:mm').format(DateTime.fromMillisecondsSinceEpoch(resp.submittedAt)))),
+            ...(_form?.fields.take(2).map((field) {
+              final answer = resp.answers[field.id];
+              return DataCell(Text(answer?.toString() ?? '-'));
+            }) ?? []),
+            DataCell(IconButton(
+              icon: const Icon(Icons.visibility_outlined, color: Color(0xFF4F46E5)),
+              onPressed: () => _showResponseDetails(resp),
+            )),
+          ]);
+        }).toList(),
+      ),
+    );
+  }
+
+  void _showResponseDetails(FormResponseModel response) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Response Details'),
+        content: SizedBox(
+          width: 500,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Text('Submitted by: ${response.userId}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const Divider(),
+              ...(_form?.fields.map((field) {
+                final answer = response.answers[field.id];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(field.label, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(answer?.toString() ?? 'No answer provided', style: const TextStyle(color: Color(0xFF4F46E5))),
+                    ],
                   ),
-              ],
-            ),
+                );
+              }) ?? []),
+            ],
           ),
-        );
-      },
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+      ),
     );
   }
 }

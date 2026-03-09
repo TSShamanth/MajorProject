@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:flutter_application/services/session_manager.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import '../models/institution.dart';
 import '../models/department_model.dart';
+import '../widgets/admin_layout.dart';
+import '../providers/institution_provider.dart';
+import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
+import '../services/session_manager.dart';
+import 'dart:convert';
 
 class InstitutionSettingsScreen extends StatefulWidget {
   const InstitutionSettingsScreen({super.key});
@@ -15,13 +18,11 @@ class InstitutionSettingsScreen extends StatefulWidget {
 }
 
 class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
-  final _nameController = TextEditingController(text: 'RV University');
-  final _addressController =
-      TextEditingController(text: 'Mysuru Road, Bengaluru');
-  final _emailController = TextEditingController(text: 'contact@rvu.edu.in');
-  final _phoneController = TextEditingController(text: '+91 98765 43210');
-  final _academicYearStartController =
-      TextEditingController(text: '2023-08-01');
+  final _nameController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _academicYearStartController = TextEditingController(text: '2023-08-01');
   final _academicYearEndController = TextEditingController(text: '2024-05-31');
 
   late Future<List<Department>> _departmentsFuture;
@@ -40,10 +41,32 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
     'Sunday': false,
   };
 
+  bool _isDarkMode = false;
+  String? _institutionId;
+  bool _initialized = false;
+
   @override
   void initState() {
     super.initState();
     _departmentsFuture = _fetchDepartments();
+    _fetchId();
+  }
+
+  Future<void> _fetchId() async {
+    final id = await SessionManager.getInstitutionId();
+    setState(() {
+      _institutionId = id;
+    });
+  }
+
+  void _initFields(Institution? institution) {
+    if (institution != null && !_initialized) {
+      _nameController.text = institution.name;
+      _addressController.text = institution.address ?? '';
+      _emailController.text = institution.email ?? '';
+      _phoneController.text = institution.phone ?? '';
+      _initialized = true;
+    }
   }
 
   Future<List<Department>> _fetchDepartments() async {
@@ -62,6 +85,94 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
     }
   }
 
+  Future<void> _saveSettings() async {
+    debugPrint('Save Settings button clicked');
+    final provider = Provider.of<InstitutionProvider>(context, listen: false);
+    final currentInst = provider.institution;
+    
+    if (currentInst == null) {
+      debugPrint('Error: currentInst is null in provider');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Institution data not loaded.')),
+      );
+      return;
+    }
+
+    final hexColor = '#${provider.primaryColor.value.toRadixString(16).substring(2).toUpperCase()}';
+    debugPrint('Updating institution: ${currentInst.id} with color: $hexColor');
+    
+    final updatedInst = Institution(
+      id: currentInst.id,
+      name: _nameController.text,
+      address: _addressController.text,
+      email: _emailController.text,
+      phone: _phoneController.text,
+      primaryColor: hexColor,
+      logoUrl: currentInst.logoUrl,
+    );
+
+    try {
+      await provider.updateInstitutionProfile(updatedInst);
+      debugPrint('Update successful');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Institution profile updated successfully!')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Update failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating profile: $e')),
+        );
+      }
+    }
+  }
+
+  void _showColorPicker(InstitutionProvider provider) {
+    final colors = [
+      const Color(0xFF4F46E5), // Indigo
+      const Color(0xFFEF4444), // Red
+      const Color(0xFF10B981), // Emerald
+      const Color(0xFFF59E0B), // Amber
+      const Color(0xFF3B82F6), // Blue
+      const Color(0xFF8B5CF6), // Violet
+      const Color(0xFFEC4899), // Pink
+      const Color(0xFF06B6D4), // Cyan
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Theme Color'),
+        content: Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: colors.map((color) {
+            return InkWell(
+              onTap: () {
+                provider.setPrimaryColor(color);
+                Navigator.pop(context);
+              },
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: provider.primaryColor == color ? Colors.black : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
   void _addDepartment() {
     final nameController = TextEditingController();
     final shortNameController = TextEditingController();
@@ -70,17 +181,28 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Add New Department'),
+          backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+          title: Text('Add New Department', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Department Name'),
+                style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87),
+                decoration: InputDecoration(
+                  labelText: 'Department Name',
+                  labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _isDarkMode ? Colors.grey[700]! : Colors.grey[300]!)),
+                ),
               ),
               TextField(
                 controller: shortNameController,
-                decoration: const InputDecoration(labelText: 'Short Name (e.g., CSE)'),
+                style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87),
+                decoration: InputDecoration(
+                  labelText: 'Short Name (e.g., CSE)',
+                  labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _isDarkMode ? Colors.grey[700]! : Colors.grey[300]!)),
+                ),
               ),
             ],
           ),
@@ -151,15 +273,17 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
         context: context,
         builder: (dialogContext) {
           return AlertDialog(
-            title: const Text('Confirm Deletion'),
-            content: const Text('Are you sure you want to delete this department?'),
+            backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+            title: Text('Confirm Deletion', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87)),
+            content: Text('Are you sure you want to delete this department?', style: TextStyle(color: _isDarkMode ? Colors.grey[300]! : Colors.black54)),
             actions: [
                TextButton(
                 child: const Text('Cancel'),
                 onPressed: () => Navigator.of(dialogContext).pop(),
               ),
               ElevatedButton(
-                child: const Text('Delete'),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text('Delete', style: TextStyle(color: Colors.white)),
                 onPressed: () async {
                   final navigator = Navigator.of(dialogContext);
                   final messenger = ScaffoldMessenger.of(context);
@@ -196,247 +320,365 @@ class _InstitutionSettingsScreenState extends State<InstitutionSettingsScreen> {
         });
   }
 
-  void _addHoliday() {
-    // Placeholder for adding a holiday
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Institution Setup'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          _buildSectionHeader(context, 'Core Institution Profile'),
-          _buildProfileCard(),
-          const SizedBox(height: 24),
-          _buildSectionHeader(context, 'Academic Structure'),
-          _buildAcademicStructureCard(),
-          const SizedBox(height: 24),
-          _buildSectionHeader(context, 'User & Attendance Policy'),
-          _buildPolicyCard(),
-          const SizedBox(height: 32),
-          ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Settings Saved (Hardcoded)')),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              textStyle: const TextStyle(fontSize: 16),
+    _isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
+    final textSecondary = _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
+
+    return Consumer<InstitutionProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading && !_initialized) {
+          return const AdminLayout(child: Center(child: CircularProgressIndicator()));
+        }
+
+        _initFields(provider.institution);
+        final primaryColor = provider.primaryColor;
+
+        return AdminLayout(
+          title: 'Institution Setup',
+          breadcrumbs: [
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, size: 16, color: textSecondary),
+            const SizedBox(width: 8),
+            Text('Institution Setup', style: TextStyle(color: primaryColor, fontWeight: FontWeight.w600, fontSize: 13)),
+          ],
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Institution Setup',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            color: textPrimary,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Manage your institution profile, academic structure, and policies',
+                          style: TextStyle(fontSize: 14, color: textSecondary),
+                        ),
+                      ],
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: provider.isLoading ? null : _saveSettings,
+                      icon: provider.isLoading 
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.save_rounded, size: 18),
+                      label: Text(provider.isLoading ? 'Saving...' : 'Save Settings'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                
+                _buildModernSection(
+                  'Core Institution Profile',
+                  'Details about your institution and branding',
+                  Icons.business_rounded,
+                  primaryColor,
+                  Column(
+                    children: [
+                      _buildModernTextField(_nameController, 'Institution Name', Icons.corporate_fare_rounded, primaryColor),
+                      const SizedBox(height: 20),
+                      _buildModernTextField(_addressController, 'Address', Icons.location_on_rounded, primaryColor),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(child: _buildModernTextField(_emailController, 'Contact Email', Icons.email_rounded, primaryColor)),
+                          const SizedBox(width: 20),
+                          Expanded(child: _buildModernTextField(_phoneController, 'Phone Number', Icons.phone_rounded, primaryColor)),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          _buildAssetPicker('Primary Theme Color', Icons.color_lens_rounded, Container(
+                            width: 24, height: 24,
+                            decoration: BoxDecoration(color: primaryColor, shape: BoxShape.circle),
+                          ), onTap: () => _showColorPicker(provider)),
+                          const SizedBox(width: 24),
+                          _buildAssetPicker('Institution Logo', Icons.image_rounded, const Icon(Icons.upload_file_rounded, size: 20), onTap: () {
+                             ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Logo upload functionality can be implemented with image_picker')),
+                            );
+                          }),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                _buildModernSection(
+                  'Academic Structure',
+                  'Define departments and academic periods',
+                  Icons.school_rounded,
+                  const Color(0xFF10B981),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: _buildModernTextField(_academicYearStartController, 'Academic Year Start', Icons.calendar_month_rounded, primaryColor, readOnly: true)),
+                          const SizedBox(width: 20),
+                          Expanded(child: _buildModernTextField(_academicYearEndController, 'Academic Year End', Icons.event_available_rounded, primaryColor, readOnly: true)),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      FutureBuilder<List<Department>>(
+                        future: _departmentsFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+                          final departments = snapshot.data ?? [];
+                          return _buildModernChipList(
+                            'Departments',
+                            departments,
+                            Icons.school_outlined,
+                            primaryColor,
+                            onAdd: _addDepartment,
+                            onDelete: (id) => _deleteDepartment(id),
+                            isDepartment: true,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                _buildModernSection(
+                  'User & Attendance Policy',
+                  'Configure working days and institutional holidays',
+                  Icons.policy_rounded,
+                  const Color(0xFF8B5CF6),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Working Days', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 15)),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10.0,
+                        runSpacing: 10.0,
+                        children: _workingDays.keys.map((day) {
+                          final isSelected = _workingDays[day]!;
+                          return ChoiceChip(
+                            label: Text(day.substring(0, 3)),
+                            selected: isSelected,
+                            onSelected: (selected) => setState(() => _workingDays[day] = selected),
+                            selectedColor: const Color(0xFF8B5CF6).withOpacity(0.2),
+                            checkmarkColor: const Color(0xFF8B5CF6),
+                            labelStyle: TextStyle(
+                              color: isSelected ? const Color(0xFF8B5CF6) : textSecondary,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildModernChipList(
+                        'Holidays',
+                        _holidays,
+                        Icons.calendar_today_rounded,
+                        primaryColor,
+                        onAdd: () {},
+                        onDelete: (item) => setState(() => _holidays.remove(item)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            child: const Text('Save Settings'),
+          ),
+        );
+      }
+    );
+  }
+
+  Widget _buildModernSection(String title, String subtitle, IconData icon, Color color, Widget content) {
+    final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.1 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _isDarkMode ? Colors.white : const Color(0xFF1F2937))),
+                      Text(subtitle, style: TextStyle(fontSize: 13, color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: content,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(
-        title,
-        style: Theme.of(context)
-            .textTheme
-            .titleLarge
-            ?.copyWith(fontWeight: FontWeight.bold),
+  Widget _buildModernTextField(TextEditingController controller, String label, IconData icon, Color primaryColor, {bool readOnly = false}) {
+    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+    return TextFormField(
+      controller: controller,
+      readOnly: readOnly,
+      style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black87, fontSize: 15),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!, fontSize: 14),
+        prefixIcon: Icon(icon, color: primaryColor.withOpacity(0.7), size: 20),
+        filled: true,
+        fillColor: _isDarkMode ? const Color(0xFF111827).withOpacity(0.5) : Colors.grey[50]!,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: borderColor)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: borderColor)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: primaryColor, width: 1.5)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }
 
-  Widget _buildProfileCard() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Institution Name')),
-            const SizedBox(height: 12),
-            TextFormField(
-                controller: _addressController,
-                decoration: const InputDecoration(labelText: 'Address')),
-            const SizedBox(height: 12),
-            TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Contact Email')),
-            const SizedBox(height: 12),
-            TextFormField(
-                controller: _phoneController,
-                decoration: const InputDecoration(labelText: 'Phone Number')),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: const Icon(Icons.color_lens),
-              title: const Text('Primary Theme Color'),
-              trailing: CircleAvatar(
-                backgroundColor: Theme.of(context).primaryColor,
-                radius: 15,
-              ),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: const Icon(Icons.image),
-              title: const Text('Institution Logo'),
-              trailing: const Icon(Icons.upload_file),
-              onTap: () {},
-            ),
-          ],
+  Widget _buildAssetPicker(String label, IconData icon, Widget trailing, {VoidCallback? onTap}) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _isDarkMode ? const Color(0xFF111827).withOpacity(0.5) : Colors.grey[50]!,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _isDarkMode ? Colors.grey[800]! : Colors.grey[200]!),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: _isDarkMode ? Colors.grey[400]! : Colors.grey[600]!),
+              const SizedBox(width: 12),
+              Expanded(child: Text(label, style: TextStyle(color: _isDarkMode ? Colors.grey[300]! : Colors.grey[700]!, fontSize: 14))),
+              trailing,
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildAcademicStructureCard() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextFormField(
-              controller: _academicYearStartController,
-              decoration: const InputDecoration(labelText: 'Academic Year Start'),
-              readOnly: true,
-              onTap: () {},
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _academicYearEndController,
-              decoration: const InputDecoration(labelText: 'Academic Year End'),
-              readOnly: true,
-              onTap: () {},
-            ),
-            const SizedBox(height: 20),
-            FutureBuilder<List<Department>>(
-              future: _departmentsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return _buildChipList(
-                    'Departments',
-                    [],
-                    Icons.school_outlined,
-                    onAdd: _addDepartment,
-                    onDelete: (id) => _deleteDepartment(id),
-                    isDepartment: true,
-                  );
-                }
-
-                final departments = snapshot.data!;
-                return _buildChipList(
-                  'Departments',
-                  departments,
-                  Icons.school_outlined,
-                  onAdd: _addDepartment,
-                  onDelete: (id) => _deleteDepartment(id),
-                  isDepartment: true,
-                );
-              },
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPolicyCard() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Working Days', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8.0,
-              children: _workingDays.keys.map((day) {
-                return ChoiceChip(
-                  label: Text(day.substring(0, 3)),
-                  selected: _workingDays[day]!,
-                  onSelected: (isSelected) {
-                    setState(() {
-                      _workingDays[day] = isSelected;
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 20),
-            _buildChipList(
-              'Holidays',
-              _holidays,
-              Icons.calendar_today,
-              onAdd: _addHoliday,
-              onDelete: (item) => setState(() => _holidays.remove(item)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChipList(
+  Widget _buildModernChipList(
     String title,
     List<dynamic> items,
-    IconData icon, {
+    IconData icon,
+    Color primaryColor, {
     required VoidCallback onAdd,
     required void Function(String) onDelete,
     bool isDepartment = false,
   }) {
+    final textPrimary = _isDarkMode ? Colors.white : const Color(0xFF1F2937);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 15)),
             IconButton(
-              icon: const Icon(Icons.add_circle_outline),
+              icon: Icon(Icons.add_circle_outline_rounded, color: primaryColor),
               onPressed: onAdd,
+              tooltip: 'Add ${title.substring(0, title.length - 1)}',
             ),
           ],
         ),
+        const SizedBox(height: 8),
         Wrap(
-          spacing: 8.0,
-          runSpacing: 4.0,
+          spacing: 10.0,
+          runSpacing: 10.0,
           children: items.map((item) {
             final String name = isDepartment ? (item as Department).name : item as String;
             final String id = isDepartment ? (item as Department).id : item as String;
-            final chip = Chip(
-              avatar: CircleAvatar(child: Icon(icon, size: 16)),
-              label: Text(name),
-              onDeleted: () => onDelete(id),
-              deleteIcon: const Icon(Icons.cancel, size: 18),
-            );
-
-            if (isDepartment) {
-              return InkWell(
-                onTap: () async {
-                  final institutionId = await SessionManager.getInstitutionId();
-                  if (!mounted) return;
-                  if (institutionId != null) {
-                    context.go('/$institutionId/admin/institution-settings/$name');
+            
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: isDepartment ? () async {
+                  if (_institutionId != null) {
+                    // context.go('/$_institutionId/admin/institution-settings/$name');
                   }
-                },
-                child: chip,
-              );
-            }
-            return chip;
+                } : null,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: primaryColor.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 16, color: primaryColor),
+                      const SizedBox(width: 8),
+                      Text(name, style: TextStyle(color: primaryColor, fontWeight: FontWeight.w600, fontSize: 13)),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () => onDelete(id),
+                        child: Icon(Icons.close_rounded, size: 16, color: primaryColor.withOpacity(0.5)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
           }).toList(),
         ),
       ],

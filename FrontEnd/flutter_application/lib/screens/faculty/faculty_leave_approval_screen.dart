@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-// import 'package:provider/provider.dart'; // Not used in this screen, can be removed
 import '../../../services/api_service.dart';
 import '../../../models/leave_application_model.dart';
 import '../../../config/api_config.dart';
-// import '../../../models/user_model.dart'; // Not directly used in this screen, can be removed
+import '../../../widgets/faculty_layout.dart';
 
 class FacultyLeaveApprovalScreen extends StatefulWidget {
   static const String routeName = '/faculty/leave-approval';
@@ -20,6 +19,7 @@ class _FacultyLeaveApprovalScreenState extends State<FacultyLeaveApprovalScreen>
   final ApiService _apiService = ApiService();
   Future<List<LeaveApplication>>? _pendingLeavesFuture;
   Future<List<LeaveApplication>>? _leaveHistoryFuture;
+  bool _isDarkMode = false;
 
   @override
   void initState() {
@@ -39,34 +39,40 @@ class _FacultyLeaveApprovalScreenState extends State<FacultyLeaveApprovalScreen>
       await _apiService.approveLeaveApplication(leaveId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Leave application approved successfully!')),
+        const SnackBar(
+          content: Text('Leave application approved successfully!'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.green,
+        ),
       );
-      _fetchLeaveApplications(); // Refresh both lists
+      _fetchLeaveApplications();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to approve leave: $e')),
+        SnackBar(content: Text('Failed to approve leave: $e'), behavior: SnackBarBehavior.floating),
       );
     }
   }
 
   Future<void> _rejectLeave(String leaveId) async {
     String? reason = await _showReasonDialog(context);
-    if (reason == null || reason.isEmpty) {
-      return; // User cancelled or didn't provide a reason
-    }
+    if (reason == null || reason.isEmpty) return;
 
     try {
       await _apiService.rejectLeaveApplication(leaveId, reason: reason);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Leave application rejected successfully!')),
+        const SnackBar(
+          content: Text('Leave application rejected successfully!'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red,
+        ),
       );
-      _fetchLeaveApplications(); // Refresh both lists
+      _fetchLeaveApplications();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to reject leave: $e')),
+        SnackBar(content: Text('Failed to reject leave: $e'), behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -77,24 +83,24 @@ class _FacultyLeaveApprovalScreenState extends State<FacultyLeaveApprovalScreen>
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Reason for Rejection'),
+          backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+          title: Text('Reason for Rejection', style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black)),
           content: TextField(
             controller: reasonController,
-            decoration: const InputDecoration(hintText: 'Enter reason here'),
+            style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
+            decoration: InputDecoration(
+              hintText: 'Enter reason here',
+              hintStyle: TextStyle(color: _isDarkMode ? Colors.grey[500] : Colors.grey[400]),
+              border: const OutlineInputBorder(),
+            ),
             maxLines: 3,
           ),
           actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.pop(context);
-              },
-            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
             ElevatedButton(
+              onPressed: () => Navigator.pop(context, reasonController.text),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F46E5), foregroundColor: Colors.white),
               child: const Text('Submit'),
-              onPressed: () {
-                Navigator.pop(context, reasonController.text);
-              },
             ),
           ],
         );
@@ -104,29 +110,64 @@ class _FacultyLeaveApprovalScreenState extends State<FacultyLeaveApprovalScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Leave Approval'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+    _isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = _isDarkMode ? const Color(0xFFF9FAFB) : const Color(0xFF1F2937);
+
+    return FacultyLayout(
+      title: 'Leave Requests',
+      breadcrumbs: [
+        Icon(Icons.chevron_right_rounded, size: 16, color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text('Approvals', style: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600], fontSize: 13)),
+      ],
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Pending Applications',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Leave Approvals',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: textPrimary, letterSpacing: -0.5),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Review and manage student leave applications',
+                      style: TextStyle(fontSize: 14, color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                    ),
+                  ],
+                ),
+                ElevatedButton.icon(
+                  onPressed: _fetchLeaveApplications,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Refresh'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4F46E5),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 32.0),
+            _buildSectionHeader('Pending Applications', Icons.pending_actions_rounded, Colors.orange),
             const SizedBox(height: 16.0),
             FutureBuilder<List<LeaveApplication>>(
               future: _pendingLeavesFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
                 } else if (snapshot.hasError) {
-                  return Center(child: Text('Error loading pending leave applications: ${snapshot.error}'));
+                  return _buildErrorCard(snapshot.error.toString());
                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('No pending leave applications.'));
+                  return _buildEmptyState('No pending applications.', Icons.check_circle_outline_rounded);
                 }
 
                 return ListView.builder(
@@ -140,21 +181,18 @@ class _FacultyLeaveApprovalScreenState extends State<FacultyLeaveApprovalScreen>
                 );
               },
             ),
-            const SizedBox(height: 32.0),
-            Text(
-              'Approved / Rejected History',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-            ),
+            const SizedBox(height: 40.0),
+            _buildSectionHeader('Processing History', Icons.history_rounded, const Color(0xFF4F46E5)),
             const SizedBox(height: 16.0),
             FutureBuilder<List<LeaveApplication>>(
               future: _leaveHistoryFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
                 } else if (snapshot.hasError) {
-                  return Center(child: Text('Error loading leave history: ${snapshot.error}'));
+                  return _buildErrorCard(snapshot.error.toString());
                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('No leave history found.'));
+                  return _buildEmptyState('No processing history found.', Icons.history_rounded);
                 }
 
                 return ListView.builder(
@@ -174,104 +212,202 @@ class _FacultyLeaveApprovalScreenState extends State<FacultyLeaveApprovalScreen>
     );
   }
 
+  Widget _buildSectionHeader(String title, IconData icon, Color color) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: _isDarkMode ? Colors.white : const Color(0xFF1F2937),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState(String message, IconData icon) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 48, color: _isDarkMode ? Colors.grey[700] : Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(message, style: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[500])),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorCard(String error) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.withOpacity(0.2)),
+      ),
+      child: Text('Error: $error', style: const TextStyle(color: Colors.red)),
+    );
+  }
+
   Widget _buildLeaveCard(LeaveApplication leave, {required bool showActions}) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      elevation: 2,
+    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+    final statusColor = _getLeaveStatusColor(leave.status);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16.0),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? const Color(0xFF1F2937) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(_isDarkMode ? 0.2 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Student: ${leave.studentName ?? 'Unknown Student'}',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)]),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          (leave.studentName ?? 'U').substring(0, 1).toUpperCase(),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          leave.studentName ?? 'Unknown Student',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
+                        ),
+                        Text(
+                          leave.leaveType,
+                          style: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                _buildStatusBadge(leave.status, statusColor),
+              ],
             ),
-            const SizedBox(height: 8.0),
-            _buildInfoRow('Leave Type:', leave.leaveType),
-            _buildInfoRow('Dates:', '${DateFormat('dd/MM/yyyy').format(leave.startDate)} - ${DateFormat('dd/MM/yyyy').format(leave.endDate)}'),
-            _buildInfoRow('Reason:', leave.reason),
-            _buildInfoRow('Status:', leave.status, color: _getLeaveStatusColor(leave.status)),
+            const SizedBox(height: 20),
+            const Divider(),
+            const SizedBox(height: 16),
+            _buildInfoRow(Icons.calendar_today_rounded, 'Duration:', '${DateFormat('dd MMM').format(leave.startDate)} - ${DateFormat('dd MMM, yyyy').format(leave.endDate)}'),
+            _buildInfoRow(Icons.description_outlined, 'Reason:', leave.reason),
             if (leave.status == 'Rejected' && leave.rejectionReason != null && leave.rejectionReason!.isNotEmpty)
-              _buildInfoRow('Rejection Reason:', leave.rejectionReason!),
+              _buildInfoRow(Icons.error_outline_rounded, 'Rejection Reason:', leave.rejectionReason!, color: Colors.red),
+            
             if (leave.documentUrl != null && leave.documentUrl!.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 8.0),
+                padding: const EdgeInsets.only(top: 12.0),
                 child: InkWell(
-                  onTap: () async {
-                    try {
-                      // Construct full URL if it's a relative path
-                      final url = leave.documentUrl!.startsWith('http')
-                          ? leave.documentUrl!
-                          : '${ApiConfig.baseUrl}${leave.documentUrl!}';
-                      
-                      if (await canLaunchUrl(Uri.parse(url))) {
-                        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                      } else {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Could not open document')),
-                          );
-                        }
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error opening document: $e')),
-                        );
-                      }
-                    }
-                  },
-                  child: Text(
-                    'View Document',
-                    style: Theme.of(context).textTheme.bodyLarge!.copyWith(
-                      color: Colors.blue,
-                      decoration: TextDecoration.underline,
+                  onTap: () => _openDocument(leave.documentUrl!),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4F46E5).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.attachment_rounded, size: 16, color: Color(0xFF4F46E5)),
+                        SizedBox(width: 8),
+                        Text('View Document', style: TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.w600, fontSize: 13)),
+                      ],
                     ),
                   ),
                 ),
               ),
-            if (showActions)
-              Column(
+            
+            if (showActions) ...[
+              const SizedBox(height: 24.0),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const SizedBox(height: 16.0),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => _rejectLeave(leave.id),
-                        child: const Text('Reject', style: TextStyle(color: Colors.red)),
-                      ),
-                      const SizedBox(width: 8.0),
-                      ElevatedButton(
-                        onPressed: () => _approveLeave(leave.id),
-                        child: const Text('Approve'),
-                      ),
-                    ],
+                  OutlinedButton.icon(
+                    onPressed: () => _rejectLeave(leave.id),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    label: const Text('Reject'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(width: 12.0),
+                  ElevatedButton.icon(
+                    onPressed: () => _approveLeave(leave.id),
+                    icon: const Icon(Icons.check_rounded, size: 18),
+                    label: const Text('Approve'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 0,
+                    ),
                   ),
                 ],
               ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value, {Color? color}) {
+  Widget _buildInfoRow(IconData icon, String label, String value, {Color? color}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Icon(icon, size: 16, color: _isDarkMode ? Colors.grey[500] : Colors.grey[400]),
+          const SizedBox(width: 12),
           Text(
             label,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(color: color),
+              style: TextStyle(fontSize: 13, color: color ?? (_isDarkMode ? Colors.grey[300] : Colors.black87)),
             ),
           ),
         ],
@@ -279,16 +415,40 @@ class _FacultyLeaveApprovalScreenState extends State<FacultyLeaveApprovalScreen>
     );
   }
 
+  Widget _buildStatusBadge(String status, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
+      ),
+    );
+  }
+
+  Future<void> _openDocument(String url) async {
+    try {
+      final fullUrl = url.startsWith('http') ? url : '${ApiConfig.baseUrl}$url';
+      if (await canLaunchUrl(Uri.parse(fullUrl))) {
+        await launchUrl(Uri.parse(fullUrl), mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open document')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
   Color _getLeaveStatusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'approved':
-        return Colors.green.shade700;
-      case 'pending':
-        return Colors.orange.shade700;
-      case 'rejected':
-        return Colors.red.shade700;
-      default:
-        return Colors.grey.shade700;
+      case 'approved': return Colors.green;
+      case 'pending': return Colors.orange;
+      case 'rejected': return Colors.red;
+      default: return Colors.grey;
     }
   }
 }
