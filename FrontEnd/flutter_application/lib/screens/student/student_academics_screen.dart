@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application/models/marks_model.dart';
+import 'package:flutter_application/models/course_model.dart';
 import 'package:flutter_application/services/api_service.dart';
+import 'package:flutter_application/services/attendance_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../widgets/student_layout.dart';
@@ -18,6 +20,7 @@ class _StudentAcademicsScreenState extends State<StudentAcademicsScreen> {
   final String? _uid = FirebaseAuth.instance.currentUser?.uid;
   
   List<MarksModel> _allMarks = [];
+  List<Course> _enrolledCourses = [];
   Map<String, dynamic>? _summary;
   bool _isLoading = true;
 
@@ -39,12 +42,14 @@ class _StudentAcademicsScreenState extends State<StudentAcademicsScreen> {
       final results = await Future.wait([
         _apiService.getMarksByStudent(institutionId, uid),
         _apiService.getAcademicSummary(institutionId, uid),
+        AttendanceService.getSubjects(), // Reusing existing logic to get enrolled subjects
       ]);
 
       if (mounted) {
         setState(() {
           _allMarks = results[0] as List<MarksModel>;
           _summary = results[1] as Map<String, dynamic>;
+          _enrolledCourses = results[2] as List<Course>;
           _isLoading = false;
         });
       }
@@ -82,6 +87,18 @@ class _StudentAcademicsScreenState extends State<StudentAcademicsScreen> {
                   _buildSummaryGrid(),
                   const SizedBox(height: 32),
                   const Text(
+                    'My Courses & Assessments',
+                    style: TextStyle(
+                      fontSize: 18, 
+                      fontWeight: FontWeight.w800, 
+                      color: Color(0xFF1F2937),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildCourseList(),
+                  const SizedBox(height: 32),
+                  const Text(
                     'Performance History',
                     style: TextStyle(
                       fontSize: 18, 
@@ -96,6 +113,41 @@ class _StudentAcademicsScreenState extends State<StudentAcademicsScreen> {
               ),
             ),
           ),
+    );
+  }
+
+  Widget _buildCourseList() {
+    if (_enrolledCourses.isEmpty) {
+      return const Center(child: Text('No courses found.'));
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _enrolledCourses.length,
+      itemBuilder: (context, index) {
+        final course = _enrolledCourses[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16), 
+            side: const BorderSide(color: Color(0xFFE5E7EB)),
+          ),
+          elevation: 0,
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            leading: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: const Color(0xFF4F46E5).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.book_rounded, color: Color(0xFF4F46E5)),
+            ),
+            title: Text(course.courseName, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('${course.courseCode} • ${course.credits} Credits'),
+            trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+            onTap: () => context.push('/$_institutionId/student/assessment/${course.courseCode}'),
+          ),
+        );
+      },
     );
   }
 

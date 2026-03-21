@@ -26,6 +26,7 @@ import '../models/student_fee_model.dart';
 import '../models/saved_payment_method_model.dart';
 import '../models/marks_model.dart';
 import '../models/assessment_model.dart';
+import '../models/submission_model.dart';
 
 class ApiService {
   /* -------------------- Institutions -------------------- */
@@ -1603,6 +1604,87 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw Exception('Failed to delete assessment: ${response.body}');
+    }
+  }
+
+  /* -------------------- Submissions -------------------- */
+
+  Future<SubmissionModel> submitAssignment(String institutionId, SubmissionModel submission) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/submissions');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(submission.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return SubmissionModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to submit assignment: ${response.body}');
+    }
+  }
+
+  Future<SubmissionModel?> getMySubmission(String institutionId, String assessmentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/submissions/assessment/$assessmentId/me');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      if (response.body.isEmpty) return null;
+      return SubmissionModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to load submission: ${response.body}');
+    }
+  }
+
+  Future<List<SubmissionModel>> getSubmissionsByAssessment(String institutionId, String assessmentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/submissions/assessment/$assessmentId');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => SubmissionModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load submissions: ${response.body}');
+    }
+  }
+
+  Future<SubmissionModel> gradeSubmission(String institutionId, String submissionId, double marks, String feedback) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/submissions/$submissionId/grade');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'marks': marks,
+        'feedback': feedback,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return SubmissionModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to grade submission: ${response.body}');
     }
   }
 }

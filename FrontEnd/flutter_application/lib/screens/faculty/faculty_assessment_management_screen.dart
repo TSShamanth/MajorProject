@@ -62,72 +62,95 @@ class _FacultyAssessmentManagementScreenState extends State<FacultyAssessmentMan
     final titleController = TextEditingController();
     final maxMarksController = TextEditingController(text: '100');
     final weightageController = TextEditingController(text: '0.1');
+    final instructionsController = TextEditingController();
+    final markingSchemeController = TextEditingController();
+    bool isSubmissionRequired = false;
     String selectedType = 'Assignment';
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Assessment'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                value: selectedType,
-                items: ['Assignment', 'Internal Test', 'Project', 'Final Exam']
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                onChanged: (v) => selectedType = v!,
-                decoration: const InputDecoration(labelText: 'Type'),
-              ),
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(labelText: 'Title (e.g. Quiz 1)'),
-              ),
-              TextField(
-                controller: maxMarksController,
-                decoration: const InputDecoration(labelText: 'Max Marks'),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: weightageController,
-                decoration: const InputDecoration(labelText: 'Weightage (0.0 to 1.0)'),
-                keyboardType: TextInputType.number,
-              ),
-            ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Assessment'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: selectedType,
+                  items: ['Assignment', 'Internal Test', 'Project', 'Final Exam']
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                  onChanged: (v) => setDialogState(() => selectedType = v!),
+                  decoration: const InputDecoration(labelText: 'Type'),
+                ),
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(labelText: 'Title (e.g. Quiz 1)'),
+                ),
+                TextField(
+                  controller: maxMarksController,
+                  decoration: const InputDecoration(labelText: 'Max Marks'),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: weightageController,
+                  decoration: const InputDecoration(labelText: 'Weightage (0.0 to 1.0)'),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: instructionsController,
+                  decoration: const InputDecoration(labelText: 'Instructions'),
+                  maxLines: 3,
+                ),
+                TextField(
+                  controller: markingSchemeController,
+                  decoration: const InputDecoration(labelText: 'Marking Scheme (Optional)'),
+                  maxLines: 3,
+                ),
+                SwitchListTile(
+                  title: const Text('Student Submission Required'),
+                  value: isSubmissionRequired,
+                  onChanged: (v) => setDialogState(() => isSubmissionRequired = v),
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              if (titleController.text.isEmpty) return;
-              
-              final assessment = AssessmentModel(
-                institutionId: _institutionId!,
-                courseCode: _selectedCourse!.courseCode,
-                semester: _selectedCourse!.semester,
-                type: selectedType,
-                title: titleController.text,
-                maxMarks: double.tryParse(maxMarksController.text) ?? 100.0,
-                weightage: double.tryParse(weightageController.text) ?? 0.1,
-                date: DateTime.now().millisecondsSinceEpoch,
-              );
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (titleController.text.isEmpty) return;
+                
+                final assessment = AssessmentModel(
+                  institutionId: _institutionId!,
+                  courseCode: _selectedCourse!.courseCode,
+                  semester: _selectedCourse!.semester,
+                  type: selectedType,
+                  title: titleController.text,
+                  maxMarks: double.tryParse(maxMarksController.text) ?? 100.0,
+                  weightage: double.tryParse(weightageController.text) ?? 0.1,
+                  date: DateTime.now().millisecondsSinceEpoch,
+                  instructions: instructionsController.text,
+                  markingScheme: markingSchemeController.text,
+                  isSubmissionRequired: isSubmissionRequired,
+                );
 
-              try {
-                await _apiService.createAssessment(_institutionId!, assessment);
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  _loadAssessments();
+                try {
+                  await _apiService.createAssessment(_institutionId!, assessment);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    _loadAssessments();
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
                 }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                }
-              }
-            },
-            child: const Text('Create'),
-          ),
-        ],
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -178,7 +201,18 @@ class _FacultyAssessmentManagementScreenState extends State<FacultyAssessmentMan
                       child: ListTile(
                         title: Text(a.title),
                         subtitle: Text('${a.type} • Weightage: ${(a.weightage * 100).toStringAsFixed(0)}%'),
-                        trailing: Text('Max: ${a.maxMarks}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Max: ${a.maxMarks}'),
+                            if (a.isSubmissionRequired)
+                              IconButton(
+                                icon: const Icon(Icons.rate_review_rounded, color: Color(0xFF4F46E5)),
+                                onPressed: () => context.push('/$_institutionId/faculty/assessments/${a.id}/submissions'),
+                                tooltip: 'Review Submissions',
+                              ),
+                          ],
+                        ),
                         onLongPress: () async {
                            // Simple delete on long press
                            await _apiService.deleteAssessment(_institutionId!, a.id!);

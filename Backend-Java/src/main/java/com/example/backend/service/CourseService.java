@@ -126,9 +126,6 @@ public class CourseService {
 
         if (faculty != null && faculty.getAssignedCourseCodes() != null) {
             for (String courseCode : faculty.getAssignedCourseCodes()) {
-                // To get a Course by courseCode, we need its departmentId.
-                // Since assignedCourseCodes only contains courseCode, we need to search across departments.
-                // This is not the most efficient, but works with current data model.
                 ApiFuture<QuerySnapshot> departmentsFuture = firestore.collection("Institutions").document(institutionId).collection("departments").get();
                 List<QueryDocumentSnapshot> departmentDocuments = departmentsFuture.get().getDocuments();
 
@@ -136,12 +133,33 @@ public class CourseService {
                     Course course = getCourse(institutionId, deptDoc.getId(), courseCode);
                     if (course != null) {
                         facultyCourses.add(course);
-                        break; // Found the course, move to next assignedCourseCode
+                        break;
                     }
                 }
             }
         }
         return facultyCourses;
+    }
+
+    public List<Course> getStudentCourses(String institutionId, String studentUid) throws ExecutionException, InterruptedException {
+        List<Course> studentCourses = new ArrayList<>();
+        User student = userService.getUserById(institutionId, studentUid);
+
+        if (student != null && student.getEnrolledCourseCodes() != null) {
+            for (String courseCode : student.getEnrolledCourseCodes()) {
+                ApiFuture<QuerySnapshot> departmentsFuture = firestore.collection("Institutions").document(institutionId).collection("departments").get();
+                List<QueryDocumentSnapshot> departmentDocuments = departmentsFuture.get().getDocuments();
+
+                for (QueryDocumentSnapshot deptDoc : departmentDocuments) {
+                    Course course = getCourse(institutionId, deptDoc.getId(), courseCode);
+                    if (course != null) {
+                        studentCourses.add(course);
+                        break;
+                    }
+                }
+            }
+        }
+        return studentCourses;
     }
 
     /**

@@ -9,6 +9,9 @@ class AssessmentModel {
   final double weightage;
   final int date;
   final String? createdBy;
+  final String? instructions;
+  final String? markingScheme;
+  final bool isSubmissionRequired;
 
   AssessmentModel({
     this.id,
@@ -21,6 +24,9 @@ class AssessmentModel {
     required this.weightage,
     required this.date,
     this.createdBy,
+    this.instructions,
+    this.markingScheme,
+    this.isSubmissionRequired = false,
   });
 
   factory AssessmentModel.fromJson(Map<String, dynamic> json) {
@@ -35,6 +41,9 @@ class AssessmentModel {
       weightage: (json['weightage'] as num?)?.toDouble() ?? 0.0,
       date: json['date'] ?? 0,
       createdBy: json['createdBy'],
+      instructions: json['instructions'],
+      markingScheme: json['markingScheme'],
+      isSubmissionRequired: json['isSubmissionRequired'] ?? false,
     );
   }
 
@@ -50,6 +59,9 @@ class AssessmentModel {
       'weightage': weightage,
       'date': date,
       'createdBy': createdBy,
+      'instructions': instructions,
+      'markingScheme': markingScheme,
+      'isSubmissionRequired': isSubmissionRequired,
     };
   }
 }

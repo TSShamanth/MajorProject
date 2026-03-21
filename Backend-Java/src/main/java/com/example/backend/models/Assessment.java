@@ -11,8 +11,22 @@ public class Assessment {
     private double weightage; // e.g., 0.1 for 10%
     private long date;
     private String createdBy; // Faculty UID
+    private String instructions;
+    private String markingScheme; // Description of how marks are awarded
+    private boolean isSubmissionRequired; // True if students need to upload a file
 
     public Assessment() {}
+    
+    // ... existing getters/setters ...
+
+    public String getInstructions() { return instructions; }
+    public void setInstructions(String instructions) { this.instructions = instructions; }
+
+    public String getMarkingScheme() { return markingScheme; }
+    public void setMarkingScheme(String markingScheme) { this.markingScheme = markingScheme; }
+
+    public boolean isSubmissionRequired() { return isSubmissionRequired; }
+    public void setSubmissionRequired(boolean submissionRequired) { isSubmissionRequired = submissionRequired; }
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }

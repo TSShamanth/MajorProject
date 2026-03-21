@@ -114,6 +114,18 @@ public class AttendanceController {
         }
     }
 
+    @GetMapping("/student/{studentUid}/courses")
+    public ResponseEntity<List<Course>> getStudentAssignedCourses(
+            @PathVariable String institutionId,
+            @PathVariable String studentUid) {
+        try {
+            List<Course> courses = courseService.getStudentCourses(institutionId, studentUid);
+            return ResponseEntity.ok(courses);
+        } catch (ExecutionException | InterruptedException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
     /**
      * Endpoint to get students enrolled in a specific course for the mark attendance screen.
      * GET /institutions/{institutionId}/departments/{departmentId}/courses/{courseCode}/students
