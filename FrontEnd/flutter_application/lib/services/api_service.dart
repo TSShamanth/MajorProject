@@ -25,6 +25,7 @@ import './session_manager.dart';
 import '../models/student_fee_model.dart';
 import '../models/saved_payment_method_model.dart';
 import '../models/marks_model.dart';
+import '../models/assessment_model.dart';
 
 class ApiService {
   /* -------------------- Institutions -------------------- */
@@ -1549,6 +1550,59 @@ class ApiService {
       return json.decode(response.body);
     } else {
       throw Exception('Failed to load academic summary: ${response.body}');
+    }
+  }
+
+  /* -------------------- Course Assessments -------------------- */
+
+  Future<AssessmentModel> createAssessment(String institutionId, AssessmentModel assessment) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/assessments');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(assessment.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return AssessmentModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to create assessment: ${response.body}');
+    }
+  }
+
+  Future<List<AssessmentModel>> getAssessmentsByCourse(String institutionId, String courseCode) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/assessments/course/$courseCode');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => AssessmentModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load assessments: ${response.body}');
+    }
+  }
+
+  Future<void> deleteAssessment(String institutionId, String assessmentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/assessments/$assessmentId');
+
+    final response = await http.delete(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete assessment: ${response.body}');
     }
   }
 }

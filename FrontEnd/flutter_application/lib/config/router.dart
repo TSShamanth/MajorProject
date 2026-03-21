@@ -78,6 +78,7 @@ import '../screens/faculty/faculty_marks_entry_screen.dart';
 import '../screens/faculty/virtual_id_screen.dart' as faculty_vid;
 import '../screens/faculty/faculty_leave_approval_screen.dart';
 import '../screens/faculty/faculty_student_fee_status_screen.dart';
+import '../screens/faculty/faculty_assessment_management_screen.dart';
 import '../screens/room_management_screen.dart';
 import '../screens/room_editor_screen.dart';
 import '../screens/exam_timetable_viewer_screen.dart';
@@ -527,6 +528,10 @@ final router = GoRouter(
         final examId = state.pathParameters['examId']!;
         return ExamTimetableViewerScreen(examId: examId);
       },
+    ),
+    GoRoute(
+      path: '/:institutionId/faculty/assessments',
+      builder: (context, state) => const FacultyAssessmentManagementScreen(),
     ),
     GoRoute(
       path: '/:institutionId/faculty/marks-entry',

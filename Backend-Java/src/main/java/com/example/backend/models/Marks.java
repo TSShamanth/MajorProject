@@ -8,6 +8,7 @@ public class Marks {
     private String semester;
     private String type; // "Assignment", "Internal Test", "Project", "Final Exam"
     private String title; // e.g., "Unit Test 1", "Lab Project"
+    private String assessmentId; // Linked to Assessment entity
     private double obtainedMarks;
     private double totalMarks;
     private String examId; // Optional: Link to a specific Exam if type is "Final Exam" or "Internal Test"
@@ -17,6 +18,9 @@ public class Marks {
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
+
+    public String getAssessmentId() { return assessmentId; }
+    public void setAssessmentId(String assessmentId) { this.assessmentId = assessmentId; }
 
     public String getStudentId() { return studentId; }
     public void setStudentId(String studentId) { this.studentId = studentId; }

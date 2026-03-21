@@ -132,6 +132,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     super.dispose();
   }
 
+  bool _hasRole(List<String> roles) {
+    if (_currentUser == null || _currentUser!.role == null) return false;
+    final userRole = _currentUser!.role!.toLowerCase().trim().replaceAll(' ', '_');
+    return roles.contains(userRole);
+  }
+
   void _showAddUserDialog() {
     showDialog(
       context: context,
@@ -473,18 +479,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                   ),
                 ],
               ),
-              ElevatedButton.icon(
-                onPressed: _showAddUserDialog,
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Add User', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  elevation: 0,
+              if (_hasRole(['admin', 'hr_admin', 'admission_admin']))
+                ElevatedButton.icon(
+                  onPressed: _showAddUserDialog,
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: const Text('Add User', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -690,12 +697,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   }
 
   Widget _buildQuickActionsCard() {
-    final actions = [
-      {'label': 'Manage Users', 'color': _primaryColor, 'icon': Icons.people_rounded, 'route': null},
-      {'label': 'Mentor Management', 'color': const Color(0xFFEC4899), 'icon': Icons.supervisor_account_rounded, 'route': '/admin/mentor-management'},
-      {'label': 'Schedule Drive', 'color': const Color(0xFF10B981), 'icon': Icons.event_rounded, 'route': null},
-      {'label': 'System Reports', 'color': const Color(0xFF8B5CF6), 'icon': Icons.bar_chart_rounded, 'route': null},
+    final allActions = [
+      {'label': 'Manage Users', 'color': _primaryColor, 'icon': Icons.people_rounded, 'route': 'manage_users', 'roles': ['admin', 'hr_admin', 'admission_admin']},
+      {'label': 'Mentor Management', 'color': const Color(0xFFEC4899), 'icon': Icons.supervisor_account_rounded, 'route': '/admin/mentor-management', 'roles': ['admin', 'hr_admin', 'admission_admin']},
+      {'label': 'System Reports', 'color': const Color(0xFF8B5CF6), 'icon': Icons.bar_chart_rounded, 'route': null, 'roles': ['admin']},
     ];
+
+    final actions = allActions.where((a) => (a['roles'] as List<String>).contains(_currentUser?.role ?? '')).toList();
 
     return Container(
       width: double.infinity,
@@ -737,8 +745,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
             itemBuilder: (context, index) {
               final action = actions[index];
               return InkWell(
-                onTap: () {
-                  if (action['label'] == 'Manage Users') {
+                onTap: () async {
+                  if (action['route'] == 'manage_users') {
                     _showAddUserDialog();
                   } else if (action['route'] != null) {
                     final route = action['route'] as String;
@@ -870,9 +878,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       const Color(0xFF10B981),
       Icons.school_rounded,
       [
-        {'title': 'Class Management', 'route': '/$_institutionId/admin/class-management'},
-        {'title': 'Examinations', 'route': '/$_institutionId/admin/exam-management'},
-        {'title': 'Report Cards', 'route': '/$_institutionId/admin/report-card-dashboard'},
+        {'title': 'Class Management', 'route': '/$_institutionId/admin/class-management', 'roles': ['admin', 'admission_admin']},
+        {'title': 'Examinations', 'route': '/$_institutionId/admin/exam-management', 'roles': ['admin', 'exam_admin']},
+        {'title': 'Report Cards', 'route': '/$_institutionId/admin/report-card-dashboard', 'roles': ['admin', 'exam_admin']},
       ],
     );
   }
@@ -883,7 +891,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       const Color(0xFFF59E0B),
       Icons.monetization_on_rounded,
       [
-        {'title': 'Fee Management', 'route': '/$_institutionId/admin/fee-management'},
+        {'title': 'Fee Management', 'route': '/$_institutionId/admin/fee-management', 'roles': ['admin', 'finance_admin']},
       ],
     );
   }
@@ -894,8 +902,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       const Color(0xFF8B5CF6),
       Icons.inventory_2_rounded,
       [
-        {'title': 'Inventory', 'route': '/$_institutionId/admin/inventory'},
-        {'title': 'Room Management', 'route': '/$_institutionId/admin/room-management'},
+        {'title': 'Inventory', 'route': '/$_institutionId/admin/inventory', 'roles': ['admin']},
+        {'title': 'Room Management', 'route': '/$_institutionId/admin/room-management', 'roles': ['admin', 'exam_admin']},
       ],
     );
   }
@@ -906,7 +914,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       const Color(0xFF14B8A6),
       Icons.build_rounded,
       [
-        {'title': 'Form Builder', 'route': '/$_institutionId/admin/form-builder'},
+        {'title': 'Form Builder', 'route': '/$_institutionId/admin/form-builder', 'roles': ['admin']},
       ],
     );
   }
@@ -917,12 +925,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
       _primaryColor,
       Icons.groups_rounded,
       [
-        {'title': 'Alumni Network', 'route': '/$_institutionId/admin/alumni-dashboard'},
+        {'title': 'Alumni Network', 'route': '/$_institutionId/admin/alumni-dashboard', 'roles': ['admin', 'hr_admin']},
       ],
     );
   }
 
-  Widget _buildManagementCard(String title, Color color, IconData icon, List<Map<String, String>> items) {
+  Widget _buildManagementCard(String title, Color color, IconData icon, List<Map<String, dynamic>> allItems) {
+    final items = allItems.where((item) {
+      final allowedRoles = item['roles'] as List<String>;
+      return allowedRoles.contains(_currentUser?.role ?? 'admin');
+    }).toList();
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -973,7 +988,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
               padding: const EdgeInsets.only(bottom: 8),
               child: InkWell(
                 onTap: () {
-                  final route = item['route'];
+                  final route = item['route'] as String?;
                   if (route != null && _institutionId != null) {
                     context.go(route);
                   }
@@ -990,7 +1005,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                     children: [
                       Expanded(
                         child: Text(
-                          item['title']!,
+                          item['title'] as String,
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,

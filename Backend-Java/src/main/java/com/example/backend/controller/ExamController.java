@@ -11,6 +11,7 @@ import com.example.backend.service.FeeService;
 import com.example.backend.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,6 +33,7 @@ public class ExamController {
     }
 
     @PostMapping("/institutions/{institutionId}/exams")
+    @PreAuthorize("hasAnyRole('ADMIN', 'EXAM_ADMIN')")
     public ResponseEntity<Exam> createExam(@RequestBody Exam exam, @PathVariable String institutionId) {
         try {
             Exam createdExam = examService.createExam(exam, institutionId);

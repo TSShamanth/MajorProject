@@ -8,6 +8,7 @@ import 'package:flutter_application/models/fee_structure_model.dart';
 import 'package:flutter_application/models/fee_category_model.dart';
 import 'package:flutter_application/models/department_model.dart';
 import 'package:flutter_application/models/student_fee_model.dart';
+import 'package:flutter_application/models/user_model.dart';
 import 'package:flutter_application/widgets/admin_layout.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +31,7 @@ class _FeeManagementDashboardScreenState
   List<Department> _departments = [];
   List<StudentFee> _studentFees = [];
   Map<String, dynamic> _stats = {};
+  UserModel? _currentUser;
   
   bool _isLoading = true;
   String? _institutionId;
@@ -61,6 +63,7 @@ class _FeeManagementDashboardScreenState
           _apiService.getDepartments(_institutionId!),
           _feeService.getStudentFees(_institutionId!),
           _feeService.getFeeStats(_institutionId!),
+          _apiService.getMe(_institutionId!),
         ]);
         
         if (mounted) {
@@ -70,6 +73,7 @@ class _FeeManagementDashboardScreenState
             _departments = futures[2] as List<Department>;
             _studentFees = futures[3] as List<StudentFee>;
             _stats = futures[4] as Map<String, dynamic>;
+            _currentUser = futures[5] as UserModel;
           });
         }
       }
@@ -254,23 +258,24 @@ class _FeeManagementDashboardScreenState
             Text('Manage categories, fee structures, and collection tracking', style: TextStyle(fontSize: 14, color: textSecondary)),
           ],
         ),
-        Wrap(
-          spacing: 12,
-          children: [
-            ElevatedButton.icon(
-              onPressed: _showGenerateFeeDialog,
-              icon: const Icon(Icons.bolt_rounded, size: 18),
-              label: const Text('Generate Fees'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            ),
-            ElevatedButton.icon(
-              onPressed: () => _navigateToEditor(),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('New Structure'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F46E5), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            ),
-          ],
-        ),
+        if (_currentUser?.role == 'admin' || _currentUser?.role == 'finance_admin')
+          Wrap(
+            spacing: 12,
+            children: [
+              ElevatedButton.icon(
+                onPressed: _showGenerateFeeDialog,
+                icon: const Icon(Icons.bolt_rounded, size: 18),
+                label: const Text('Generate Fees'),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => _navigateToEditor(),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('New Structure'),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F46E5), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+              ),
+            ],
+          ),
       ],
     );
   }
@@ -346,6 +351,7 @@ class _FeeManagementDashboardScreenState
   }
 
   Widget _buildCategorySection(Color textPrimary, Color textSecondary) {
+    final bool canEdit = _currentUser?.role == 'admin' || _currentUser?.role == 'finance_admin';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -353,7 +359,8 @@ class _FeeManagementDashboardScreenState
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Fee Categories', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary)),
-            IconButton(onPressed: _showAddCategoryDialog, icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF4F46E5))),
+            if (canEdit)
+              IconButton(onPressed: _showAddCategoryDialog, icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF4F46E5))),
           ],
         ),
         const SizedBox(height: 16),
@@ -364,12 +371,12 @@ class _FeeManagementDashboardScreenState
             label: Text(c.name),
             backgroundColor: const Color(0xFF4F46E5).withOpacity(0.1),
             labelStyle: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.bold),
-            onDeleted: () async {
+            onDeleted: canEdit ? () async {
               if (_institutionId != null) {
                 await _feeService.deleteFeeCategory(_institutionId!, c.id);
                 _loadData();
               }
-            },
+            } : null,
             deleteIconColor: const Color(0xFF4F46E5).withOpacity(0.5),
           )).toList(),
         ),
@@ -378,6 +385,7 @@ class _FeeManagementDashboardScreenState
   }
 
   Widget _buildStructureSection(Color textPrimary, Color textSecondary) {
+    final bool canEdit = _currentUser?.role == 'admin' || _currentUser?.role == 'finance_admin';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -400,13 +408,15 @@ class _FeeManagementDashboardScreenState
               children: [
                 Text('₹${s.totalAmount.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4F46E5), fontSize: 16)),
                 const SizedBox(width: 16),
-                IconButton(icon: const Icon(Icons.edit_rounded, color: Colors.blue, size: 20), onPressed: () => _navigateToEditor(structure: s)),
-                IconButton(icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20), onPressed: () async {
-                  if (_institutionId != null) {
-                    await _feeService.deleteFeeStructure(_institutionId!, s.id);
-                    _loadData();
-                  }
-                }),
+                if (canEdit) ...[
+                  IconButton(icon: const Icon(Icons.edit_rounded, color: Colors.blue, size: 20), onPressed: () => _navigateToEditor(structure: s)),
+                  IconButton(icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20), onPressed: () async {
+                    if (_institutionId != null) {
+                      await _feeService.deleteFeeStructure(_institutionId!, s.id);
+                      _loadData();
+                    }
+                  }),
+                ],
               ],
             ),
           ),
@@ -465,7 +475,7 @@ class _FeeManagementDashboardScreenState
                       ),
                       const SizedBox(width: 8),
                       IconButton(icon: const Icon(Icons.history_rounded, color: Colors.blue, size: 20), onPressed: () => _showPaymentHistoryDialog(fee)),
-                      if (fee.balanceAmount > 0)
+                      if (fee.balanceAmount > 0 && (_currentUser?.role == 'admin' || _currentUser?.role == 'finance_admin'))
                         IconButton(icon: const Icon(Icons.add_card_rounded, color: Color(0xFF4F46E5), size: 20), onPressed: () => _showRecordPaymentDialog(fee)),
                     ],
                   ),

@@ -3,6 +3,7 @@ package com.example.backend.controller;
 import com.example.backend.models.Course;
 import com.example.backend.service.CourseService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,6 +20,7 @@ public class CourseController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'ADMISSION_ADMIN')")
     public ResponseEntity<Course> createCourse(@PathVariable String institutionId, @PathVariable String departmentId, @RequestBody Course course) {
         try {
             course.setInstitutionId(institutionId);
@@ -53,6 +55,7 @@ public class CourseController {
     }
 
     @PutMapping("/{courseCode}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ADMISSION_ADMIN')")
     public ResponseEntity<Course> updateCourse(@PathVariable String institutionId, @PathVariable String departmentId, @PathVariable String courseCode, @RequestBody Course course) {
         try {
             course.setCourseCode(courseCode);
@@ -65,6 +68,7 @@ public class CourseController {
     }
 
     @DeleteMapping("/{courseCode}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ADMISSION_ADMIN')")
     public ResponseEntity<Void> deleteCourse(@PathVariable String institutionId, @PathVariable String departmentId, @PathVariable String courseCode) {
         try {
             courseService.deleteCourse(institutionId, departmentId, courseCode);
