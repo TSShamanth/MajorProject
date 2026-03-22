@@ -39,7 +39,9 @@ public class SecurityConfig {
                     // This level just ensures the user is authenticated for these paths.
                     .requestMatchers(
                         new AntPathRequestMatcher("/api/institutions/*/forms/**"),
-                        new AntPathRequestMatcher("/api/institutions/*/forms")
+                        new AntPathRequestMatcher("/api/institutions/*/forms"),
+                        new AntPathRequestMatcher("/api/ai/ingestion/**"),
+                        new AntPathRequestMatcher("/api/chat/**")
                     ).permitAll()
                     .requestMatchers(
                         new AntPathRequestMatcher("/api/admin/**"),
