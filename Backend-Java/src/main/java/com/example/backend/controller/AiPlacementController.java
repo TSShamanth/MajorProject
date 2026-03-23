@@ -22,7 +22,9 @@ public class AiPlacementController {
 
     private String getCurrentUserUid() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null) return null;
+        if (authentication == null || authentication.getPrincipal() == null) {
+            return "anonymousUser"; 
+        }
         Object principal = authentication.getPrincipal();
         if (principal instanceof FirebaseToken) {
             return ((FirebaseToken) principal).getUid();

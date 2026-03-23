@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
@@ -176,14 +178,34 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
                   type: FileType.custom,
                   allowedExtensions: ['pdf', 'doc', 'docx'],
                 );
-                if (result != null && result.files.single.path != null) {
+                if (result != null && result.files.single.bytes != null) {
                   if (!mounted) return;
                   showDialog(
                     context: context,
                     builder: (context) => AiAnalysisModal(
                       title: 'Resume Analysis',
                       subtitle: 'AI-driven resume scoring and feedback',
-                      onAnalyze: () => _apiService.getResumeScore('general', result.files.single.path!),
+                      onAnalyze: () => _apiService.getResumeScore(
+                        'general', 
+                        result.files.single.bytes!, 
+                        result.files.single.name
+                      ),
+                    ),
+                  );
+                } else if (result != null && result.files.single.path != null) {
+                  // Fallback for mobile where bytes might be null but path is available
+                  final bytes = await File(result.files.single.path!).readAsBytes();
+                  if (!mounted) return;
+                  showDialog(
+                    context: context,
+                    builder: (context) => AiAnalysisModal(
+                      title: 'Resume Analysis',
+                      subtitle: 'AI-driven resume scoring and feedback',
+                      onAnalyze: () => _apiService.getResumeScore(
+                        'general', 
+                        bytes, 
+                        result.files.single.name
+                      ),
                     ),
                   );
                 }

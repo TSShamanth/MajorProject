@@ -1717,7 +1717,7 @@ class ApiService {
 
   /* -------------------- AI Insights -------------------- */
 
-  Future<String> getResumeScore(String driveId, String filePath) async {
+  Future<String> getResumeScore(String driveId, List<int> fileBytes, String fileName) async {
     final user = FirebaseAuth.instance.currentUser;
     final token = user != null ? await user.getIdToken() : null;
     final institutionId = await SessionManager.getInstitutionId();
@@ -1729,7 +1729,11 @@ class ApiService {
       request.headers['Authorization'] = 'Bearer $token';
     }
     
-    request.files.add(await http.MultipartFile.fromPath('file', filePath));
+    request.files.add(http.MultipartFile.fromBytes(
+      'file', 
+      fileBytes,
+      filename: fileName,
+    ));
     
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);

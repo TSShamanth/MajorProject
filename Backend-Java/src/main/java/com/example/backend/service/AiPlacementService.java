@@ -37,14 +37,26 @@ public class AiPlacementService {
     public String scoreResume(String institutionId, String studentId, String driveId, MultipartFile file) {
         try {
             logger.info("Attempting to parse resume for student: {} in drive: {}", studentId, driveId);
+            
+            if (file.isEmpty()) {
+                return "The uploaded file is empty. Please select a valid file.";
+            }
+
             String resumeText = tika.parseToString(file.getInputStream());
             
             if (resumeText == null || resumeText.trim().isEmpty()) {
                 logger.warn("Extracted resume text is empty for student: {}", studentId);
-                return "The uploaded file appears to be empty or unreadable. Please ensure it is a valid PDF or Word document.";
+                return "The AI could not extract any text from your resume. Please ensure it is not a scanned image and is a valid PDF or Word document.";
             }
 
-            PlacementDrive drive = placementService.getDrive(institutionId, driveId);
+            PlacementDrive drive = null;
+            if (driveId != null && !driveId.isEmpty() && !"general".equalsIgnoreCase(driveId)) {
+                try {
+                    drive = placementService.getDrive(institutionId, driveId);
+                } catch (Exception e) {
+                    logger.error("Error fetching drive details for {}: {}", driveId, e.getMessage());
+                }
+            }
             
             StringBuilder context = new StringBuilder();
             if (drive != null) {
@@ -63,13 +75,15 @@ public class AiPlacementService {
                                      "1. Resume Score (0-100)\n" +
                                      "2. Keyword Match (List matching and missing keywords)\n" +
                                      "3. Content Feedback (Strengths and areas for improvement)\n" +
-                                     "4. Formatting Suggestions\n\nData:\n{data}")
+                                     "4. Formatting Suggestions\n\n" +
+                                     "CRITICAL: Be professional but honest. Use clear Markdown headings and bullet points.\n\n" +
+                                     "Data:\n{data}")
                             .param("data", context.toString()))
                     .call()
                     .content();
         } catch (Exception e) {
-            logger.error("Error in AI resume scoring: ", e);
-            return "An error occurred while analyzing your resume: " + e.getMessage() + ". Please try again with a different file format (PDF preferred).";
+            logger.error("Error in AI resume scoring for student {}: ", studentId, e);
+            return "An error occurred while analyzing your resume. This usually happens if the file is too large or the AI service is temporarily unavailable. Error: " + e.getMessage();
         }
     }
 
