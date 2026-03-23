@@ -1868,6 +1868,38 @@ class ApiService {
     throw Exception('Failed to propose form fields');
   }
 
+  /* -------------------- AI Management -------------------- */
+
+  Future<String> getLeaveInsight(String institutionId, String studentUid, String startDate, String endDate) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/management/leave-insight?institutionId=$institutionId&studentUid=$studentUid&startDate=$startDate&endDate=$endDate');
+
+    final response = await http.get(url, headers: {
+      if (token != null) 'Authorization': 'Bearer $token',
+    });
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['insight'];
+    }
+    throw Exception('Failed to fetch leave insight');
+  }
+
+  Future<String> getSubstitutionSuggestions(String institutionId, String facultyUid, String date, String timeSlotId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/management/substitution-suggestions?institutionId=$institutionId&facultyUid=$facultyUid&date=$date&timeSlotId=$timeSlotId');
+
+    final response = await http.get(url, headers: {
+      if (token != null) 'Authorization': 'Bearer $token',
+    });
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['suggestions'];
+    }
+    throw Exception('Failed to fetch substitutions');
+  }
+
   /* -------------------- Admin AI -------------------- */
 
   Future<String> analyzeError(String trace) async {
