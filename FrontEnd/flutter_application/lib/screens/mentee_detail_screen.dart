@@ -4,6 +4,7 @@ import '../models/mentor_meeting_model.dart';
 import '../models/mentee_concern_model.dart';
 import '../services/mentorship_service.dart';
 import '../widgets/faculty_layout.dart';
+import '../widgets/ai_insight_modal.dart';
 
 class MenteeDetailScreen extends StatefulWidget {
   final String menteeId;
@@ -195,16 +196,49 @@ class _MenteeDetailScreenState extends State<MenteeDetailScreen> with SingleTick
                   style: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600], fontSize: 15),
                 ),
                 const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4F46E5).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Sem ${_mentee!.sem ?? 'N/A'} | ${_mentee!.programme ?? 'N/A'}',
-                    style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4F46E5).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Sem ${_mentee!.sem ?? 'N/A'} | ${_mentee!.programme ?? 'N/A'}',
+                        style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AiInsightModal(studentId: widget.menteeId),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.auto_awesome_rounded, color: Colors.amber, size: 14),
+                            SizedBox(width: 4),
+                            Text(
+                              'AI Insights',
+                              style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

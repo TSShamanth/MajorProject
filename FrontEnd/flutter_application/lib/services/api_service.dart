@@ -1714,4 +1714,44 @@ class ApiService {
       throw Exception('Failed to grade submission: ${response.body}');
     }
   }
+
+  /* -------------------- AI Insights -------------------- */
+
+  Future<String> getMyAiInsights(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/insights/my?institutionId=$institutionId');
+
+    final response = await http.get(
+      url, 
+      headers: {'Authorization': 'Bearer $token'}
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['insights'] ?? 'No insights available.';
+    } else {
+      throw Exception('Failed to load AI insights: ${response.body}');
+    }
+  }
+
+  Future<String> getMenteeAiInsights(String institutionId, String studentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/insights/mentee/$studentId?institutionId=$institutionId');
+
+    final response = await http.get(
+      url, 
+      headers: {'Authorization': 'Bearer $token'}
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['insights'] ?? 'No insights available.';
+    } else {
+      throw Exception('Failed to load mentee AI insights: ${response.body}');
+    }
+  }
 }

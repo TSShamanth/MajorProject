@@ -8,6 +8,7 @@ import 'package:flutter_application/services/attendance_service.dart';
 import 'package:flutter_application/services/timetable_service.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/app_layout.dart';
+import '../widgets/ai_insight_modal.dart';
 import 'dart:math' as math;
 
 class StudentDashboardScreen extends StatefulWidget {
@@ -237,24 +238,65 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> with Ti
   }
 
   Widget _buildWelcomeSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          'Welcome back, ${_user?.displayName ?? 'Student'}',
-          style: const TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF1F2937),
-            letterSpacing: -0.5,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Welcome back, ${_user?.displayName ?? 'Student'}',
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1F2937),
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Here\'s your academic and placement overview',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 4),
-        const Text(
-          'Here\'s your academic and placement overview',
-          style: TextStyle(
-            fontSize: 14,
-            color: Color(0xFF6B7280),
+        Material(
+          color: const Color(0xFF4F46E5).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => const AiInsightModal(),
+              );
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.2)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.auto_awesome_rounded, color: Color(0xFF4F46E5), size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'AI Insights',
+                    style: TextStyle(
+                      color: Color(0xFF4F46E5),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
