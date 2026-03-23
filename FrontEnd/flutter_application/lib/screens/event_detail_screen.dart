@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import '../widgets/faculty_layout.dart';
 import '../widgets/admin_layout.dart';
 import '../widgets/student_layout.dart';
+import '../widgets/ai_analysis_modal.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final String eventId;
@@ -224,7 +225,27 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 children: [
                   _buildCategoryChip(_event!.category),
                   const SizedBox(width: 12),
-                  _buildStatusChip(_event!.status),
+                  _buildStatusBadge(_event!.status),
+                  const Spacer(),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AiAnalysisModal(
+                          title: 'Why Attend?',
+                          subtitle: 'Personalized AI Recommendation',
+                          onAnalyze: () => _apiService.getEventRecommendation(_institutionId!, _event!.id),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                    label: const Text('Why Attend?'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple[50],
+                      foregroundColor: Colors.purple[700],
+                      elevation: 0,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -542,7 +563,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     );
   }
 
-  Widget _buildStatusChip(String status) {
+  Widget _buildStatusBadge(String status) {
     final color = _getStatusColor(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

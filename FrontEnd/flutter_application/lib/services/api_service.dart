@@ -1717,6 +1717,45 @@ class ApiService {
 
   /* -------------------- AI Insights -------------------- */
 
+  Future<String> getResumeScore(String driveId, String filePath) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final institutionId = await SessionManager.getInstitutionId();
+    
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/placement/resume-score/$driveId?institutionId=$institutionId');
+    
+    var request = http.MultipartRequest('POST', url);
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    
+    request.files.add(await http.MultipartFile.fromPath('file', filePath));
+    
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['report'] ?? 'No report';
+    } else {
+      throw Exception('Failed to score resume: ${response.statusCode}');
+    }
+  }
+
+  Future<String> summarizeAnnouncement(String institutionId, String announcementId) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/communication/summarize/$announcementId?institutionId=$institutionId');
+    final response = await http.get(url);
+    if (response.statusCode == 200) return jsonDecode(response.body)['summary'];
+    throw Exception('Failed to summarize announcement');
+  }
+
+  Future<String> getEventRecommendation(String institutionId, String eventId) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/communication/recommend-event/$eventId?institutionId=$institutionId');
+    final response = await http.get(url);
+    if (response.statusCode == 200) return jsonDecode(response.body)['recommendation'];
+    throw Exception('Failed to get event recommendation');
+  }
+
   Future<String> getMyAiInsights(String institutionId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('No user logged in');
@@ -1753,5 +1792,95 @@ class ApiService {
     } else {
       throw Exception('Failed to load mentee AI insights: ${response.body}');
     }
+  }
+
+  /* -------------------- Placement AI -------------------- */
+
+  Future<String> getPlacementReadiness(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/placement/readiness?institutionId=$institutionId');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['report'];
+    }
+    throw Exception('Failed to fetch readiness');
+  }
+
+  Future<String> getSkillGapAnalysis(String institutionId, String driveId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/placement/skill-gap/$driveId?institutionId=$institutionId');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['analysis'];
+    }
+    throw Exception('Failed to fetch skill gap analysis');
+  }
+
+  Future<String> getProfileScore(String institutionId, String driveId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/placement/profile-score/$driveId?institutionId=$institutionId');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['report'];
+    }
+    throw Exception('Failed to fetch profile score');
+  }
+
+  /* -------------------- Communication AI -------------------- */
+
+  Future<String> getEventRecommendations(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/communication/recommend-events?institutionId=$institutionId');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode == 200) return jsonDecode(response.body)['recommendations'];
+    throw Exception('Failed to fetch event recommendations');
+  }
+
+  /* -------------------- Feedback AI -------------------- */
+
+  Future<String> analyzeFormResponses(String institutionId, String formId) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/feedback/analyze/$formId?institutionId=$institutionId');
+    final response = await http.get(url);
+    if (response.statusCode == 200) return jsonDecode(response.body)['analysis'];
+    throw Exception('Failed to analyze responses');
+  }
+
+  Future<String> proposeFormFields(String topic) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/feedback/propose-form');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'topic': topic}),
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body)['proposal'];
+    throw Exception('Failed to propose form fields');
+  }
+
+  /* -------------------- Admin AI -------------------- */
+
+  Future<String> analyzeError(String trace) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/admin/analyze-error');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'trace': trace}),
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body)['analysis'];
+    throw Exception('Failed to analyze error');
+  }
+
+  Future<String> getSecurityAudit(String institutionId) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/admin/security-audit?institutionId=$institutionId');
+    final response = await http.get(url);
+    if (response.statusCode == 200) return jsonDecode(response.body)['audit'];
+    throw Exception('Failed to fetch security audit');
   }
 }

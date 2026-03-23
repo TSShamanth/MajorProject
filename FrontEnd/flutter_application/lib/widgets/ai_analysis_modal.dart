@@ -1,29 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import '../services/api_service.dart';
-import '../services/session_manager.dart';
 
-class AiInsightModal extends StatefulWidget {
-  final String? studentId; // If null, fetches for current student
+class AiAnalysisModal extends StatefulWidget {
+  final Future<String> Function() onAnalyze;
   final String title;
   final String subtitle;
-  final Future<String> Function()? fetchInsight;
+  final String loadingText;
 
-  const AiInsightModal({
-    super.key, 
-    this.studentId,
-    this.title = 'AI Insights',
+  const AiAnalysisModal({
+    super.key,
+    required this.onAnalyze,
+    this.title = 'AI Analysis',
     this.subtitle = 'Data-driven analysis',
-    this.fetchInsight,
+    this.loadingText = 'Analyzing patterns...',
   });
 
   @override
-  State<AiInsightModal> createState() => _AiInsightModalState();
+  State<AiAnalysisModal> createState() => _AiAnalysisModalState();
 }
 
-class _AiInsightModalState extends State<AiInsightModal> with SingleTickerProviderStateMixin {
-  final ApiService _apiService = ApiService();
-  String? _insights;
+class _AiAnalysisModalState extends State<AiAnalysisModal> with SingleTickerProviderStateMixin {
+  String? _result;
   bool _isLoading = true;
   String? _error;
   late AnimationController _pulseController;
@@ -41,7 +38,7 @@ class _AiInsightModalState extends State<AiInsightModal> with SingleTickerProvid
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    _fetchInsights();
+    _fetchAnalysis();
   }
 
   @override
@@ -50,23 +47,12 @@ class _AiInsightModalState extends State<AiInsightModal> with SingleTickerProvid
     super.dispose();
   }
 
-  Future<void> _fetchInsights() async {
+  Future<void> _fetchAnalysis() async {
     try {
-      final institutionId = await SessionManager.getInstitutionId();
-      if (institutionId == null) throw Exception('Institution ID not found');
-
-      String data;
-      if (widget.fetchInsight != null) {
-        data = await widget.fetchInsight!();
-      } else if (widget.studentId == null) {
-        data = await _apiService.getMyAiInsights(institutionId);
-      } else {
-        data = await _apiService.getMenteeAiInsights(institutionId, widget.studentId!);
-      }
-
+      final data = await widget.onAnalyze();
       if (mounted) {
         setState(() {
-          _insights = data;
+          _result = data;
           _isLoading = false;
         });
       }
@@ -90,9 +76,9 @@ class _AiInsightModalState extends State<AiInsightModal> with SingleTickerProvid
       backgroundColor: isDarkMode ? const Color(0xFF111827) : Colors.white,
       clipBehavior: Clip.antiAlias,
       child: Container(
-        width: size.width > 600 ? 500 : size.width * 0.9,
+        width: size.width > 600 ? 600 : size.width * 0.9,
         constraints: BoxConstraints(
-          maxHeight: size.height * 0.75,
+          maxHeight: size.height * 0.8,
         ),
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -174,7 +160,7 @@ class _AiInsightModalState extends State<AiInsightModal> with SingleTickerProvid
         ),
         const SizedBox(height: 32),
         Text(
-          'Analyzing patterns...',
+          widget.loadingText,
           style: TextStyle(
             color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
             fontWeight: FontWeight.w600,
@@ -199,7 +185,7 @@ class _AiInsightModalState extends State<AiInsightModal> with SingleTickerProvid
         ),
         const SizedBox(height: 8),
         Text(
-          _error ?? 'We encountered an issue while analyzing your data. Please try again.',
+          _error ?? 'We encountered an issue while processing your request. Please try again.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.grey[500], fontSize: 13),
         ),
@@ -210,7 +196,7 @@ class _AiInsightModalState extends State<AiInsightModal> with SingleTickerProvid
               _isLoading = true;
               _error = null;
             });
-            _fetchInsights();
+            _fetchAnalysis();
           },
           child: const Text('Try Again'),
         ),
@@ -222,7 +208,7 @@ class _AiInsightModalState extends State<AiInsightModal> with SingleTickerProvid
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: MarkdownBody(
-        data: _insights!,
+        data: _result!,
         styleSheet: MarkdownStyleSheet(
           p: TextStyle(
             color: isDarkMode ? Colors.grey[300] : const Color(0xFF4B5563),

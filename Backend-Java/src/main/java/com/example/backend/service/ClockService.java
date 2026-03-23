@@ -156,4 +156,16 @@ public class ClockService {
                 .forEach(document -> history.add(document.toObject(AttendanceLog.class)));
         return history;
     }
+
+    public List<AttendanceLog> getRecentLogs(String institutionId, int limit) throws ExecutionException, InterruptedException {
+        List<AttendanceLog> logs = new ArrayList<>();
+        firestore.collection("Institutions").document(institutionId)
+                .collection("attendance_logs")
+                .orderBy("clockInTime", Query.Direction.DESCENDING)
+                .limit(limit)
+                .get()
+                .get()
+                .forEach(document -> logs.add(document.toObject(AttendanceLog.class)));
+        return logs;
+    }
 }

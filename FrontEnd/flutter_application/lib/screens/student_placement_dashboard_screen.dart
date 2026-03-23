@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
 import '../services/placement_service.dart';
@@ -7,6 +8,7 @@ import '../models/placement_drive_model.dart';
 import '../models/placement_application_model.dart';
 import '../models/placement_registration_model.dart';
 import '../widgets/student_layout.dart';
+import '../widgets/ai_analysis_modal.dart';
 
 class StudentPlacementDashboardScreen extends StatefulWidget {
   final String institutionId;
@@ -153,26 +155,64 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
         ),
         Row(
           children: [
+            _buildHeaderAction(
+              Icons.auto_awesome_rounded, 
+              'AI Readiness', 
+              () => showDialog(
+                context: context,
+                builder: (context) => AiAnalysisModal(
+                  title: 'Career Readiness Report',
+                  subtitle: 'AI-driven placement probability analysis',
+                  onAnalyze: () => _apiService.getPlacementReadiness(widget.institutionId),
+                ),
+              ),
+              isAi: true,
+            ),
+            _buildHeaderAction(
+              Icons.description_rounded, 
+              'Score Resume', 
+              () async {
+                final result = await FilePicker.platform.pickFiles(
+                  type: FileType.custom,
+                  allowedExtensions: ['pdf', 'doc', 'docx'],
+                );
+                if (result != null && result.files.single.path != null) {
+                  if (!mounted) return;
+                  showDialog(
+                    context: context,
+                    builder: (context) => AiAnalysisModal(
+                      title: 'Resume Analysis',
+                      subtitle: 'AI-driven resume scoring and feedback',
+                      onAnalyze: () => _apiService.getResumeScore('general', result.files.single.path!),
+                    ),
+                  );
+                }
+              }
+            ),
+            const SizedBox(width: 12),
             _buildHeaderAction(Icons.history_rounded, 'History', () => context.push('/${widget.institutionId}/placement/history')),
             const SizedBox(width: 12),
-            _buildHeaderAction(Icons.description_rounded, 'Resume', () => context.push('/${widget.institutionId}/placement/resume-builder')),
+            _buildHeaderAction(Icons.description_rounded, 'Builder', () => context.push('/${widget.institutionId}/placement/resume-builder')),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildHeaderAction(IconData icon, String label, VoidCallback onTap) {
+  Widget _buildHeaderAction(IconData icon, String label, VoidCallback onTap, {bool isAi = false}) {
     return ElevatedButton.icon(
       onPressed: onTap,
-      icon: Icon(icon, size: 18),
-      label: Text(label),
+      icon: Icon(icon, size: 18, color: isAi ? Colors.amber : const Color(0xFF4F46E5)),
+      label: Text(label, style: TextStyle(color: isAi ? Colors.amber[900] : const Color(0xFF4F46E5))),
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF4F46E5),
+        backgroundColor: isAi ? Colors.amber[50] : Colors.white,
+        foregroundColor: isAi ? Colors.amber[900] : const Color(0xFF4F46E5),
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE5E7EB))),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12), 
+          side: BorderSide(color: isAi ? Colors.amber.withOpacity(0.3) : const Color(0xFFE5E7EB)),
+        ),
       ),
     );
   }
@@ -569,6 +609,46 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
               const SizedBox(height: 24),
               _buildDetailSection('Compensation', '${drive.salaryPackage} LPA (Standard Package)'),
               const SizedBox(height: 32),
+              const Text('AI Performance Analysis', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1F2937))),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildAiActionCard(
+                      'Skill Gap Analysis', 
+                      'Identify missing skills for this role',
+                      Icons.psychology_outlined,
+                      Colors.blue,
+                      () => showDialog(
+                        context: context,
+                        builder: (context) => AiAnalysisModal(
+                          title: 'Skill Gap Analysis',
+                          subtitle: 'Comparison with ${drive.companyName} requirements',
+                          onAnalyze: () => _apiService.getSkillGapAnalysis(widget.institutionId, drive.id),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildAiActionCard(
+                      'Profile Match', 
+                      'See how well your profile aligns',
+                      Icons.fact_check_outlined,
+                      Colors.amber,
+                      () => showDialog(
+                        context: context,
+                        builder: (context) => AiAnalysisModal(
+                          title: 'Profile Match Report',
+                          subtitle: 'Alignment with ${drive.jobRole} position',
+                          onAnalyze: () => _apiService.getProfileScore(widget.institutionId, drive.id),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
               const Text('Recruitment Rounds', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1F2937))),
               const SizedBox(height: 16),
               ...drive.recruitmentRounds.asMap().entries.map((entry) => Padding(
@@ -610,6 +690,31 @@ class _StudentPlacementDashboardScreenState extends State<StudentPlacementDashbo
         const SizedBox(height: 8),
         Text(content, style: const TextStyle(fontSize: 14, color: Color(0xFF4B5563), height: 1.6)),
       ],
+    );
+  }
+
+  Widget _buildAiActionCard(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.1)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 12),
+            Text(title, style: TextStyle(fontWeight: FontWeight.w800, color: color, fontSize: 14)),
+            const SizedBox(height: 4),
+            Text(subtitle, style: TextStyle(color: color.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
     );
   }
 }
