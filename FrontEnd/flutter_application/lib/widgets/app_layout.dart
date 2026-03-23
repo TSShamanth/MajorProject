@@ -5,6 +5,7 @@ import 'package:flutter_application/services/session_manager.dart';
 import 'package:flutter_application/services/auth_service.dart';
 import 'package:flutter_application/services/api_service.dart';
 import '../providers/institution_provider.dart';
+import '../widgets/floating_chatbot.dart';
 
 class AppLayout extends StatefulWidget {
   final Widget child;
@@ -102,20 +103,25 @@ class _AppLayoutState extends State<AppLayout> {
             return Scaffold(
               backgroundColor: _bgColor,
               drawer: isMobile ? _buildMobileDrawer(primaryColor, logoUrl, institutionName) : null,
-              body: Row(
+              body: Stack(
                 children: [
-                  if (!isMobile) _buildModernSidebar(primaryColor, logoUrl, institutionName),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        _buildModernTopBar(isMobile: isMobile, primaryColor: primaryColor),
-                        _buildBreadcrumb(),
-                        Expanded(
-                          child: widget.child,
+                  Row(
+                    children: [
+                      if (!isMobile) _buildModernSidebar(primaryColor, logoUrl, institutionName),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            _buildModernTopBar(isMobile: isMobile, primaryColor: primaryColor),
+                            _buildBreadcrumb(),
+                            Expanded(
+                              child: widget.child,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                  FloatingChatbot(institutionId: _institutionId),
                 ],
               ),
             );

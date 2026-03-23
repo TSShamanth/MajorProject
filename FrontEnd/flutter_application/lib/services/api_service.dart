@@ -29,6 +29,33 @@ import '../models/assessment_model.dart';
 import '../models/submission_model.dart';
 
 class ApiService {
+  /* -------------------- Chatbot -------------------- */
+  Future<String> askChatbot(String message) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final institutionId = await SessionManager.getInstitutionId();
+    
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/chat/ask');
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'message': message,
+        'institutionId': institutionId
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['reply'] ?? 'No response';
+    } else {
+      throw Exception('Failed to connect to chatbot: ${response.statusCode}');
+    }
+  }
+
   /* -------------------- Institutions -------------------- */
 
   static Future<List<Institution>> getInstitutions() async {
