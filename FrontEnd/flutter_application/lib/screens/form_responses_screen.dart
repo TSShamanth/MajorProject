@@ -3,7 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../models/form_builder_model.dart';
 import '../services/form_builder_service.dart';
+import '../services/session_manager.dart';
+import '../services/api_service.dart';
 import '../widgets/admin_layout.dart';
+import '../widgets/ai_analysis_modal.dart';
 
 class FormResponsesScreen extends StatefulWidget {
   final String formId;
@@ -15,8 +18,10 @@ class FormResponsesScreen extends StatefulWidget {
 
 class _FormResponsesScreenState extends State<FormResponsesScreen> {
   final FormBuilderService _formService = FormBuilderService();
+  final ApiService _apiService = ApiService();
   CustomForm? _form;
   List<FormResponseModel> _responses = [];
+  String? _institutionId;
   bool _isLoading = true;
   bool _isDarkMode = false;
 
@@ -29,8 +34,12 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
+      _institutionId = await SessionManager.getInstitutionId();
+      if (_institutionId == null) throw Exception('Institution ID not found');
+      
       final form = await _formService.getFormById(widget.formId);
       final responses = await _formService.getResponses(widget.formId);
+      
       setState(() {
         _form = form;
         _responses = responses;
@@ -56,7 +65,7 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
         Icon(Icons.chevron_right_rounded, size: 16, color: textSecondary),
         const SizedBox(width: 8),
         InkWell(
-          onTap: () => context.pop(),
+          onTap: () => context.go('/$_institutionId/admin/form-builder'),
           child: Text('Form Builder', style: TextStyle(color: textSecondary, fontSize: 13)),
         ),
         const SizedBox(width: 8),
@@ -64,50 +73,77 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
         const SizedBox(width: 8),
         Text('Responses', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.w600, fontSize: 13)),
       ],
-      child: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSummaryHeader(),
-                const SizedBox(height: 32),
-                Text('All Submissions (${_responses.length})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                if (_responses.isEmpty)
-                  _buildEmptyState(textSecondary)
-                else
-                  _buildResponsesTable(),
-              ],
+      child: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 24),
+                  if (_responses.isEmpty)
+                    _buildEmptyState(textSecondary)
+                  else
+                    _buildResponsesTable(),
+                ],
+              ),
             ),
-          ),
     );
   }
 
-  Widget _buildSummaryHeader() {
-    final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(_form?.title ?? 'Form Responses', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text('${_responses.length} responses received', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.bold, fontSize: 16)),
-        ],
-      ),
+  Widget _buildHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_form?.title ?? 'Form Responses', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('${_responses.length} responses received', style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        Row(
+          children: [
+            if (_responses.isNotEmpty)
+              ElevatedButton.icon(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AiAnalysisModal(
+                      title: 'Response Analysis',
+                      subtitle: 'Sentiment & Actionable Insights',
+                      onAnalyze: () => _apiService.analyzeFormResponses(_institutionId!, widget.formId),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.auto_awesome_rounded, size: 18, color: Colors.amber),
+                label: const Text('AI Analyze', style: TextStyle(color: Colors.amber)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber[50],
+                  elevation: 0,
+                ),
+              ),
+            const SizedBox(width: 16),
+            ElevatedButton.icon(
+              onPressed: () {}, // Placeholder for _exportToCsv
+              icon: const Icon(Icons.download_rounded, size: 18),
+              label: const Text('Export CSV'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
   Widget _buildEmptyState(Color textSecondary) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(40.0),
+        padding: const EdgeInsets.symmetric(vertical: 64),
         child: Column(
           children: [
-            Icon(Icons.forum_outlined, size: 64, color: textSecondary.withOpacity(0.5)),
+            const Icon(Icons.inbox_rounded, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text('No responses received yet.', style: TextStyle(color: textSecondary)),
           ],
@@ -117,68 +153,23 @@ class _FormResponsesScreenState extends State<FormResponsesScreen> {
   }
 
   Widget _buildResponsesTable() {
-    final cardColor = _isDarkMode ? const Color(0xFF1F2937) : Colors.white;
-    final borderColor = _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12), border: Border.all(color: borderColor)),
-      child: DataTable(
-        columns: [
-          const DataColumn(label: Text('User ID')),
-          const DataColumn(label: Text('Submitted At')),
-          ...(_form?.fields.take(2).map((f) => DataColumn(label: Text(f.label))) ?? []),
-          const DataColumn(label: Text('Actions')),
-        ],
-        rows: _responses.map((resp) {
-          return DataRow(cells: [
-            DataCell(Text('${resp.userId.substring(0, 8)}...')),
-            DataCell(Text(DateFormat('dd MMM, HH:mm').format(DateTime.fromMillisecondsSinceEpoch(resp.submittedAt)))),
-            ...(_form?.fields.take(2).map((field) {
-              final answer = resp.answers[field.id];
-              return DataCell(Text(answer?.toString() ?? '-'));
-            }) ?? []),
-            DataCell(IconButton(
-              icon: const Icon(Icons.visibility_outlined, color: Color(0xFF4F46E5)),
-              onPressed: () => _showResponseDetails(resp),
-            )),
-          ]);
-        }).toList(),
-      ),
-    );
-  }
-
-  void _showResponseDetails(FormResponseModel response) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Response Details'),
-        content: SizedBox(
-          width: 500,
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              Text('Submitted by: ${response.userId}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              const Divider(),
-              ...(_form?.fields.map((field) {
-                final answer = response.answers[field.id];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(field.label, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text(answer?.toString() ?? 'No answer provided', style: const TextStyle(color: Color(0xFF4F46E5))),
-                    ],
-                  ),
-                );
-              }) ?? []),
-            ],
+    // This would be a more complex widget, like a DataTable or a custom grid.
+    // For simplicity, we'll just list them.
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _responses.length,
+      itemBuilder: (context, index) {
+        final response = _responses[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: ListTile(
+            leading: CircleAvatar(child: Text('${index + 1}')),
+            title: Text('Submitted on: ${DateFormat.yMd().add_jm().format(DateTime.fromMillisecondsSinceEpoch(response.submittedAt))}'),
+            subtitle: Text('Answers: ${response.answers}'),
           ),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
-      ),
+        );
+      },
     );
   }
 }

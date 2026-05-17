@@ -61,18 +61,37 @@ class AttendanceService {
     return null;
   }
 
-  /// Get all subjects (Courses) for the currently logged-in faculty
+  /// Get all subjects (Courses) for the currently logged-in user (Student or Faculty)
   static Future<List<Course>> getSubjects() async {
     try {
       final institutionId = await SessionManager.getInstitutionId();
-      final facultyUid = FirebaseAuth.instance.currentUser?.uid;
+      final user = FirebaseAuth.instance.currentUser;
 
-      if (institutionId == null || facultyUid == null) {
+      if (institutionId == null || user == null) {
         throw AttendanceException(message: 'User not logged in or institution ID not found.');
       }
 
-      final url = Uri.parse('${ApiConfig.baseUrl}/institutions/$institutionId/faculty/$facultyUid/courses');
-      final response = await http.get(url);
+      final token = await user.getIdToken();
+      
+      // Fetch user profile using the standard /me endpoint
+      final responseMe = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/users/me'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      
+      if (responseMe.statusCode != 200) throw Exception('Failed to fetch user profile: ${responseMe.statusCode}');
+      final userData = json.decode(responseMe.body);
+      final role = userData['role']?.toString().toLowerCase() ?? '';
+
+      String urlPath = role == 'student' ? 'student' : 'faculty';
+      final url = Uri.parse('${ApiConfig.baseUrl}/institutions/$institutionId/$urlPath/${user.uid}/courses');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
 
       if (response.statusCode == 200) {
         List<dynamic> coursesJson = json.decode(response.body);
@@ -91,16 +110,12 @@ class AttendanceService {
   static Future<List<UserModel>> getStudentsForSubject(String courseCode) async {
     try {
       final institutionId = await SessionManager.getInstitutionId();
-      if (institutionId == null) {
-        throw AttendanceException(message: 'Institution ID not found.');
+      final user = FirebaseAuth.instance.currentUser;
+      if (institutionId == null || user == null) {
+        throw AttendanceException(message: 'Institution ID or User not found.');
       }
 
-      // Need departmentId for the endpoint
-      // Resolve departmentId using Course object if possible, or another service.
-      // For now, _getDepartmentIdFromCourseCode needs to be updated or a new way to get departmentId needs to be implemented.
-      // Since Course model's departmentId is now nullable from backend, we need to handle this.
-      // A more robust solution involves storing departmentId in the Course model or fetching it directly from the backend API.
-      // For immediate fix, if we cannot get departmentId, we'll throw an error.
+      final token = await user.getIdToken();
       final departmentId = await _getDepartmentIdFromCourseCode(institutionId, courseCode);
       if (departmentId == null) {
         throw AttendanceException(message: 'Department ID not found for course: $courseCode. Cannot fetch students.');
@@ -108,7 +123,10 @@ class AttendanceService {
 
       final url = Uri.parse(
           '${ApiConfig.baseUrl}/institutions/$institutionId/departments/$departmentId/courses/$courseCode/students');
-      final response = await http.get(url);
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
 
       if (response.statusCode == 200) {
         List<dynamic> studentsJson = json.decode(response.body);
@@ -127,21 +145,27 @@ class AttendanceService {
   static Future<bool> markAttendance({
     required String courseCode,
     required String institutionId,
-    required String? departmentId, // Changed to nullable
+    required String? departmentId,
     required String facultyUid,
     required List<AttendanceModel> attendanceRecords,
   }) async {
-    // Add null check for departmentId as it's required for the URL
     if (departmentId == null) {
       throw AttendanceException(message: 'Department ID is missing for marking attendance.');
     }
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw AttendanceException(message: 'User not logged in.');
+      final token = await user.getIdToken();
+
       final url = Uri.parse(
           '${ApiConfig.baseUrl}/institutions/$institutionId/departments/$departmentId/courses/$courseCode/attendance');
       
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
         body: json.encode(attendanceRecords.map((e) => e.toJson()).toList()),
       );
 
@@ -160,19 +184,24 @@ class AttendanceService {
   /// Get attendance history for a subject (course)
   static Future<List<AttendanceModel>> getAttendanceHistory(
       String institutionId, String? departmentId, String courseCode) async {
-    // Add null check for departmentId as it's required for the URL
     if (departmentId == null) {
       throw AttendanceException(message: 'Department ID is missing for fetching attendance history.');
     }
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw AttendanceException(message: 'User not logged in.');
+      final token = await user.getIdToken();
+
       final url = Uri.parse(
           '${ApiConfig.baseUrl}/institutions/$institutionId/departments/$departmentId/courses/$courseCode/attendance'); 
-      final response = await http.get(url);
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
 
       if (response.statusCode == 200) {
         List<dynamic> attendanceJson = json.decode(response.body);
         return attendanceJson.map((json) => AttendanceModel.fromJson(json)).toList();
-
       } else {
         throw AttendanceException(
             message: _getHttpErrorMessage(response.statusCode),
@@ -187,11 +216,17 @@ class AttendanceService {
   static Future<List<AttendanceModel>> getStudentAttendance(String studentId) async {
     try {
       final institutionId = await SessionManager.getInstitutionId();
-      if (institutionId == null) {
-        throw AttendanceException(message: 'Institution ID not found.');
+      final user = FirebaseAuth.instance.currentUser;
+      if (institutionId == null || user == null) {
+        throw AttendanceException(message: 'Institution ID or User not found.');
       }
+      final token = await user.getIdToken();
+
       final url = Uri.parse('${ApiConfig.baseUrl}/institutions/$institutionId/students/$studentId/attendance');
-      final response = await http.get(url);
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
 
       if (response.statusCode == 200) {
         List<dynamic> attendanceJson = json.decode(response.body);
@@ -209,14 +244,20 @@ class AttendanceService {
   /// Get attendance for a specific date (for a course)
   static Future<List<AttendanceModel>> getAttendanceForDate(
       String institutionId, String? departmentId, String courseCode, String date) async {
-    // Add null check for departmentId as it's required for the URL
     if (departmentId == null) {
       throw AttendanceException(message: 'Department ID is missing for fetching attendance for date.');
     }
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw AttendanceException(message: 'User not logged in.');
+      final token = await user.getIdToken();
+
       final url = Uri.parse(
           '${ApiConfig.baseUrl}/institutions/$institutionId/departments/$departmentId/courses/$courseCode/attendance?date=$date');
-      final response = await http.get(url);
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
 
       if (response.statusCode == 200) {
         List<dynamic> attendanceJson = json.decode(response.body);
@@ -235,11 +276,17 @@ class AttendanceService {
   static Future<List<dynamic>> getSubjectWiseAttendance(String studentId) async {
     try {
       final institutionId = await SessionManager.getInstitutionId();
-      if (institutionId == null) {
-        throw AttendanceException(message: 'Institution ID not found.');
+      final user = FirebaseAuth.instance.currentUser;
+      if (institutionId == null || user == null) {
+        throw AttendanceException(message: 'Institution ID or User not found.');
       }
+      final token = await user.getIdToken();
+
       final url = Uri.parse('${ApiConfig.baseUrl}/institutions/$institutionId/students/$studentId/subject-wise-attendance');
-      final response = await http.get(url);
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
 
       if (response.statusCode == 200) {
         List<dynamic> attendanceJson = json.decode(response.body);

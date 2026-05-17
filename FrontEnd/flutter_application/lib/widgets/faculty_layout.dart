@@ -58,6 +58,7 @@ class _FacultyLayoutState extends State<FacultyLayout> {
       {'icon': Icons.payments_outlined, 'label': "Students' Fee Status", 'route': '/faculty/student-fees'},
       {'icon': Icons.description_outlined, 'label': 'Leave Application', 'route': '/faculty/leave'},
       {'icon': Icons.check_circle_outline, 'label': 'Approve Leaves', 'route': '/faculty/leave-approval'},
+      {'icon': Icons.assignment_rounded, 'label': 'Course Assessments', 'route': '/faculty/assessments'},
       {'icon': Icons.grade_outlined, 'label': 'Marks Entry', 'route': '/faculty/marks-entry'},
       {'icon': Icons.attach_money_rounded, 'label': 'Payroll', 'route': '/faculty/payroll'},
       {'icon': Icons.assignment_turned_in_rounded, 'label': 'Mark Attendance', 'route': '/faculty/mark-attendance'},

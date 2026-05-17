@@ -1,5 +1,6 @@
 class MarksModel {
   final String? id;
+  final String? assessmentId;
   final String studentId;
   final String courseCode;
   final String institutionId;
@@ -13,6 +14,7 @@ class MarksModel {
 
   MarksModel({
     this.id,
+    this.assessmentId,
     required this.studentId,
     required this.courseCode,
     required this.institutionId,
@@ -28,6 +30,7 @@ class MarksModel {
   factory MarksModel.fromJson(Map<String, dynamic> json) {
     return MarksModel(
       id: json['id'],
+      assessmentId: json['assessmentId'],
       studentId: json['studentId'] ?? '',
       courseCode: json['courseCode'] ?? '',
       institutionId: json['institutionId'] ?? '',
@@ -44,6 +47,7 @@ class MarksModel {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'assessmentId': assessmentId,
       'studentId': studentId,
       'courseCode': courseCode,
       'institutionId': institutionId,

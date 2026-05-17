@@ -40,10 +40,14 @@ public class MentorshipController {
     private String getCurrentUserRole() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) return null;
-        return authentication.getAuthorities().stream()
+        String role = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .findFirst()
                 .orElse(null);
+        if (role != null && role.startsWith("ROLE_")) {
+            return role.substring(5).toLowerCase();
+        }
+        return role != null ? role.toLowerCase() : null;
     }
 
     @PostMapping("/assign")
@@ -101,8 +105,18 @@ public class MentorshipController {
             meeting.setMentorId(currentUserUid);
         } else if ("student".equals(role)) {
             meeting.setStudentId(currentUserUid);
+            // Fetch and set mentorId
+            try {
+                User mentor = mentorshipService.getMentor(institutionId, currentUserUid);
+                if (mentor != null && mentor.getUid() != null) {
+                    meeting.setMentorId(mentor.getUid());
+                }
+            } catch (Exception e) {
+                logger.warn("Could not fetch mentor for meeting: {}", e.getMessage());
+            }
         }
         
+        if (meeting.getStatus() == null) meeting.setStatus("Scheduled");
         mentorshipService.createMeeting(institutionId, meeting);
     }
 
@@ -125,6 +139,20 @@ public class MentorshipController {
     public void raiseConcern(@RequestParam String institutionId, @RequestBody MenteeConcern concern) throws ExecutionException, InterruptedException {
         String studentId = getCurrentUserUid();
         concern.setStudentId(studentId);
+        
+        // Fetch and set mentorId
+        try {
+            User mentor = mentorshipService.getMentor(institutionId, studentId);
+            if (mentor != null && mentor.getUid() != null) {
+                concern.setMentorId(mentor.getUid());
+            }
+        } catch (Exception e) {
+            logger.warn("Could not fetch mentor for concern: {}", e.getMessage());
+        }
+        
+        if (concern.getStatus() == null) concern.setStatus("Raised");
+        if (concern.getCreatedAt() == null) concern.setCreatedAt(java.time.LocalDateTime.now().toString());
+
         mentorshipService.raiseConcern(institutionId, concern);
     }
 

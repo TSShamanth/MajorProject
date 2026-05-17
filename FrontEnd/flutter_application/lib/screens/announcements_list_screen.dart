@@ -83,20 +83,29 @@ class _AnnouncementsListScreenState extends State<AnnouncementsListScreen> with 
     }
 
     try {
-      final fetchedMy = await _announcementService.getMyAnnouncementsFromBackend(_institutionId!);
-      final fetchedAll = await _announcementService.getAllAnnouncements(_institutionId!);
-      final fetchedAudience = await _announcementService.getAnnouncements(
-        _institutionId!,
-        role: _currentUser?.role,
-        departmentId: _currentUser?.departmentId,
-        programme: _currentUser?.programme,
-      );
+      final isStudent = _currentUser?.role?.toLowerCase() == 'student';
+      
+      final results = await Future.wait([
+        if (!isStudent) 
+          _announcementService.getMyAnnouncementsFromBackend(_institutionId!)
+        else 
+          Future.value(<AnnouncementModel>[]),
+        
+        _announcementService.getAllAnnouncements(_institutionId!),
+        
+        _announcementService.getAnnouncements(
+          _institutionId!,
+          role: _currentUser?.role,
+          departmentId: _currentUser?.departmentId,
+          programme: _currentUser?.programme,
+        ),
+      ]);
 
       if (mounted) {
         setState(() {
-          _myAnnouncements = fetchedMy;
-          _announcements = fetchedAll;
-          _audienceAnnouncements = fetchedAudience;
+          _myAnnouncements = results[0];
+          _announcements = results[1];
+          _audienceAnnouncements = results[2];
           _isLoading = false;
         });
       }

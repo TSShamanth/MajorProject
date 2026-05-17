@@ -8,7 +8,7 @@ import com.example.backend.service.UserService;
 import com.google.firebase.auth.UserRecord;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-// import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,18 +32,14 @@ public class AdminController {
     }
 
     @PostMapping("/institutions/{institutionId}/users")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR_ADMIN', 'ADMISSION_ADMIN')")
     public ResponseEntity<?> createUser(
             @AuthenticationPrincipal String requesterUid,
             @RequestBody CreateUserRequest createUserRequest, 
             @PathVariable String institutionId) {
         try {
             logger.info("AdminController: createUser called by UID: {} for institution: {}", requesterUid, institutionId);
-            User requestingUser = userService.getUserById(institutionId, requesterUid);
-            if (requestingUser == null || !"admin".equalsIgnoreCase(requestingUser.getRole())) {
-                logger.warn("AdminController: Requester UID {} not found or not an admin in Firestore for institution {}", requesterUid, institutionId);
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied: Admin user not found or insufficient privileges.");
-            }
-
+            
             // Ensure the institutionId in the request body matches the path variable
             if (!institutionId.equals(createUserRequest.getInstitutionId())) {
                 return ResponseEntity.badRequest().body("Institution ID in path and body do not match.");
@@ -57,17 +53,13 @@ public class AdminController {
     }
 
     @PostMapping("/institutions/{institutionId}/users/bulk")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR_ADMIN', 'ADMISSION_ADMIN')")
     public ResponseEntity<?> bulkCreateUsers(
             @AuthenticationPrincipal String requesterUid,
             @PathVariable String institutionId,
             @RequestBody List<CreateUserRequest> requests) {
         try {
             logger.info("AdminController: bulkCreateUsers called by UID: {} for institution: {} with {} users", requesterUid, institutionId, requests.size());
-            User requestingUser = userService.getUserById(institutionId, requesterUid);
-            if (requestingUser == null || !"admin".equalsIgnoreCase(requestingUser.getRole())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied: Admin user not found or insufficient privileges.");
-            }
-
             List<String> results = userService.bulkCreateUsers(institutionId, requests);
             return ResponseEntity.ok(results);
         } catch (Exception e) {
@@ -86,13 +78,7 @@ public class AdminController {
             if (uid == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authentication token missing or invalid.");
             }
-            User requestingUser = userService.getUserById(institutionId, uid);
-            if (requestingUser == null) {
-                logger.warn("AdminController: Requester UID {} not found in Firestore for institution {}", uid, institutionId);
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied: User record not found for this institution.");
-            }
-            
-            // Relaxed check: Allow any authenticated user belonging to the institution to list users
+            // Allow any authenticated user from the institution to list users (basic directory access)
             List<User> users = userService.getUsers(institutionId, role);
             return ResponseEntity.ok(users);
         } catch (Exception e) {
@@ -128,6 +114,7 @@ public class AdminController {
     }
 
     @PutMapping("/users/{targetUid}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR_ADMIN', 'ADMISSION_ADMIN')")
     public ResponseEntity<?> updateUser(
             @AuthenticationPrincipal String requesterUid,
             @PathVariable String targetUid,
@@ -135,12 +122,6 @@ public class AdminController {
             @RequestBody User updates) {
         try {
             logger.info("AdminController: updateUser called by requester UID: {} for target UID: {} in institution: {}", requesterUid, targetUid, institutionId);
-            User requestingUser = userService.getUserById(institutionId, requesterUid);
-            if (requestingUser == null || !"admin".equalsIgnoreCase(requestingUser.getRole())) {
-                logger.warn("AdminController: Unauthorized access attempt by UID: {}", requesterUid);
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied: Admin user not found or insufficient privileges.");
-            }
-
             userService.updateUser(institutionId, targetUid, updates);
             return ResponseEntity.ok("User updated successfully.");
         } catch (Exception e) {
@@ -150,18 +131,13 @@ public class AdminController {
     }
 
     @GetMapping("/users/{facultyId}/attendance-history")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR_ADMIN', 'ADMISSION_ADMIN')")
     public ResponseEntity<?> getAttendanceHistoryForFaculty(
             @AuthenticationPrincipal String requesterUid,
             @PathVariable String facultyId,
             @RequestParam String institutionId) {
         try {
             logger.info("AdminController: getAttendanceHistoryForFaculty called by requester UID: {} for faculty UID: {} in institution: {}", requesterUid, facultyId, institutionId);
-            User requestingUser = userService.getUserById(institutionId, requesterUid);
-            if (requestingUser == null || !"admin".equalsIgnoreCase(requestingUser.getRole())) {
-                logger.warn("AdminController: Unauthorized access attempt by UID: {}", requesterUid);
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied: Admin user not found or insufficient privileges.");
-            }
-
             List<AttendanceLog> history = clockService.getAttendanceHistory(institutionId, facultyId);
             return ResponseEntity.ok(history);
         } catch (ExecutionException | InterruptedException e) {

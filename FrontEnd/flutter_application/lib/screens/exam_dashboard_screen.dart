@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_application/services/session_manager.dart';
 import 'package:flutter_application/services/api_service.dart';
 import 'package:flutter_application/models/exam_model.dart' as app_models;
+import 'package:flutter_application/models/user_model.dart';
 import '../widgets/admin_layout.dart';
 
 class ExamDashboardScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
   String _errorMessage = '';
   String? _selectedExamId;
   String? _institutionId;
+  UserModel? _currentUser;
   bool _isDarkMode = false;
 
   @override
@@ -30,8 +32,20 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
   Future<void> _initData() async {
     _institutionId = await SessionManager.getInstitutionId();
     if (_institutionId != null) {
+      try {
+        final user = await _apiService.getMe(_institutionId!);
+        if (mounted) setState(() => _currentUser = user);
+      } catch (e) {
+        debugPrint('Error fetching current user: $e');
+      }
       await _fetchExams();
     }
+  }
+
+  bool _hasRole(List<String> roles) {
+    if (_currentUser == null || _currentUser!.role == null) return false;
+    final userRole = _currentUser!.role!.toLowerCase().trim().replaceAll(' ', '_');
+    return roles.contains(userRole);
   }
 
   Future<void> _fetchExams() async {
@@ -108,18 +122,19 @@ class _ExamDashboardScreenState extends State<ExamDashboardScreen> {
                           Text('Manage schedules, eligibility and hall tickets', style: TextStyle(fontSize: 14, color: textSecondary)),
                         ],
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () => _navigateToEditor(),
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text('Create New Exam'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4F46E5),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          elevation: 0,
+                      if (_hasRole(['admin', 'exam_admin']))
+                        ElevatedButton.icon(
+                          onPressed: () => _navigateToEditor(),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Create New Exam'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4F46E5),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 32),

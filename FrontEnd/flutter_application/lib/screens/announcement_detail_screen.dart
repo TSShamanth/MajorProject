@@ -10,6 +10,7 @@ import '../services/api_service.dart';
 import '../widgets/faculty_layout.dart';
 import '../widgets/admin_layout.dart';
 import '../widgets/student_layout.dart';
+import '../widgets/ai_analysis_modal.dart';
 
 class AnnouncementDetailScreen extends StatefulWidget {
   final AnnouncementModel announcement;
@@ -221,9 +222,31 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
             ],
           ),
         ),
-        if (canManage)
-          Row(
-            children: [
+        Row(
+          children: [
+            ElevatedButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AiAnalysisModal(
+                    title: 'AI Summarize',
+                    subtitle: 'Automated summary of this announcement',
+                    onAnalyze: () => _apiService.summarizeAnnouncement(_institutionId!, _announcement.id),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+              label: const Text('AI Summarize'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.indigo[50],
+                foregroundColor: Colors.indigo[700],
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            if (canManage) ...[
+              const SizedBox(width: 12),
               OutlinedButton.icon(
                 onPressed: _deleteAnnouncement,
                 icon: const Icon(Icons.delete_rounded, size: 18, color: Colors.red),
@@ -247,7 +270,8 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
                 ),
               ),
             ],
-          ),
+          ],
+        ),
       ],
     );
   }

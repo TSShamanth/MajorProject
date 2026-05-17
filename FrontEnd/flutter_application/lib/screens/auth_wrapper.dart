@@ -45,7 +45,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (!mounted) return; // Check again after await
 
       final path = switch (role) {
-        'admin' => '/$institutionId/admin/dashboard',
+        'admin' || 'hr_admin' || 'finance_admin' || 'exam_admin' || 'admission_admin' => '/$institutionId/admin/dashboard',
         'faculty' => '/$institutionId/faculty/dashboard',
         'student' => '/$institutionId/student/dashboard',
         'placements' => '/$institutionId/placement/dashboard',

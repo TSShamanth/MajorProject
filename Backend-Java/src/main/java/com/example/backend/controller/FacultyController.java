@@ -30,7 +30,7 @@ public class FacultyController {
     }
 
     @GetMapping("/my-students-fees")
-    @PreAuthorize("hasAuthority('faculty')") // Added method-level security
+    @PreAuthorize("hasRole('FACULTY')") // Added method-level security
     public ResponseEntity<List<StudentFee>> getMyStudentsFeeStatus(@PathVariable String institutionId) {
         try {
             // Get the currently authenticated user's details

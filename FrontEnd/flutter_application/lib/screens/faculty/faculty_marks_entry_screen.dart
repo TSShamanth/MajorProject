@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application/models/course_model.dart';
 import 'package:flutter_application/models/marks_model.dart';
 import 'package:flutter_application/models/user_model.dart';
+import 'package:flutter_application/models/assessment_model.dart';
 import 'package:flutter_application/services/api_service.dart';
 import 'package:flutter_application/services/attendance_service.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +21,9 @@ class _FacultyMarksEntryScreenState extends State<FacultyMarksEntryScreen> {
   
   List<Course> _facultyCourses = [];
   Course? _selectedCourse;
+  List<AssessmentModel> _courseAssessments = [];
+  AssessmentModel? _selectedAssessment;
+  
   String _selectedType = 'Assignment';
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _totalMarksController = TextEditingController(text: '100');
@@ -62,27 +66,32 @@ class _FacultyMarksEntryScreenState extends State<FacultyMarksEntryScreen> {
     }
   }
 
-  Future<void> _loadStudents() async {
-    if (_selectedCourse == null) return;
+  Future<void> _loadCourseData() async {
+    if (_selectedCourse == null || _institutionId == null) return;
 
     setState(() => _isLoading = true);
     try {
-      final loadedStudents = await AttendanceService.getStudentsForSubject(_selectedCourse!.courseCode);
+      final results = await Future.wait([
+        AttendanceService.getStudentsForSubject(_selectedCourse!.courseCode),
+        _apiService.getAssessmentsByCourse(_institutionId!, _selectedCourse!.courseCode),
+      ]);
 
       if (mounted) {
         setState(() {
-          _students = loadedStudents;
+          _students = results[0] as List<UserModel>;
+          _courseAssessments = results[1] as List<AssessmentModel>;
           _marksControllers = {
             for (var student in _students) 
               student.uid: TextEditingController()
           };
+          _selectedAssessment = null;
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading students: $e'), behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text('Error loading course data: $e'), behavior: SnackBarBehavior.floating),
         );
         setState(() => _isLoading = false);
       }
@@ -90,14 +99,23 @@ class _FacultyMarksEntryScreenState extends State<FacultyMarksEntryScreen> {
   }
 
   Future<void> _saveAllMarks() async {
-    if (_selectedCourse == null || _institutionId == null || _titleController.text.isEmpty) {
+    if (_selectedCourse == null || _institutionId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all required fields'), behavior: SnackBarBehavior.floating),
+        const SnackBar(content: Text('Please select a course'), behavior: SnackBarBehavior.floating),
       );
       return;
     }
 
-    final totalMarks = double.tryParse(_totalMarksController.text) ?? 100.0;
+    final String title = _selectedAssessment?.title ?? _titleController.text;
+    final String type = _selectedAssessment?.type ?? _selectedType;
+    final double totalMarks = _selectedAssessment?.maxMarks ?? (double.tryParse(_totalMarksController.text) ?? 100.0);
+
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please provide an assessment title'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
     
     setState(() => _isSaving = true);
     try {
@@ -108,12 +126,13 @@ class _FacultyMarksEntryScreenState extends State<FacultyMarksEntryScreen> {
           final obtained = double.tryParse(obtainedStr) ?? 0.0;
           
           final marks = MarksModel(
+            assessmentId: _selectedAssessment?.id,
             studentId: student.uid,
             courseCode: _selectedCourse!.courseCode,
             institutionId: _institutionId!,
             semester: _selectedCourse!.semester,
-            type: _selectedType,
-            title: _titleController.text,
+            type: type,
+            title: title,
             obtainedMarks: obtained,
             totalMarks: totalMarks,
             timestamp: DateTime.now().millisecondsSinceEpoch,
@@ -278,57 +297,89 @@ class _FacultyMarksEntryScreenState extends State<FacultyMarksEntryScreen> {
                 _selectedCourse = value;
                 _students = [];
               });
-              _loadStudents();
+              _loadCourseData();
             },
           ),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: DropdownButtonFormField<String>(
-                  value: _selectedType,
-                  dropdownColor: cardColor,
-                  style: TextStyle(color: textPrimary, fontSize: 14),
-                  decoration: InputDecoration(
-                    labelText: 'Assessment Type',
-                    labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    prefixIcon: const Icon(Icons.assignment_rounded, size: 20),
-                  ),
-                  items: _markTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                  onChanged: (value) => setState(() => _selectedType = value!),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 1,
-                child: TextFormField(
-                  controller: _totalMarksController,
-                  style: TextStyle(color: textPrimary, fontSize: 14),
-                  decoration: InputDecoration(
-                    labelText: 'Max Marks',
-                    labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    prefixIcon: const Icon(Icons.score_rounded, size: 20),
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          TextFormField(
-            controller: _titleController,
+          DropdownButtonFormField<AssessmentModel>(
+            value: _selectedAssessment,
+            dropdownColor: cardColor,
             style: TextStyle(color: textPrimary, fontSize: 14),
             decoration: InputDecoration(
-              labelText: 'Assessment Title',
+              labelText: 'Select Assessment (Optional)',
               labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              hintText: 'e.g. Quiz 1, Midterm Exam',
-              prefixIcon: const Icon(Icons.title_rounded, size: 20),
+              prefixIcon: const Icon(Icons.fact_check_rounded, size: 20),
+              helperText: 'Select a pre-defined assessment or enter manually below',
             ),
+            items: [
+              const DropdownMenuItem<AssessmentModel>(value: null, child: Text('Manual Entry')),
+              ..._courseAssessments.map((a) => DropdownMenuItem(
+                value: a,
+                child: Text('${a.title} (${a.maxMarks} Marks)'),
+              )),
+            ],
+            onChanged: (value) {
+              setState(() {
+                _selectedAssessment = value;
+                if (value != null) {
+                  _selectedType = value.type;
+                  _titleController.text = value.title;
+                  _totalMarksController.text = value.maxMarks.toString();
+                }
+              });
+            },
           ),
+          if (_selectedAssessment == null) ...[
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedType,
+                    dropdownColor: cardColor,
+                    style: TextStyle(color: textPrimary, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: 'Assessment Type',
+                      labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      prefixIcon: const Icon(Icons.assignment_rounded, size: 20),
+                    ),
+                    items: _markTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                    onChanged: (value) => setState(() => _selectedType = value!),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 1,
+                  child: TextFormField(
+                    controller: _totalMarksController,
+                    style: TextStyle(color: textPrimary, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: 'Max Marks',
+                      labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      prefixIcon: const Icon(Icons.score_rounded, size: 20),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            TextFormField(
+              controller: _titleController,
+              style: TextStyle(color: textPrimary, fontSize: 14),
+              decoration: InputDecoration(
+                labelText: 'Assessment Title',
+                labelStyle: TextStyle(color: _isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: 'e.g. Quiz 1, Midterm Exam',
+                prefixIcon: const Icon(Icons.title_rounded, size: 20),
+              ),
+            ),
+          ],
         ],
       ),
     );

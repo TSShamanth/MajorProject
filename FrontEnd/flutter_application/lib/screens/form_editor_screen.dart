@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import '../models/form_builder_model.dart';
 import '../services/form_builder_service.dart';
 import '../services/session_manager.dart';
+import '../services/api_service.dart';
 import '../widgets/admin_layout.dart';
 
 class FormEditorScreen extends StatefulWidget {
@@ -164,6 +166,81 @@ class _FormEditorScreenState extends State<FormEditorScreen> {
             ),
           ),
     );
+  }
+
+  Future<void> _magicGenerateFields() async {
+    final topicController = TextEditingController();
+    final topic = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('AI Form Builder'),
+        content: TextField(
+          controller: topicController,
+          decoration: const InputDecoration(
+            hintText: 'e.g., Student Feedback for CSE Department',
+            labelText: 'What is this form about?',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, topicController.text),
+            child: const Text('Generate'),
+          ),
+        ],
+      ),
+    );
+
+    if (topic != null && topic.isNotEmpty) {
+      setState(() => _isLoading = true);
+      try {
+        final apiService = ApiService();
+        final proposalJson = await apiService.proposeFormFields(topic);
+        final List<dynamic> proposedFields = jsonDecode(proposalJson);
+        
+        setState(() {
+          _fields.clear(); // Clear existing fields
+          for (var field in proposedFields) {
+            String rawType = field['type'].toString().toUpperCase();
+            String mappedType = 'TEXT';
+            
+            // Map AI suggestions to supported frontend types
+            if (rawType.contains('TEXT')) {
+              mappedType = 'TEXT';
+            } else if (rawType.contains('PARA')) {
+              mappedType = 'PARAGRAPH';
+            } else if (rawType.contains('CHOICE')) {
+              mappedType = 'MULTIPLE_CHOICE';
+            } else if (rawType.contains('CHECK')) {
+              mappedType = 'CHECKBOXES';
+            } else if (rawType.contains('DROP')) {
+              mappedType = 'DROPDOWN';
+            } else if (rawType.contains('SCALE')) {
+              mappedType = 'SCALE';
+            } else if (rawType.contains('DATE')) {
+              mappedType = 'DATE';
+            } else if (rawType.contains('NUM')) {
+              mappedType = 'TEXT';
+            }
+            
+            _fields.add(FormFieldModel(
+              id: const Uuid().v4(),
+              type: mappedType,
+              label: field['label'],
+              placeholder: '',
+              isRequired: field['required'] ?? false,
+              options: field['options'] != null ? List<String>.from(field['options']) : [],
+            ));
+          }
+          _isLoading = false;
+        });
+      } catch (e) {
+        setState(() => _isLoading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error generating fields: $e')));
+        }
+      }
+    }
   }
 
   Widget _buildFormHeader(Color textPrimary) {
@@ -456,6 +533,17 @@ class _FormEditorScreenState extends State<FormEditorScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        ElevatedButton.icon(
+          onPressed: _magicGenerateFields,
+          icon: const Icon(Icons.auto_awesome_rounded, color: Colors.amber),
+          label: const Text('Magic AI Build'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.amber[50],
+            foregroundColor: Colors.amber[900],
+            side: BorderSide(color: Colors.amber[200]!),
+          ),
+        ),
+        const SizedBox(width: 24),
         ElevatedButton.icon(
           onPressed: _addField,
           icon: const Icon(Icons.add_circle_outline),

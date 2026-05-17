@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../services/api_service.dart';
@@ -354,6 +355,16 @@ class _FacultyLeaveApprovalScreenState extends State<FacultyLeaveApprovalScreen>
               ),
             
             if (showActions) ...[
+              const SizedBox(height: 16),
+              _AiLeaveInsight(
+                onGetInsight: () => _apiService.getLeaveInsight(
+                  'RVU', // Fallback or dynamic institution ID
+                  leave.studentId ?? '', 
+                  DateFormat('yyyy-MM-dd').format(leave.startDate), 
+                  DateFormat('yyyy-MM-dd').format(leave.endDate)
+                ),
+                isDarkMode: _isDarkMode,
+              ),
               const SizedBox(height: 24.0),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -450,5 +461,84 @@ class _FacultyLeaveApprovalScreenState extends State<FacultyLeaveApprovalScreen>
       case 'rejected': return Colors.red;
       default: return Colors.grey;
     }
+  }
+}
+
+class _AiLeaveInsight extends StatefulWidget {
+  final Future<String> Function() onGetInsight;
+  final bool isDarkMode;
+
+  const _AiLeaveInsight({required this.onGetInsight, required this.isDarkMode});
+
+  @override
+  State<_AiLeaveInsight> createState() => _AiLeaveInsightState();
+}
+
+class _AiLeaveInsightState extends State<_AiLeaveInsight> {
+  String? _insight;
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF4F46E5).withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome_rounded, color: Color(0xFF4F46E5), size: 18),
+              const SizedBox(width: 8),
+              const Text(
+                'AI LEAVE ASSISTANT',
+                style: TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
+              ),
+              const Spacer(),
+              if (_insight == null && !_isLoading)
+                TextButton(
+                  onPressed: () async {
+                    setState(() => _isLoading = true);
+                    try {
+                      final result = await widget.onGetInsight();
+                      setState(() {
+                        _insight = result;
+                        _isLoading = false;
+                      });
+                    } catch (e) {
+                      setState(() => _isLoading = false);
+                    }
+                  },
+                  child: const Text('Get Insight', style: TextStyle(fontSize: 12)),
+                ),
+            ],
+          ),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+            ),
+          if (_insight != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: MarkdownBody(
+                data: _insight!,
+                styleSheet: MarkdownStyleSheet(
+                  p: TextStyle(
+                    fontSize: 13,
+                    color: widget.isDarkMode ? Colors.grey[300] : const Color(0xFF374151),
+                    fontStyle: FontStyle.italic,
+                  ),
+                  strong: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

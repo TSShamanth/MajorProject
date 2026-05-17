@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/admin_layout.dart';
 import '../services/session_manager.dart';
+import '../services/api_service.dart';
+import '../models/user_model.dart';
 
 class AdminUserManagementScreen extends StatefulWidget {
   const AdminUserManagementScreen({super.key});
@@ -12,21 +14,37 @@ class AdminUserManagementScreen extends StatefulWidget {
 
 class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   String? _institutionId;
+  UserModel? _currentUser;
   bool _isDarkMode = false;
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
-    _fetchInstitutionId();
+    _initData();
   }
 
-  Future<void> _fetchInstitutionId() async {
+  Future<void> _initData() async {
     final id = await SessionManager.getInstitutionId();
     if (mounted) {
       setState(() {
         _institutionId = id;
       });
     }
+    if (id != null) {
+      try {
+        final user = await _apiService.getMe(id);
+        if (mounted) setState(() => _currentUser = user);
+      } catch (e) {
+        debugPrint('Error fetching current user: $e');
+      }
+    }
+  }
+
+  bool _hasRole(List<String> roles) {
+    if (_currentUser == null || _currentUser!.role == null) return false;
+    final userRole = _currentUser!.role!.toLowerCase().trim().replaceAll(' ', '_');
+    return roles.contains(userRole);
   }
 
   @override
@@ -77,28 +95,30 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     }
                   },
                 ),
-                _buildManagementCard(
-                  title: 'Admin Management',
-                  subtitle: 'System administrators and staff',
-                  icon: Icons.admin_panel_settings_rounded,
-                  color: const Color(0xFF8B5CF6),
-                  onTap: () {
-                    if (_institutionId != null) {
-                      context.push('/$_institutionId/admin/users/admin');
-                    }
-                  },
-                ),
-                _buildManagementCard(
-                  title: 'Bulk User Import',
-                  subtitle: 'Upload multiple users via CSV',
-                  icon: Icons.upload_file_rounded,
-                  color: const Color(0xFFF59E0B),
-                  onTap: () {
-                    if (_institutionId != null) {
-                      context.push('/$_institutionId/admin/bulk-user-import');
-                    }
-                  },
-                ),
+                if (_hasRole(['admin', 'hr_admin', 'admission_admin'])) ...[
+                  _buildManagementCard(
+                    title: 'Admin Management',
+                    subtitle: 'System administrators and staff',
+                    icon: Icons.admin_panel_settings_rounded,
+                    color: const Color(0xFF8B5CF6),
+                    onTap: () {
+                      if (_institutionId != null) {
+                        context.push('/$_institutionId/admin/users/admin');
+                      }
+                    },
+                  ),
+                  _buildManagementCard(
+                    title: 'Bulk User Import',
+                    subtitle: 'Upload multiple users via CSV',
+                    icon: Icons.upload_file_rounded,
+                    color: const Color(0xFFF59E0B),
+                    onTap: () {
+                      if (_institutionId != null) {
+                        context.push('/$_institutionId/admin/bulk-user-import');
+                      }
+                    },
+                  ),
+                ],
               ],
             ),
           ],

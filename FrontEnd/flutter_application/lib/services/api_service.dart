@@ -25,8 +25,37 @@ import './session_manager.dart';
 import '../models/student_fee_model.dart';
 import '../models/saved_payment_method_model.dart';
 import '../models/marks_model.dart';
+import '../models/assessment_model.dart';
+import '../models/submission_model.dart';
 
 class ApiService {
+  /* -------------------- Chatbot -------------------- */
+  Future<String> askChatbot(String message) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final institutionId = await SessionManager.getInstitutionId();
+    
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/chat/ask');
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'message': message,
+        'institutionId': institutionId
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['reply'] ?? 'No response';
+    } else {
+      throw Exception('Failed to connect to chatbot: ${response.statusCode}');
+    }
+  }
+
   /* -------------------- Institutions -------------------- */
 
   static Future<List<Institution>> getInstitutions() async {
@@ -1550,5 +1579,344 @@ class ApiService {
     } else {
       throw Exception('Failed to load academic summary: ${response.body}');
     }
+  }
+
+  /* -------------------- Course Assessments -------------------- */
+
+  Future<AssessmentModel> createAssessment(String institutionId, AssessmentModel assessment) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/assessments');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(assessment.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return AssessmentModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to create assessment: ${response.body}');
+    }
+  }
+
+  Future<List<AssessmentModel>> getAssessmentsByCourse(String institutionId, String courseCode) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/assessments/course/$courseCode');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => AssessmentModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load assessments: ${response.body}');
+    }
+  }
+
+  Future<void> deleteAssessment(String institutionId, String assessmentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/assessments/$assessmentId');
+
+    final response = await http.delete(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete assessment: ${response.body}');
+    }
+  }
+
+  /* -------------------- Submissions -------------------- */
+
+  Future<SubmissionModel> submitAssignment(String institutionId, SubmissionModel submission) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/submissions');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(submission.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return SubmissionModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to submit assignment: ${response.body}');
+    }
+  }
+
+  Future<SubmissionModel?> getMySubmission(String institutionId, String assessmentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/submissions/assessment/$assessmentId/me');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      if (response.body.isEmpty) return null;
+      return SubmissionModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to load submission: ${response.body}');
+    }
+  }
+
+  Future<List<SubmissionModel>> getSubmissionsByAssessment(String institutionId, String assessmentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/submissions/assessment/$assessmentId');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => SubmissionModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load submissions: ${response.body}');
+    }
+  }
+
+  Future<SubmissionModel> gradeSubmission(String institutionId, String submissionId, double marks, String feedback) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/institutions/$institutionId/submissions/$submissionId/grade');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'marks': marks,
+        'feedback': feedback,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return SubmissionModel.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to grade submission: ${response.body}');
+    }
+  }
+
+  /* -------------------- AI Insights -------------------- */
+
+  Future<String> getResumeScore(String driveId, List<int> fileBytes, String fileName) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final institutionId = await SessionManager.getInstitutionId();
+    
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/placement/resume-score/$driveId?institutionId=$institutionId');
+    
+    var request = http.MultipartRequest('POST', url);
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    
+    request.files.add(http.MultipartFile.fromBytes(
+      'file', 
+      fileBytes,
+      filename: fileName,
+    ));
+    
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['report'] ?? 'No report';
+    } else {
+      throw Exception('Failed to score resume: ${response.statusCode}');
+    }
+  }
+
+  Future<String> summarizeAnnouncement(String institutionId, String announcementId) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/communication/summarize/$announcementId?institutionId=$institutionId');
+    final response = await http.get(url);
+    if (response.statusCode == 200) return jsonDecode(response.body)['summary'];
+    throw Exception('Failed to summarize announcement');
+  }
+
+  Future<String> getEventRecommendation(String institutionId, String eventId) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/communication/recommend-event/$eventId?institutionId=$institutionId');
+    final response = await http.get(url);
+    if (response.statusCode == 200) return jsonDecode(response.body)['recommendation'];
+    throw Exception('Failed to get event recommendation');
+  }
+
+  Future<String> getMyAiInsights(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/insights/my?institutionId=$institutionId');
+
+    final response = await http.get(
+      url, 
+      headers: {'Authorization': 'Bearer $token'}
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['insights'] ?? 'No insights available.';
+    } else {
+      throw Exception('Failed to load AI insights: ${response.body}');
+    }
+  }
+
+  Future<String> getMenteeAiInsights(String institutionId, String studentId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('No user logged in');
+    final token = await user.getIdToken();
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/insights/mentee/$studentId?institutionId=$institutionId');
+
+    final response = await http.get(
+      url, 
+      headers: {'Authorization': 'Bearer $token'}
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['insights'] ?? 'No insights available.';
+    } else {
+      throw Exception('Failed to load mentee AI insights: ${response.body}');
+    }
+  }
+
+  /* -------------------- Placement AI -------------------- */
+
+  Future<String> getPlacementReadiness(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/placement/readiness?institutionId=$institutionId');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['report'];
+    }
+    throw Exception('Failed to fetch readiness');
+  }
+
+  Future<String> getSkillGapAnalysis(String institutionId, String driveId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/placement/skill-gap/$driveId?institutionId=$institutionId');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['analysis'];
+    }
+    throw Exception('Failed to fetch skill gap analysis');
+  }
+
+  Future<String> getProfileScore(String institutionId, String driveId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/placement/profile-score/$driveId?institutionId=$institutionId');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['report'];
+    }
+    throw Exception('Failed to fetch profile score');
+  }
+
+  /* -------------------- Communication AI -------------------- */
+
+  Future<String> getEventRecommendations(String institutionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/communication/recommend-events?institutionId=$institutionId');
+
+    final response = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode == 200) return jsonDecode(response.body)['recommendations'];
+    throw Exception('Failed to fetch event recommendations');
+  }
+
+  /* -------------------- Feedback AI -------------------- */
+
+  Future<String> analyzeFormResponses(String institutionId, String formId) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/feedback/analyze/$formId?institutionId=$institutionId');
+    final response = await http.get(url);
+    if (response.statusCode == 200) return jsonDecode(response.body)['analysis'];
+    throw Exception('Failed to analyze responses');
+  }
+
+  Future<String> proposeFormFields(String topic) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/feedback/propose-form');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'topic': topic}),
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body)['proposal'];
+    throw Exception('Failed to propose form fields');
+  }
+
+  /* -------------------- AI Management -------------------- */
+
+  Future<String> getLeaveInsight(String institutionId, String studentUid, String startDate, String endDate) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/management/leave-insight?institutionId=$institutionId&studentUid=$studentUid&startDate=$startDate&endDate=$endDate');
+
+    final response = await http.get(url, headers: {
+      if (token != null) 'Authorization': 'Bearer $token',
+    });
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['insight'];
+    }
+    throw Exception('Failed to fetch leave insight');
+  }
+
+  Future<String> getSubstitutionSuggestions(String institutionId, String facultyUid, String date, String timeSlotId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user != null ? await user.getIdToken() : null;
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/management/substitution-suggestions?institutionId=$institutionId&facultyUid=$facultyUid&date=$date&timeSlotId=$timeSlotId');
+
+    final response = await http.get(url, headers: {
+      if (token != null) 'Authorization': 'Bearer $token',
+    });
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['suggestions'];
+    }
+    throw Exception('Failed to fetch substitutions');
+  }
+
+  /* -------------------- Admin AI -------------------- */
+
+  Future<String> analyzeError(String trace) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/admin/analyze-error');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'trace': trace}),
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body)['analysis'];
+    throw Exception('Failed to analyze error');
+  }
+
+  Future<String> getSecurityAudit(String institutionId) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/api/ai/admin/security-audit?institutionId=$institutionId');
+    final response = await http.get(url);
+    if (response.statusCode == 200) return jsonDecode(response.body)['audit'];
+    throw Exception('Failed to fetch security audit');
   }
 }

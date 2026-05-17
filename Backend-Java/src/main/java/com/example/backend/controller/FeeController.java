@@ -20,6 +20,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.io.ByteArrayOutputStream;
@@ -47,6 +48,7 @@ public class FeeController {
 
     // == Student Fees Operations ==
     @PostMapping("/generate")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_ADMIN')")
     public ResponseEntity<Void> generateFees(@PathVariable String institutionId, @RequestBody GenerateFeeRequest request) {
         try {
             feeService.generateFeesForStudents(institutionId, request.getFeeStructureId(), request.getDueDate());
@@ -109,6 +111,7 @@ public class FeeController {
     }
 
     @PostMapping("/student-fees/{studentFeeId}/payments")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_ADMIN')")
     public ResponseEntity<Payment> recordPayment(
             @PathVariable String institutionId,
             @PathVariable String studentFeeId,
@@ -135,16 +138,13 @@ public class FeeController {
     }
 
     @PutMapping("/student-fees/{studentFeeId}/remarks")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FACULTY', 'FINANCE_ADMIN')")
     public ResponseEntity<StudentFee> updateStudentFeeRemarks(
             @AuthenticationPrincipal String requesterUid,
             @PathVariable String institutionId,
             @PathVariable String studentFeeId,
             @RequestBody Map<String, String> requestBody) {
         try {
-            User requestingUser = userService.getUserById(institutionId, requesterUid);
-            if (requestingUser == null || (!"admin".equals(requestingUser.getRole()) && !"faculty".equals(requestingUser.getRole()))) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
             String remarks = requestBody.get("remarks");
             StudentFee updatedFee = feeService.updateFacultyRemarks(institutionId, studentFeeId, remarks);
             return ResponseEntity.ok(updatedFee);
@@ -172,15 +172,11 @@ public class FeeController {
     }
 
     @GetMapping("/report/csv")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_ADMIN')")
     public ResponseEntity<byte[]> getFeeReportCsv(
             @AuthenticationPrincipal String requesterUid,
             @PathVariable String institutionId) {
         try {
-            User requestingUser = userService.getUserById(institutionId, requesterUid);
-            if (requestingUser == null || (!"admin".equals(requestingUser.getRole()) && !"faculty".equals(requestingUser.getRole()))) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-
             List<FeeReportDto> reportData = feeService.generateFeeReportData(institutionId);
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
             String[] csvHeaders = {"Student Name", "USN", "Fee Structure", "Total Amount", "Paid Amount", "Balance Amount", "Status", "Due Date", "Faculty Remarks"};
@@ -209,6 +205,7 @@ public class FeeController {
 
     // == Fee Categories CRUD ==
     @PostMapping("/categories")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_ADMIN')")
     public ResponseEntity<FeeCategory> createFeeCategory(@PathVariable String institutionId, @RequestBody FeeCategory category) {
         try {
             category.setInstitutionId(institutionId);
@@ -228,6 +225,7 @@ public class FeeController {
     }
 
     @DeleteMapping("/categories/{categoryId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_ADMIN')")
     public ResponseEntity<Void> deleteFeeCategory(@PathVariable String institutionId, @PathVariable String categoryId) {
         try {
             feeService.deleteFeeCategory(institutionId, categoryId);
@@ -239,6 +237,7 @@ public class FeeController {
 
     // == Fee Structures CRUD ==
     @PostMapping("/structures")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_ADMIN')")
     public ResponseEntity<FeeStructure> createFeeStructure(@PathVariable String institutionId, @RequestBody FeeStructure structure) {
         try {
             structure.setInstitutionId(institutionId);
@@ -271,6 +270,7 @@ public class FeeController {
     }
 
     @PutMapping("/structures/{structureId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_ADMIN')")
     public ResponseEntity<FeeStructure> updateFeeStructure(@PathVariable String institutionId, @PathVariable String structureId, @RequestBody FeeStructure structure) {
         try {
             structure.setInstitutionId(institutionId);
@@ -282,6 +282,7 @@ public class FeeController {
     }
 
     @DeleteMapping("/structures/{structureId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_ADMIN')")
     public ResponseEntity<Void> deleteFeeStructure(@PathVariable String institutionId, @PathVariable String structureId) {
         try {
             feeService.deleteFeeStructure(institutionId, structureId);

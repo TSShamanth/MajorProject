@@ -28,6 +28,7 @@ class _DepartmentManagementScreenState
     extends State<DepartmentManagementScreen> {
   late Future<DepartmentAssets> _assetsFuture;
   String? _departmentId;
+  UserModel? _currentUser;
   List<UserModel> _faculty = [];
   List<UserModel> _students = [];
 
@@ -39,6 +40,16 @@ class _DepartmentManagementScreenState
 
   Future<void> _initialize() async {
     await _fetchDepartmentId();
+    final institutionId = await SessionManager.getInstitutionId();
+    if (institutionId != null) {
+      final apiService = ApiService();
+      try {
+        final user = await apiService.getMe(institutionId);
+        if (mounted) setState(() => _currentUser = user);
+      } catch (e) {
+        debugPrint('Error fetching current user: $e');
+      }
+    }
     if (_departmentId != null) {
       setState(() {
         _assetsFuture = _fetchDepartmentAssets();
@@ -475,6 +486,8 @@ class _DepartmentManagementScreenState
                 subtitle = _getUserCourseInfo(item, assets.courses);
               }
 
+              final bool canEdit = _currentUser?.role == 'admin' || _currentUser?.role == 'admission_admin';
+
               return Card(
                 elevation: 2,
                 margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
@@ -482,7 +495,7 @@ class _DepartmentManagementScreenState
                   contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
                   title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text(subtitle),
-                  trailing: Row(
+                  trailing: canEdit ? Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
@@ -494,17 +507,19 @@ class _DepartmentManagementScreenState
                         onPressed: () => _deleteItem(item),
                       ),
                     ],
-                  ),
+                  ) : null,
                 ),
               );
             },
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addItem,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: (_currentUser?.role == 'admin' || _currentUser?.role == 'admission_admin') 
+        ? FloatingActionButton(
+            onPressed: _addItem,
+            child: const Icon(Icons.add),
+          )
+        : null,
     );
   }
 

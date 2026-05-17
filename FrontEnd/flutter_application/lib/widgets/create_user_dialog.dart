@@ -308,10 +308,21 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
                   decoration: _inputDecoration('Role', Icons.school_rounded),
                   dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
                   style: TextStyle(color: _isDarkMode ? Colors.white : const Color(0xFF1F2937)),
-                  items: ['student', 'faculty', 'admin', 'placements'].map((String role) {
+                  items: [
+                    'student',
+                    'faculty',
+                    'admin',
+                    'placements',
+                    'exam_admin',
+                    'finance_admin',
+                    'hr_admin',
+                    'admission_admin'
+                  ].map((String role) {
+                    String label = role.replaceAll('_', ' ');
+                    label = label.split(' ').map((word) => word[0].toUpperCase() + word.substring(1)).join(' ');
                     return DropdownMenuItem<String>(
                       value: role,
-                      child: Text(role.substring(0, 1).toUpperCase() + role.substring(1)),
+                      child: Text(label),
                     );
                   }).toList(),
                   onChanged: (newValue) => setState(() => _selectedRole = newValue),
@@ -325,39 +336,13 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
                 const SizedBox(height: 20),
                 _buildTextField(_passwordController, 'Password', Icons.lock_rounded, obscureText: true),
                 
-                if (_selectedRole == 'faculty') ...[
-                  const SizedBox(height: 20),
-                  _isLoadingDepartments
-                      ? const Center(child: CircularProgressIndicator())
-                      : DropdownButtonFormField<String>(
-                          value: _selectedDepartmentForFaculty,
-                          decoration: _inputDecoration('Department', Icons.business_rounded),
-                          dropdownColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
-                          items: _departments.map((d) => DropdownMenuItem(value: d.id, child: Text(d.name))).toList(),
-                          onChanged: (val) => setState(() => _selectedDepartmentForFaculty = val),
-                          validator: (value) => value == null ? 'Please select a department' : null,
-                        ),
+                if (['admin', 'placements', 'exam_admin', 'finance_admin', 'hr_admin', 'admission_admin'].contains(_selectedRole)) ...[
                   const SizedBox(height: 20),
                   _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
                   const SizedBox(height: 20),
                   _buildTextField(_phoneController, 'Phone Number', Icons.phone_rounded),
                   const SizedBox(height: 20),
                   _buildTextField(_schoolController, 'School', Icons.school_rounded),
-                  const SizedBox(height: 20),
-                  _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_rounded),
-                ],
-
-                if (_selectedRole == 'placements') ...[
-                  const SizedBox(height: 20),
-                  _buildTextField(_nameController, 'Full Name', Icons.person_rounded),
-                  const SizedBox(height: 20),
-                  _buildTextField(_usnController, 'Officer ID', Icons.badge_rounded),
-                  const SizedBox(height: 20),
-                  _buildTextField(_phoneController, 'Phone Number', Icons.phone_rounded),
-                  const SizedBox(height: 20),
-                  _buildTextField(_schoolController, 'School', Icons.school_rounded),
-                  const SizedBox(height: 20),
-                  _buildTextField(_validUptoController, 'Valid Upto', Icons.date_range_rounded),
                 ],
                 
                 if (_selectedRole == 'student') ...[

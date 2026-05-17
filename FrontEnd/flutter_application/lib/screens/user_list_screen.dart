@@ -25,6 +25,7 @@ class _UserListScreenState extends State<UserListScreen> {
   List<Department> _departments = [];
   bool _isLoading = true;
   String? _institutionId;
+  UserModel? _currentUser;
   final ApiService _apiService = ApiService();
   
   final TextEditingController _searchController = TextEditingController();
@@ -41,6 +42,12 @@ class _UserListScreenState extends State<UserListScreen> {
   Future<void> _initData() async {
     _institutionId = await SessionManager.getInstitutionId();
     if (_institutionId != null) {
+      try {
+        final user = await _apiService.getMe(_institutionId!);
+        if (mounted) setState(() => _currentUser = user);
+      } catch (e) {
+        debugPrint('Error fetching current user: $e');
+      }
       await Future.wait([
         _fetchUsers(),
         _fetchDepartments(),
@@ -53,6 +60,12 @@ class _UserListScreenState extends State<UserListScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  bool _hasRole(List<String> roles) {
+    if (_currentUser == null || _currentUser!.role == null) return false;
+    final userRole = _currentUser!.role!.toLowerCase().trim().replaceAll(' ', '_');
+    return roles.contains(userRole);
   }
 
   Future<void> _fetchDepartments() async {
@@ -184,7 +197,7 @@ class _UserListScreenState extends State<UserListScreen> {
         ),
         Row(
           children: [
-            if (widget.role == 'student')
+            if (widget.role == 'student' && _hasRole(['admin', 'hr_admin', 'admission_admin']))
               OutlinedButton.icon(
                 onPressed: () => context.push('/$_institutionId/admin/bulk-user-import'),
                 icon: const Icon(Icons.upload_file_rounded, size: 18),
@@ -195,18 +208,19 @@ class _UserListScreenState extends State<UserListScreen> {
                 ),
               ),
             const SizedBox(width: 12),
-            ElevatedButton.icon(
-              onPressed: _showAddUserDialog,
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: Text('Add $roleName'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4F46E5),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                elevation: 0,
+            if (_hasRole(['admin', 'hr_admin', 'admission_admin']))
+              ElevatedButton.icon(
+                onPressed: _showAddUserDialog,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: Text('Add $roleName'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
+                ),
               ),
-            ),
           ],
         ),
       ],
